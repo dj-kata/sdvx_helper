@@ -1,0 +1,9 @@
+sdvx_switcher/*
+dist/*
+build*
+to_bin/*
+*.spec
+*.log
+*.png
+*.pyc
+__pycache__/*
