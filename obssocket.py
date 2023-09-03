@@ -70,7 +70,12 @@ class OBSSocket():
 
     def save_screenshot(self):
         logger.debug(f'dst:{self.dst_screenshot}')
-        res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1080, 1920, 100)
+        try:
+            res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1080, 1920, 100)
+            return res
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return False
 
     def save_screenshot_dst(self, dst):
         logger.debug(f'dst:{self.dst}')
