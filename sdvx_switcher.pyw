@@ -33,9 +33,10 @@ SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
 
 class gui_mode(Enum):
-    main = 0
-    setting = 1
-    obs_control = 2
+    init = 0
+    main = 1
+    setting = 2
+    obs_control = 3
 class detect_mode(Enum):
     init = 0
     select = 1
@@ -44,11 +45,13 @@ class detect_mode(Enum):
 
 class SDVXSwitcher:
     def __init__(self):
+        self.detect_mode = detect_mode.init
+        self.gui_mode    = gui_mode.init
         self.stop_thread = False # 強制停止用
         self.window = False
         self.obs = False
+        self.plays = 0
         self.imgpath = os.getcwd()+'/capture.png'
-        self.detect_mode = detect_mode.init
 
         self.load_settings()
         self.connect_obs()
@@ -208,12 +211,14 @@ class SDVXSwitcher:
         menuitems = [['ファイル',['設定','OBS制御設定']]]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
-            [par_text('hoge')],
-            [par_btn('hjogehogeho')],
-            [sg.Input('', size=(100,2))]
+            [par_text('plays:'), par_text(str(self.plays), key='txt_plays'), par_text('warning! OBSに接続できません', key='txt_obswarning', text_color="#ff0000")],
+            [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
+            [par_text('', size=(40,1), key='txt_info')]
         ]
         ico=self.ico_path('icon.ico')
         self.window = sg.Window('SDVX switcher', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
+        if self.connect_obs():
+            self.window['txt_obswarning'].update('')
 
     def start(self):
         self.stop_thread = False
@@ -232,16 +237,23 @@ class SDVXSwitcher:
             self.obs = False
         try:
             self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], self.imgpath)
+            if self.gui_mode == gui_mode.main:
+                self.window['txt_obswarning'].update('')
             return True
         except:
             logger.debug(traceback.format_exc())
             self.obs = False
             print('obs socket error!')
+            if self.gui_mode == gui_mode.main:
+                self.window['txt_obswarning'].update('warning! OBSに接続できません')
             return False
 
     # OBSソースの表示・非表示及びシーン切り替えを行う
     # nameで適切なシーン名を指定する必要がある。
     def control_obs_sources(self, name):
+        if self.obs == False:
+            logger.debug('cannot connect to OBS -> exit')
+            return False
         logger.debug(f"name={name} (detect_mode={self.detect_mode.name})")
         name_common = name
         if name[-1] in ('0','1'):
@@ -260,9 +272,18 @@ class SDVXSwitcher:
         for s in self.settings[f"obs_enable_{name}"]:
             tmps, tmpid = self.obs.search_itemid(scene, s)
             self.obs.enable_source(tmps,tmpid)
+        return True
 
     def detect(self):
-        pass
+        if self.obs == False:
+            logger.debug('cannot connect to OBS -> exit')
+            return False
+        logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
+        while True:
+            if self.stop_thread:
+                break
+            time.sleep(0.2)
+        logger.debug(f'detect end!')
 
     def main(self):
         self.gui_main()
@@ -279,16 +300,18 @@ class SDVXSwitcher:
                     self.control_obs_sources('quit')
                     break
                 else:
-                    if self.obs:
-                        self.obs.close()
-                    self.connect_obs()
-                    self.gui_main()
+                    try:
+                        self.gui_main()
+                    except Exception as e:
+                        print(traceback.format_exc())
             
             elif ev == 'OBS制御設定':
                 if self.connect_obs():
                     self.gui_obs_control()
                 else:
                     sg.popup_error('OBSに接続できません')
+            elif ev == 'btn_savefig':
+                self.obs.save_screenshot()
 
             elif ev == 'combo_scene': # シーン選択時にソース一覧を更新
                 if self.obs != False:

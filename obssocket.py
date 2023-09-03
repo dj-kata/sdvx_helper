@@ -69,13 +69,15 @@ class OBSSocket():
             logger.debug(traceback.format_exc())
 
     def save_screenshot(self):
-        res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1280, 720, 100)
+        logger.debug(f'dst:{self.dst_screenshot}')
+        res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1080, 1920, 100)
 
     def save_screenshot_dst(self, dst):
-        res = self.ws.save_source_screenshot(self.inf_source, 'png', dst, 1280, 720, 100)
+        logger.debug(f'dst:{self.dst}')
+        res = self.ws.save_source_screenshot(self.inf_source, 'png', dst, 1080, 1920, 100)
 
     def get_screenshot(self, source, fmt):
-        res = self.ws.get_source_screenshot(source, fmt, 1920, 1080, 100)
+        res = self.ws.get_source_screenshot(source, fmt, 1080, 1920, 100)
 
     def enable_source(self, scenename, sourceid): # グループ内のitemはscenenameにグループ名を指定する必要があるので注意
         try:
