@@ -3,13 +3,14 @@ import obsws_python as obsws
 #import base64
 import numpy as np
 from PIL import Image
-import traceback
+import traceback, os
 import logging, logging.handlers
 
+os.makedirs('log', exist_ok=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 hdl = logging.handlers.RotatingFileHandler(
-    './dbg.log',
+    f'log/{os.path.basename(__file__).split(".")[0]}.log',
     encoding='utf-8',
     maxBytes=1024*1024*2,
     backupCount=1,
@@ -69,17 +70,21 @@ class OBSSocket():
             logger.debug(traceback.format_exc())
 
     def save_screenshot(self):
-        logger.debug(f'dst:{self.dst_screenshot}')
+        #logger.debug(f'dst:{self.dst_screenshot}')
         try:
-            res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1080, 1920, 100)
+            res = self.ws.save_source_screenshot(self.inf_source, 'png', self.dst_screenshot, 1920, 1080, 100)
             return res
         except Exception:
             logger.debug(traceback.format_exc())
             return False
 
     def save_screenshot_dst(self, dst):
-        logger.debug(f'dst:{self.dst}')
-        res = self.ws.save_source_screenshot(self.inf_source, 'png', dst, 1080, 1920, 100)
+        try:
+            res = self.ws.save_source_screenshot(self.inf_source, 'png', dst, 1920, 1080, 100)
+            return res
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return False
 
     def get_screenshot(self, source, fmt):
         res = self.ws.get_source_screenshot(source, fmt, 1080, 1920, 100)

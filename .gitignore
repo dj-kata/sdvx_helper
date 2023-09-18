@@ -4,6 +4,5 @@ build*
 to_bin/*
 *.spec
 *.log
-*.png
 *.pyc
 __pycache__/*

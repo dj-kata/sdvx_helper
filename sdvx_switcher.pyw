@@ -9,12 +9,19 @@ import logging, logging.handlers
 import traceback
 from functools import partial
 from enum import Enum
-import json
+from tkinter import filedialog
+import json, datetime
+from PIL import Image, ImageFilter
+import imagehash, keyboard
+# フラットウィンドウ、右下モード(左に上部側がくる)
+# フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
+os.makedirs('log', exist_ok=True)
+os.makedirs('out', exist_ok=True)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 hdl = logging.handlers.RotatingFileHandler(
-    './dbg.log',
+    f'log/{os.path.basename(__file__).split(".")[0]}.log',
     encoding='utf-8',
     maxBytes=1024*1024*2,
     backupCount=1,
@@ -51,7 +58,8 @@ class SDVXSwitcher:
         self.window = False
         self.obs = False
         self.plays = 0
-        self.imgpath = os.getcwd()+'/capture.png'
+        self.imgpath = os.getcwd()+'/out/capture.png'
+        keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
         self.connect_obs()
@@ -70,7 +78,7 @@ class SDVXSwitcher:
             'lx':0, 'ly':0,
             'host':'localhost', 'port':'4444', 'passwd':'',
             'autosave_dir':'','autosave_always':False,
-            'obs_source':'',
+            'obs_source':'', 'top_is_right':False, # 回転している前提、画面上部が右ならTrueにする
             # スレッド起動時の設定
             'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
             # 0: シーン開始時
@@ -105,6 +113,31 @@ class SDVXSwitcher:
         with open(SETTING_FILE, 'w') as f:
             json.dump(self.settings, f, indent=2)
 
+    def save_screenshot_general(self):
+        ts = os.path.getmtime(self.imgpath)
+        now = datetime.datetime.fromtimestamp(ts)
+        fmtnow = format(now, "%Y%m%d_%H%M%S")
+        dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
+        tmp = self.get_capture_after_rotate(self.imgpath)
+        tmp.save(dst)
+        print(f"スクリーンショットを保存しました -> {dst}")
+
+    def get_capture_after_rotate(self, target=None):
+        while True:
+            try:
+                if target==None:
+                    img = Image.open(self.imgpath)
+                else:
+                    img = Image.open(target)
+                if self.settings['top_is_right']:
+                    ret = img.rotate(90, expand=True)
+                else:
+                    ret = img.rotate(270, expand=True)
+                break
+            except Exception:
+                continue
+        return ret
+    
     def update_settings(self, ev, val):
         if self.gui_mode == gui_mode.main:
             self.settings['lx'] = self.window.current_location()[0]
@@ -116,6 +149,7 @@ class SDVXSwitcher:
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
+            self.settings['top_is_right'] = val['top_is_right']
             print(val)
 
     def build_layout_one_scene(self, name, LR=None):
@@ -194,12 +228,17 @@ class SDVXSwitcher:
             [par_text('OBS websocket port: '), sg.Input(self.settings['port'], font=FONT, key='input_port', size=(10,20))],
             [par_text('OBS websocket password'), sg.Input(self.settings['passwd'], font=FONT, key='input_passwd', size=(20,20), password_char='*')],
         ]
+        layout_gamemode = [
+            [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
+        ]
         layout_autosave = [
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
+            [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
+            [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
             [sg.Frame('リザルト自動保存設定', layout=layout_autosave, title_color='#000044')],
         ]
         self.window = sg.Window('SDVX switcher', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico_path('icon.ico'),location=(self.settings['lx'], self.settings['ly']))
@@ -213,7 +252,8 @@ class SDVXSwitcher:
             [sg.Menubar(menuitems, key='menu')],
             [par_text('plays:'), par_text(str(self.plays), key='txt_plays'), par_text('warning! OBSに接続できません', key='txt_obswarning', text_color="#ff0000")],
             [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
-            [par_text('', size=(40,1), key='txt_info')]
+            [par_text('', size=(40,1), key='txt_info')],
+            [sg.Output(size=(63,8), key='output', font=(None, 9))],
         ]
         ico=self.ico_path('icon.ico')
         self.window = sg.Window('SDVX switcher', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
@@ -239,6 +279,7 @@ class SDVXSwitcher:
             self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], self.imgpath)
             if self.gui_mode == gui_mode.main:
                 self.window['txt_obswarning'].update('')
+                print('OBSに接続しました')
             return True
         except:
             logger.debug(traceback.format_exc())
@@ -246,6 +287,7 @@ class SDVXSwitcher:
             print('obs socket error!')
             if self.gui_mode == gui_mode.main:
                 self.window['txt_obswarning'].update('warning! OBSに接続できません')
+                print('Error!! OBSとの接続に失敗しました。')
             return False
 
     # OBSソースの表示・非表示及びシーン切り替えを行う
@@ -259,8 +301,6 @@ class SDVXSwitcher:
         if name[-1] in ('0','1'):
             name_common = name[:-1]
         scene = self.settings[f'obs_scene_{name_common}']
-        if scene == '': # 2.0.16以前の設定そのままでも動くようにする
-            scene = self.settings['obs_scene']
         # TODO 前のシーンと同じなら変えないようにしたい
         if scene != '':
             self.obs.change_scene(scene)
@@ -268,27 +308,94 @@ class SDVXSwitcher:
         for s in self.settings[f"obs_disable_{name}"]:
             tmps, tmpid = self.obs.search_itemid(scene, s)
             self.obs.disable_source(tmps,tmpid)
+            #print('disable', scene, s, tmps, tmpid)
         # 表示の制御
         for s in self.settings[f"obs_enable_{name}"]:
             tmps, tmpid = self.obs.search_itemid(scene, s)
             self.obs.enable_source(tmps,tmpid)
+            #print('enable', scene, s, tmps, tmpid)
         return True
+    
+    # 現在の画面がプレー中かどうか判定
+    def is_onplay(self):
+        img = self.get_capture_after_rotate().crop((0,0,1080,200))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/onplay.png') #.crop((550,1,750,85))
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        return ret
 
+    # 現在の画面が曲決定画面かどうか判定
+    def is_ondetect(self):
+        img = self.get_capture_after_rotate().crop((240,1253,409,1382))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/ondetect.png')
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        logger.debug(f"")
+        return ret
+    
+    # 曲情報を切り出して保存
+    def update_musicinfo(self):
+        img = self.get_capture_after_rotate()
+        jacket = img.crop((237,387, 843,993))
+        jacket.save('out/select_jacket.png')
+        title = img.crop((201,1091, 878,1212))
+        title.save('out/select_title.png')
+        lv = img.crop((908,1107, 998,1192))
+        lv.save('out/select_level.png')
+        bpm = img.crop((97,1127, 160,1170))
+        bpm.save('out/select_bpm.png')
+        ef = img.crop((313,1275, 803,1302))
+        ef.save('out/select_effecter.png')
+        illust = img.crop((313,1333, 803,1360))
+        illust.save('out/select_illustrator.png')
+
+        img.save('out/select_whole.png')
+
+    # メイン処理のループ
+    # 速度を重視するため、認識処理は回転する前に行っておく
     def detect(self):
+        # TODO 
+        # 1. 曲決定画面での処理
+        # 2. プレー画面での処理
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
         logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
+        done_thissong = False
         while True:
+            self.obs.save_screenshot()
+            if self.detect_mode == detect_mode.play:
+                if not self.is_onplay():
+                    self.detect_mode = detect_mode.init
+                    self.control_obs_sources('play1')
+            if self.detect_mode == detect_mode.init:
+                if self.is_onplay():
+                    print(f"mode: play")
+                    self.detect_mode = detect_mode.play
+                    self.plays += 1
+                    self.window['txt_plays'].update(str(self.plays))
+                    self.control_obs_sources('play0')
+                    done_thissong = False # 曲が始まるタイミングでクリア
+                if not done_thissong:
+                    if self.is_ondetect():
+                        print(f"曲決定画面を検出")
+                        time.sleep(2)
+                        self.obs.save_screenshot()
+                        self.update_musicinfo()
+                        done_thissong = True
             if self.stop_thread:
                 break
-            time.sleep(0.2)
+            time.sleep(0.5)
         logger.debug(f'detect end!')
 
     def main(self):
         self.gui_main()
         self.th = False
         self.control_obs_sources('boot')
+        th = threading.Thread(target=self.detect, daemon=True)
+        th.start()
 
         while True:
             ev, val = self.window.read()
@@ -311,7 +418,7 @@ class SDVXSwitcher:
                 else:
                     sg.popup_error('OBSに接続できません')
             elif ev == 'btn_savefig':
-                self.obs.save_screenshot()
+                self.save_screenshot_general()
 
             elif ev == 'combo_scene': # シーン選択時にソース一覧を更新
                 if self.obs != False:
@@ -341,6 +448,12 @@ class SDVXSwitcher:
                         if tmp in self.settings[key]:
                             self.settings[key].pop(self.settings[key].index(tmp))
                             self.window[key].update(self.settings[key])
+            elif ev == 'btn_autosave_dir':
+                tmp = filedialog.askdirectory()
+                if tmp != '':
+                    self.settings['autosave_dir'] = tmp
+                    self.window['txt_autosave_dir'].update(tmp)
+
 
             elif ev in ('btn_setting', '設定'):
                 self.stop()
