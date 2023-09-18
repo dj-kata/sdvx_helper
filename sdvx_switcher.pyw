@@ -350,6 +350,7 @@ class SDVXSwitcher:
         ef.save('out/select_effector.png')
         illust = img.crop((313,1333, 803,1360))
         illust.save('out/select_illustrator.png')
+        self.obs.refresh_source('nowplaying.html')
 
         img.save('out/select_whole.png')
 
