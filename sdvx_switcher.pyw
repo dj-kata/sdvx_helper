@@ -344,10 +344,10 @@ class SDVXSwitcher:
         title.save('out/select_title.png')
         lv = img.crop((908,1107, 998,1192))
         lv.save('out/select_level.png')
-        bpm = img.crop((97,1127, 160,1170))
+        bpm = img.crop((97,1127, 160,1172))
         bpm.save('out/select_bpm.png')
         ef = img.crop((313,1275, 803,1302))
-        ef.save('out/select_effecter.png')
+        ef.save('out/select_effector.png')
         illust = img.crop((313,1333, 803,1360))
         illust.save('out/select_illustrator.png')
 
