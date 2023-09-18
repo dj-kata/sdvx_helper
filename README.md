@@ -13,23 +13,20 @@ OBSでの配信を想定しています。
 sdvx_switcher.exeをクリックすると実行できます。
 
 # 設定方法
-1. OBS(28以降)でwebsocketが使えるように設定する。
-2. sdvx_switcher.exeを実行し、メニューバーから設定を開く
-3. 1で設定したポート番号とパスワードを入力する。
-4. コナステ版SoundVoltexの設定画面で指定している画面の向きを選択する。(回転しないレイアウトには現在未対応)
-5. 設定画面を閉じる
-6. メニューバーからOBS制御設定を開く
-7. OBS配信や録画で使うシーン名を選択し、ゲーム画面のキャプチャに使うソース名を選択してから、ゲーム画面の横にあるsetを押す。
-8. OBSにout\nowplaying.htmlをドラッグ&ドロップする。
-
+## 1. OBS(28以降)でwebsocketが使えるように設定する。
 OBSwebsocketについては、インストールされていない場合は[ここ](https://github.com/obsproject/obs-websocket/releases)から最新のalphaってついてないバージョンの(～Windows-Installer.exe)をDLしてインストールしてください。  
 OBSのメニューバー内ツール→WebSocketサーバ設定で以下のように設定してあればOK。
 ![image](https://github.com/dj-kata/sdvx_switcher/assets/61326119/5ee16668-8b8a-4b13-91c8-8a3fff312e5d)
 
+## 2. sdvx_switcher.exeを実行し、メニューバーから設定を開く
+## 3. 1で設定したポート番号とパスワードを入力する。
 ![image](https://github.com/dj-kata/sdvx_switcher/assets/61326119/48cdc815-3259-4ede-8f40-6263259fe4d8)
-
+## 4. コナステ版SoundVoltexの設定画面で指定している画面の向きを選択する。(回転しないレイアウトには現在未対応)
+## 5. 設定画面を閉じる
+## 6. メニューバーからOBS制御設定を開く
+## 7. OBS配信や録画で使うシーン名を選択し、ゲーム画面のキャプチャに使うソース名を選択してから、ゲーム画面の横にあるsetを押す。
 ![image](https://github.com/dj-kata/sdvx_switcher/assets/61326119/4252eb9a-7202-4f26-931f-397b14354ee9)
-
+## 8. OBSにout\nowplaying.htmlをドラッグ&ドロップする。
 nowplaying.htmlはソースをダブルクリックして幅820,高さ900に設定すると余白がいい感じになります。  
 また、OBS制御設定からプレー中のみ表示、みたいなこともできます。
 ![image](https://github.com/dj-kata/sdvx_switcher/assets/61326119/0b8e3b89-7ac4-4048-88f2-f56cbd97374a)
