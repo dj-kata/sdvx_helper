@@ -355,7 +355,6 @@ class SDVXSwitcher:
         img = Image.open('resources/ondetect.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
-        logger.debug(f"")
         return ret
     
     # 曲情報を切り出して保存
