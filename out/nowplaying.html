@@ -1,0 +1,128 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <link href="https://fonts.googleapis.com/earlyaccess/nicomoji.css" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap" rel="stylesheet">
+        <title>hoge</title>
+        <style>
+            body { 
+                background-color: rgba(0, 0, 0, 0.0);
+                margin: 0px;
+                padding: 0px;
+                overflow: hidden;
+                color:#0020AA;   
+                font-size: 24px;
+                color: #eeeeee;
+                text-shadow: 6px 6px 0 #000,
+                             -2px 2px 0 #000,
+                             2px -2px 0 #000,
+                             -2px -2px 0 #000;
+                font-family:"Meiryo";
+            }
+            table#header {
+                font-size: 36px;
+            	width:100%;
+                background-color: rgb(0, 126, 126);
+            }
+            table#todo {
+                font-size: 36px;
+            	width:100%;
+            }
+            table#todo td:nth-child(1){
+                width:10%;
+            }
+            table#todo td {
+            	white-space:nowrap;
+            }
+            .titlearea::after{
+                /*content:''; ここを有効にすると三角がつく */
+                position: absolute;
+                top: -1px;
+                left: 100px;
+                border-style: solid;
+                border-width: 36px 0 0px 36px;
+                border-color: transparent transparent transparent #1603ac;
+            }
+            .titlearea {
+                text-align: center;
+                position: absolute;
+                display: inline-block;
+                top: -40px; /*タブ調整 */
+                left: 3px; /*タブ調整 */
+                padding-top: 0px;
+                padding-left: 0px;
+                height: 35px;
+                width: 200px;
+                font-size: 24px;
+                font-weight: bold;
+                color: #ffffff; /* タイトル色 */
+                background-color: #160eac; /* タイトル背景色 */
+                border: 1px solid #02144a; /* タイトル枠線 */
+                border-radius: 10px 10px 0 0;
+                font-family:"LINE Seed JP App_TTF ExtraBold";
+                bottom: 100%;
+                text-shadow:
+                    1px 1px 1px #000, -1px -1px 1px #000,
+                    -1px 1px 1px #000, 1px -1px 1px #000,
+                    1px 1px 1px #000, -1px -1px 1px #000,
+                    1px 1px 1px #000, 1px -1px 1px  #000;
+                    /*
+                    1px 1px 1px #fff, -1px -1px 1px #fff,
+                    -1px 1px 1px #fff, 1px -1px 1px #fff,
+                    1px 1px 1px #fff, -1px -1px 1px #fff,
+                    1px 1px 1px #fff, 1px -1px 1px  #fff;
+                    */
+            }
+            .kakomiarea {
+              position: relative;
+              margin: 2em auto;
+              padding: 0px;
+              padding-top:1%;
+              padding-left:1%;
+              padding-right:1%;
+              width: 750px;
+              height: 800px;
+              min-height: 30%;
+              background-color: rgba(0,0,0,0.6);
+              /*background-color: rgba(255,255,255, 0.2);*/
+              border: 6px solid #02144a; /* 枠線の太さ・色 */
+            }
+
+        </style>
+    </head>
+
+    <body>
+        <div class="kakomiarea">
+            <span class="titlearea">
+                now playing
+            </span>
+            <table>
+                <tr>
+                    <td rowspan="2">
+                        <img src="select_jacket.png" width="570px">
+                    </td>
+                    <td>
+                        <center>
+                            &nbsp;
+                            <img src="select_level.png" width="150px"><br><br>
+                            &nbsp;
+                            <img src="select_bpm.png" width="100px">
+                        </center>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                    </td>
+                </tr>
+            </table>
+            <center>
+            <img src="select_title.png">
+            <img src="select_effector.png">
+            <img src="select_illustrator.png">
+            </center>
+        </div>
+    </body>
+</html>
