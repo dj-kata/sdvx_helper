@@ -250,7 +250,10 @@ class SDVXSwitcher:
         menuitems = [['ファイル',['設定','OBS制御設定']]]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
-            [par_text('plays:'), par_text(str(self.plays), key='txt_plays'), par_text('warning! OBSに接続できません', key='txt_obswarning', text_color="#ff0000")],
+            [
+                par_text('plays:'), par_text(str(self.plays), key='txt_plays')
+                ,par_text('mode:'), par_text(self.detect_mode.name, key='txt_mode')
+                ,par_text('warning! OBSに接続できません', key='txt_obswarning', text_color="#ff0000")],
             [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
             [par_text('', size=(40,1), key='txt_info')],
             [sg.Output(size=(63,8), key='output', font=(None, 9))],
@@ -293,6 +296,7 @@ class SDVXSwitcher:
     # OBSソースの表示・非表示及びシーン切り替えを行う
     # nameで適切なシーン名を指定する必要がある。
     def control_obs_sources(self, name):
+        self.window['txt_mode'].update(self.detect_mode.name)
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
@@ -316,6 +320,24 @@ class SDVXSwitcher:
             #print('enable', scene, s, tmps, tmpid)
         return True
     
+    # 現在の画面が選曲画面かどうか判定
+    def is_onselect(self):
+        img = self.get_capture_after_rotate().crop((0,1780,299,1919))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/onresult.png')
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        return ret
+
+    # 現在の画面がリザルト画面かどうか判定
+    def is_onresult(self):
+        img = self.get_capture_after_rotate().crop((490,1270,609,1419))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/onresult.png')
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        return ret
+
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
         img = self.get_capture_after_rotate().crop((0,0,1080,200))
@@ -327,6 +349,7 @@ class SDVXSwitcher:
 
     # 現在の画面が曲決定画面かどうか判定
     def is_ondetect(self):
+        # cropは右下まで入るので注意。実際のサイズは170x130となる。
         img = self.get_capture_after_rotate().crop((240,1253,409,1382))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/ondetect.png')
@@ -350,6 +373,7 @@ class SDVXSwitcher:
         ef.save('out/select_effector.png')
         illust = img.crop((313,1333, 803,1360))
         illust.save('out/select_illustrator.png')
+        self.obs.refresh_source('nowplaying')
         self.obs.refresh_source('nowplaying.html')
 
         img.save('out/select_whole.png')
@@ -364,13 +388,24 @@ class SDVXSwitcher:
             logger.debug('cannot connect to OBS -> exit')
             return False
         logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
-        done_thissong = False
+        done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
             self.obs.save_screenshot()
             if self.detect_mode == detect_mode.play:
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
                     self.control_obs_sources('play1')
+
+            if self.detect_mode == detect_mode.result:
+                if not self.is_onresult():
+                    self.detect_mode = detect_mode.init
+                    self.control_obs_sources('result1')
+
+            if self.detect_mode == detect_mode.select:
+                if not self.is_onselect():
+                    self.detect_mode = detect_mode.init
+                    self.control_obs_sources('select1')
+
             if self.detect_mode == detect_mode.init:
                 if self.is_onplay():
                     print(f"mode: play")
@@ -386,6 +421,12 @@ class SDVXSwitcher:
                         self.obs.save_screenshot()
                         self.update_musicinfo()
                         done_thissong = True
+                if self.is_onresult():
+                    self.detect_mode = detect_mode.result
+                    self.control_obs_sources('result0')
+                if self.is_onselect():
+                    self.detect_mode = detect_mode.select
+                    self.control_obs_sources('select0')
             if self.stop_thread:
                 break
             time.sleep(0.5)
@@ -400,7 +441,7 @@ class SDVXSwitcher:
 
         while True:
             ev, val = self.window.read()
-            logger.debug(f"ev:{ev}")
+            #logger.debug(f"ev:{ev}")
             self.update_settings(ev, val)
             if ev in (sg.WIN_CLOSED, 'Escape:27', '-WINDOW CLOSE ATTEMPTED-', 'btn_close_info', 'btn_close_setting'):
                 if self.gui_mode == gui_mode.main:
