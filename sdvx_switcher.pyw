@@ -150,7 +150,7 @@ class SDVXSwitcher:
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
             self.settings['top_is_right'] = val['top_is_right']
-            print(val)
+            self.settings['autosave_always'] = val['chk_always']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -322,7 +322,7 @@ class SDVXSwitcher:
     
     # 現在の画面が選曲画面かどうか判定
     def is_onselect(self):
-        img = self.get_capture_after_rotate().crop((0,1820,299,1919))
+        img = self.get_capture_after_rotate().crop((0,1310,149,1609))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onselect.png')
         hash_target = imagehash.average_hash(img)
@@ -331,7 +331,7 @@ class SDVXSwitcher:
 
     # 現在の画面がリザルト画面かどうか判定
     def is_onresult(self):
-        img = self.get_capture_after_rotate().crop((490,1270,609,1419))
+        img = self.get_capture_after_rotate().crop((340,1600,539,1639))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img)
@@ -353,6 +353,15 @@ class SDVXSwitcher:
         img = self.get_capture_after_rotate().crop((240,1253,409,1382))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/ondetect.png')
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        return ret
+    
+    # result, playの後の遷移画面(ゲームタイトルロゴ)かどうかを判定
+    def is_onlogo(self):
+        img = self.get_capture_after_rotate().crop((460,850,659,1049))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/logo.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
         return ret
@@ -406,13 +415,6 @@ class SDVXSwitcher:
                     self.control_obs_sources('select1')
 
             if self.detect_mode == detect_mode.init:
-                if self.is_onplay():
-                    print(f"mode: play")
-                    self.detect_mode = detect_mode.play
-                    self.plays += 1
-                    self.window['txt_plays'].update(str(self.plays))
-                    self.control_obs_sources('play0')
-                    done_thissong = False # 曲が始まるタイミングでクリア
                 if not done_thissong:
                     if self.is_ondetect():
                         print(f"曲決定画面を検出")
@@ -420,10 +422,18 @@ class SDVXSwitcher:
                         self.obs.save_screenshot()
                         self.update_musicinfo()
                         done_thissong = True
-                if self.is_onresult():
+                if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
+                    self.detect_mode = detect_mode.play
+                    self.control_obs_sources('play0')
+                    self.plays += 1
+                    self.window['txt_plays'].update(str(self.plays))
+                    done_thissong = False # 曲が始まるタイミングでクリア
+                elif self.is_onresult(): # 
                     self.detect_mode = detect_mode.result
                     self.control_obs_sources('result0')
-                if self.is_onselect():
+                    if self.settings['autosave_always']:
+                        self.save_screenshot_general()
+                elif self.is_onselect():
                     self.detect_mode = detect_mode.select
                     self.control_obs_sources('select0')
             if self.stop_thread:
