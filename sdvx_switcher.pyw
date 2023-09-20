@@ -12,6 +12,7 @@ from enum import Enum
 from tkinter import filedialog
 import json, datetime
 from PIL import Image, ImageFilter
+from gen_summary import *
 import imagehash, keyboard
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
@@ -63,6 +64,8 @@ class SDVXSwitcher:
 
         self.load_settings()
         self.connect_obs()
+
+        self.gen_summary = GenSummary(datetime.datetime.now())
         logger.debug('created.')
         logger.debug(f'settings:{self.settings}')
 
@@ -142,10 +145,7 @@ class SDVXSwitcher:
         if self.gui_mode == gui_mode.main:
             self.settings['lx'] = self.window.current_location()[0]
             self.settings['ly'] = self.window.current_location()[1]
-            #self.settings['run_on_boot'] = val['run_on_boot']
         elif self.gui_mode == gui_mode.setting:
-            #self.settings['lx'] = self.window.current_location()[0]
-            #self.settings['ly'] = self.window.current_location()[1]
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
@@ -408,6 +408,7 @@ class SDVXSwitcher:
                 if not self.is_onresult():
                     self.detect_mode = detect_mode.init
                     self.control_obs_sources('result1')
+                    self.gen_summary.generate()
 
             if self.detect_mode == detect_mode.select:
                 if not self.is_onselect():
