@@ -65,7 +65,7 @@ class SDVXSwitcher:
         self.load_settings()
         self.connect_obs()
 
-        self.gen_summary = GenSummary(datetime.datetime.now())
+        self.gen_summary = False
         logger.debug('created.')
         logger.debug(f'settings:{self.settings}')
 
@@ -94,6 +94,8 @@ class SDVXSwitcher:
             'obs_enable_result1':[],'obs_disable_result1':[],
             # スレッド終了時時の設定
             'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
+            # others
+            'ignore_rankD':True,
         }
         ret = {}
         try:
@@ -123,6 +125,7 @@ class SDVXSwitcher:
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
         tmp.save(dst)
+        self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
 
     def get_capture_after_rotate(self, target=None):
@@ -151,6 +154,7 @@ class SDVXSwitcher:
             self.settings['passwd'] = val['input_passwd']
             self.settings['top_is_right'] = val['top_is_right']
             self.settings['autosave_always'] = val['chk_always']
+            self.settings['ignore_rankD'] = val['chk_ignore_rankD']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -235,6 +239,7 @@ class SDVXSwitcher:
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
+            [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
@@ -331,12 +336,27 @@ class SDVXSwitcher:
 
     # 現在の画面がリザルト画面かどうか判定
     def is_onresult(self):
-        img = self.get_capture_after_rotate().crop((340,1600,539,1639))
-        tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onresult.png')
-        hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 10
-        return ret
+        img = self.get_capture_after_rotate()
+
+        cr = img.crop((340,1600,539,1639))
+        tmp = imagehash.average_hash(cr)
+        img_j = Image.open('resources/onresult.png')
+        hash_target = imagehash.average_hash(img_j)
+        ret = abs(hash_target - tmp) <5 
+
+        cr = img.crop((0,0,1079,149))
+        tmp2 = imagehash.average_hash(cr)
+        img_j = Image.open('resources/result_head.png')
+        hash_target2 = imagehash.average_hash(img_j)
+        ret2 = abs(hash_target2 - tmp2) < 5
+
+        cr = img.crop((30,1390,239,1429))
+        tmp = imagehash.average_hash(cr)
+        img_j = Image.open('resources/onresult2.png')
+        hash_target = imagehash.average_hash(img_j)
+        ret3 = abs(hash_target - tmp) < 5
+
+        return ret & ret2 & ret3
 
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
@@ -399,22 +419,22 @@ class SDVXSwitcher:
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
             self.obs.save_screenshot()
+            pre_mode = self.detect_mode
+            # 全モード共通の処理
+            if self.is_onlogo():
+                self.detect_mode = detect_mode.init
+            elif self.is_onresult(): # 
+                self.detect_mode = detect_mode.result
+            elif self.is_onselect():
+                self.detect_mode = detect_mode.select
+
+            # モードごとの専用処理
             if self.detect_mode == detect_mode.play:
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
-                    self.control_obs_sources('play1')
-
-            if self.detect_mode == detect_mode.result:
-                if not self.is_onresult():
-                    self.detect_mode = detect_mode.init
-                    self.control_obs_sources('result1')
-                    self.gen_summary.generate()
-
             if self.detect_mode == detect_mode.select:
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
-                    self.control_obs_sources('select1')
-
             if self.detect_mode == detect_mode.init:
                 if not done_thissong:
                     if self.is_ondetect():
@@ -425,24 +445,39 @@ class SDVXSwitcher:
                         done_thissong = True
                 if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                     self.detect_mode = detect_mode.play
+
+            # 状態遷移判定
+            if pre_mode != self.detect_mode:
+                if self.detect_mode == detect_mode.play:
                     self.control_obs_sources('play0')
                     self.plays += 1
                     self.window['txt_plays'].update(str(self.plays))
                     done_thissong = False # 曲が始まるタイミングでクリア
-                elif self.is_onresult(): # 
-                    self.detect_mode = detect_mode.result
+                if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
                     if self.settings['autosave_always']:
                         self.save_screenshot_general()
-                elif self.is_onselect():
-                    self.detect_mode = detect_mode.select
+                if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
+
+                if pre_mode == detect_mode.play:
+                    self.control_obs_sources('play1')
+                if pre_mode == detect_mode.result:
+                    self.control_obs_sources('result1')
+                if pre_mode == detect_mode.select:
+                    self.control_obs_sources('select1')
+
             if self.stop_thread:
                 break
-            time.sleep(0.5)
+            time.sleep(0.1)
         logger.debug(f'detect end!')
 
     def main(self):
+        now = datetime.datetime.now()
+        now_mod = now - datetime.timedelta(hours=2) # 多少の猶予をつける。2時間前までは遡る
+
+        self.gen_summary = GenSummary(now_mod, self.settings['autosave_dir'], self.settings['ignore_rankD'])
+        self.gen_summary.generate()
         self.gui_main()
         self.th = False
         self.control_obs_sources('boot')
