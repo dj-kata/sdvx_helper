@@ -14,6 +14,9 @@ import json, datetime
 from PIL import Image, ImageFilter
 from gen_summary import *
 import imagehash, keyboard
+import subprocess
+from bs4 import BeautifulSoup
+import requests
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -39,6 +42,11 @@ par_text = partial(sg.Text, font=FONT)
 par_btn = partial(sg.Button, pad=(3,0), font=FONT, enable_events=True, border_width=0)
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
+try:
+    with open('version.txt', 'r') as f:
+        SWVER = f.readline().strip()
+except Exception:
+    SWVER = "v?.?.?"
 
 class gui_mode(Enum):
     init = 0
@@ -53,6 +61,7 @@ class detect_mode(Enum):
 
 class SDVXHelper:
     def __init__(self):
+        self.ico=self.ico_path('icon.ico')
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
         self.stop_thread = False # 強制停止用
@@ -76,6 +85,17 @@ class SDVXHelper:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
 
+    def get_latest_version(self):
+        ret = None
+        url = 'https://github.com/dj-kata/sdvx_helper/tags'
+        r = requests.get(url)
+        soup = BeautifulSoup(r.text,features="html.parser")
+        for tag in soup.find_all('a'):
+            if 'releases/tag/v.' in tag['href']:
+                ret = tag['href'].split('/')[-1]
+                break # 1番上が最新なので即break
+        return ret
+
     def load_settings(self):
         default_val = {
             'lx':0, 'ly':0,
@@ -95,7 +115,7 @@ class SDVXHelper:
             # スレッド終了時時の設定
             'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
             # others
-            'ignore_rankD':True,
+            'ignore_rankD':True, 'auto_update':True,
         }
         ret = {}
         try:
@@ -155,6 +175,7 @@ class SDVXHelper:
             self.settings['top_is_right'] = val['top_is_right']
             self.settings['autosave_always'] = val['chk_always']
             self.settings['ignore_rankD'] = val['chk_ignore_rankD']
+            self.settings['auto_update'] = val['chk_auto_update']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -220,8 +241,7 @@ class SDVXHelper:
             [col_l, col_r],
             [sg.Text('', key='info', font=(None,9))]
         ]
-        ico=self.ico_path('icon.ico')
-        self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_setting(self):
         self.gui_mode = gui_mode.setting
@@ -240,19 +260,20 @@ class SDVXHelper:
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
+            [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
             [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
-            [sg.Frame('リザルト自動保存設定', layout=layout_autosave, title_color='#000044')],
+            [sg.Frame('その他設定', layout=layout_autosave, title_color='#000044')],
         ]
-        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico_path('icon.ico'),location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_main(self):
         self.gui_mode = gui_mode.main
         if self.window:
             self.window.close()
-        menuitems = [['ファイル',['設定','OBS制御設定']]]
+        menuitems = [['ファイル',['設定','OBS制御設定', 'アップデートを確認']]]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
             [
@@ -263,8 +284,7 @@ class SDVXHelper:
             [par_text('', size=(40,1), key='txt_info')],
             [sg.Output(size=(63,8), key='output', font=(None, 9))],
         ]
-        ico=self.ico_path('icon.ico')
-        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.connect_obs():
             self.window['txt_obswarning'].update('')
 
@@ -484,6 +504,9 @@ class SDVXHelper:
         th = threading.Thread(target=self.detect, daemon=True)
         th.start()
 
+        if self.settings['auto_update']:
+            self.window.write_event_value('アップデートを確認', " ")
+
         while True:
             ev, val = self.window.read()
             #logger.debug(f"ev:{ev}")
@@ -541,6 +564,22 @@ class SDVXHelper:
                     self.settings['autosave_dir'] = tmp
                     self.window['txt_autosave_dir'].update(tmp)
 
+            elif ev == 'アップデートを確認':
+                ver = self.get_latest_version()
+                if ver != SWVER:
+                    print(f'現在のバージョン: {SWVER}, 最新版:{ver}')
+                    ans = sg.popup_yes_no(f'アップデートが見つかりました。\n\n{SWVER} -> {ver}\n\nアプリを終了して更新します。', icon=self.ico)
+                    if ans == "Yes":
+                        self.save_settings()
+                        self.control_obs_sources('quit')
+                        if os.path.exists('update.exe'):
+                            logger.info('アップデート確認のため終了します')
+                            res = subprocess.Popen('update.exe')
+                            break
+                        else:
+                            sg.popup_error('update.exeがありません', icon=self.ico)
+                else:
+                    print(f'お使いのバージョンは最新です({SWVER})')
 
             elif ev in ('btn_setting', '設定'):
                 self.stop()

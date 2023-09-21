@@ -53,8 +53,7 @@ class GenSummary:
         img_d = Image.open('resources/rank_d.png')
         if abs(imagehash.average_hash(rank) - imagehash.average_hash(img_d)) < 10:
             if self.ignore_rankD:
-                print('ランクDなのでskipします。')
-                #logger.debug(f'skip! (idx={idx})')
+                logger.debug(f'skip! (idx={idx})')
                 return False
         title = img.crop((379,1001, 905,1030)) # 527x30
         difficulty = img.crop((55,870, 192,899)) # 138x30
@@ -90,7 +89,6 @@ class GenSummary:
 
     def generate(self):
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
-        os.makedirs('out/log', exist_ok=True)
 
         try:
             bg = Image.open('resources/summary_full_bg.png')
@@ -118,6 +116,6 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=9,day=20)
+    start = datetime.datetime(year=2023,month=9,day=24)
     a = GenSummary(start, 'pic', ignore_rankD=False)
     a.generate()

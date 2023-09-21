@@ -1,4 +1,4 @@
-sdvx_switcher/*
+sdvx_*er/*
 dist/*
 build*
 to_bin/*
@@ -6,3 +6,4 @@ to_bin/*
 *.log
 *.pyc
 __pycache__/*
+sdvx_helper/resources/summary_full_bg.png
