@@ -3,35 +3,59 @@ import glob, os
 from PIL import Image
 import imagehash
 import datetime
+import logging, logging.handlers, traceback
+import numpy as np
 
 MAX_NUM = 30 # 最大何枚分遡るか
-
-# 現在の画面がリザルト画面かどうか判定
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+hdl = logging.handlers.RotatingFileHandler(
+    f'log/{os.path.basename(__file__).split(".")[0]}.log',
+    encoding='utf-8',
+    maxBytes=1024*1024*2,
+    backupCount=1,
+)
+hdl.setLevel(logging.DEBUG)
+hdl_formatter = logging.Formatter('%(asctime)s %(filename)s:%(lineno)5d %(funcName)s() [%(levelname)s] %(message)s')
+hdl.setFormatter(hdl_formatter)
+logger.addHandler(hdl)
 
 class GenSummary:
-    def __init__(self, now):
+    def __init__(self, now, savedir, ignore_rankD=True):
         self.start = now
+        self.savedir = savedir
+        self.ignore_rankD = ignore_rankD
+        print(now, savedir)
 
     def is_result(self,img):
         cr = img.crop((340,1600,539,1639))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img_j)
-        ret = abs(hash_target - tmp) < 10
+        ret = abs(hash_target - tmp) <5 
+
         cr = img.crop((0,0,1079,149))
         tmp2 = imagehash.average_hash(cr)
-        img_j = Image.open('resources/onresult.png')
+        img_j = Image.open('resources/result_head.png')
         hash_target2 = imagehash.average_hash(img_j)
-        ret2 = abs(hash_target2 - tmp2) < 6
+        ret2 = abs(hash_target2 - tmp2) < 5
 
-        return ret & ret2
+        cr = img.crop((30,1390,239,1429))
+        tmp = imagehash.average_hash(cr)
+        img_j = Image.open('resources/onresult2.png')
+        hash_target = imagehash.average_hash(img_j)
+        ret3 = abs(hash_target - tmp) < 5
+
+        return ret & ret2 & ret3
 
     def put_result(self, img, bg, bg_small, idx):
         rank = img.crop((958,1034, 1045,1111)) # 88x78
         img_d = Image.open('resources/rank_d.png')
         if abs(imagehash.average_hash(rank) - imagehash.average_hash(img_d)) < 10:
-            print('skip!')
-            return False
+            if self.ignore_rankD:
+                print('ランクDなのでskipします。')
+                #logger.debug(f'skip! (idx={idx})')
+                return False
         title = img.crop((379,1001, 905,1030)) # 527x30
         difficulty = img.crop((55,870, 192,899)) # 138x30
         rate = img.crop((680,1147, 776,1171)) # 97x25
@@ -61,34 +85,39 @@ class GenSummary:
         bg_small.paste(title_small,(150, 20+40*idx))
         bg_small.paste(score,      (442, 25+40*idx))
         bg_small.paste(rank,       (540, 22+40*idx))
+        #logger.debug(f'processed (idx={idx})')
         return True
 
     def generate(self):
+        logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
         os.makedirs('out/log', exist_ok=True)
-        bg = Image.open('resources/summary_full_bg.png')
-        bg_small = Image.open('resources/summary_small_bg.png')
-        # 背景の単色画像を生成する場合はこれ
-        #bg = Image.new('RGB', (930,1300), (0,0,0))
-        #bg_small = Image.new('RGB', (590,1300), (0,0,0))
-        dir = 'pic'
-        idx = 0
 
-        for f in reversed(glob.glob(dir+'/sdvx_*.png')):
-            img = Image.open(f)
-            ts = os.path.getmtime(f)
-            now = datetime.datetime.fromtimestamp(ts)
-            # 開始時刻より古いファイルに当たったら終了
-            if self.start.timestamp() > now.timestamp():
-                break
-            if self.is_result(img):
-                if self.put_result(img, bg, bg_small, idx):
-                    idx += 1
-                if idx >= MAX_NUM:
+        try:
+            bg = Image.open('resources/summary_full_bg.png')
+            bg_small = Image.open('resources/summary_small_bg.png')
+            # 背景の単色画像を生成する場合はこれ
+            #bg = Image.new('RGB', (930,1300), (0,0,0))
+            #bg_small = Image.new('RGB', (590,1300), (0,0,0))
+            idx = 0
+            for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                logger.debug(f'f={f}')
+                img = Image.open(f)
+                ts = os.path.getmtime(f)
+                now = datetime.datetime.fromtimestamp(ts)
+                # 開始時刻より古いファイルに当たったら終了
+                if self.start.timestamp() > now.timestamp():
                     break
-        bg.save('out/summary_full.png')
-        bg_small.save('out/summary_small.png')
+                if self.is_result(img):
+                    if self.put_result(img, bg, bg_small, idx):
+                        idx += 1
+                    if idx >= MAX_NUM:
+                        break
+            bg.save('out/summary_full.png')
+            bg_small.save('out/summary_small.png')
+        except Exception as e:
+            logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=9,day=22)
-    a = GenSummary(start)
+    start = datetime.datetime(year=2023,month=9,day=20)
+    a = GenSummary(start, 'pic', ignore_rankD=False)
     a.generate()
