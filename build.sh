@@ -1,4 +1,4 @@
-target="sdvx_switcher"
+target="sdvx_helper"
 pyin=/mnt/c/*/Python310/Scripts/pyinstaller.exe
 $pyin $target.pyw --clean --noconsole --onefile --icon=icon.ico --add-data "icon.ico;./" 
 cp dist/$target.exe to_bin/
