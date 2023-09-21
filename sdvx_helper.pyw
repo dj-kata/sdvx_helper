@@ -51,7 +51,7 @@ class detect_mode(Enum):
     play = 2
     result = 3
 
-class SDVXSwitcher:
+class SDVXHelper:
     def __init__(self):
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
@@ -221,7 +221,7 @@ class SDVXSwitcher:
             [sg.Text('', key='info', font=(None,9))]
         ]
         ico=self.ico_path('icon.ico')
-        self.window = sg.Window(f"SDVX switcher - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_setting(self):
         self.gui_mode = gui_mode.setting
@@ -246,7 +246,7 @@ class SDVXSwitcher:
             [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
             [sg.Frame('リザルト自動保存設定', layout=layout_autosave, title_color='#000044')],
         ]
-        self.window = sg.Window('SDVX switcher', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico_path('icon.ico'),location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico_path('icon.ico'),location=(self.settings['lx'], self.settings['ly']))
 
     def gui_main(self):
         self.gui_mode = gui_mode.main
@@ -264,7 +264,7 @@ class SDVXSwitcher:
             [sg.Output(size=(63,8), key='output', font=(None, 9))],
         ]
         ico=self.ico_path('icon.ico')
-        self.window = sg.Window('SDVX switcher', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=ico,location=(self.settings['lx'], self.settings['ly']))
         if self.connect_obs():
             self.window['txt_obswarning'].update('')
 
@@ -547,5 +547,5 @@ class SDVXSwitcher:
                 self.gui_setting()
 
 if __name__ == '__main__':
-    a = SDVXSwitcher()
+    a = SDVXHelper()
     a.main()
