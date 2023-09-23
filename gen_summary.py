@@ -2,7 +2,7 @@
 import glob, os
 from PIL import Image
 import imagehash
-import datetime
+import datetime, json
 import logging, logging.handlers, traceback
 import numpy as np
 
@@ -25,28 +25,39 @@ class GenSummary:
         self.start = now
         self.savedir = savedir
         self.ignore_rankD = ignore_rankD
+        with open('resources/params.json', 'r') as f:
+            self.params = json.load(f)
         print(now, savedir)
 
+    def get_detect_points(self, name):
+        sx = self.params[f'{name}_sx']
+        sy = self.params[f'{name}_sy']
+        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
+        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
+        return (sx,sy,ex,ey)
+
     def is_result(self,img):
-        cr = img.crop((340,1600,539,1639))
+        cr = img.crop(self.get_detect_points('onresult_val0'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img_j)
-        ret = abs(hash_target - tmp) <5 
+        val0 = abs(hash_target - tmp) <5 
 
-        cr = img.crop((0,0,1079,149))
-        tmp2 = imagehash.average_hash(cr)
-        img_j = Image.open('resources/result_head.png')
-        hash_target2 = imagehash.average_hash(img_j)
-        ret2 = abs(hash_target2 - tmp2) < 5
-
-        cr = img.crop((30,1390,239,1429))
+        cr = img.crop(self.get_detect_points('onresult_val1'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult2.png')
         hash_target = imagehash.average_hash(img_j)
-        ret3 = abs(hash_target - tmp) < 5
+        val1 = abs(hash_target - tmp) < 5
 
-        return ret & ret2 & ret3
+        ret = val0 & val1
+        if self.params['onresult_enable_head']:
+            cr = img.crop(self.get_detect_points('onresult_head'))
+            tmp = imagehash.average_hash(cr)
+            img_j = Image.open('resources/result_head.png')
+            hash_target2 = imagehash.average_hash(img_j)
+            val2 = abs(hash_target2 - tmp) < 5
+            ret &= val2
+        return ret
 
     def put_result(self, img, bg, bg_small, idx):
         rank = img.crop((958,1034, 1045,1111)) # 88x78

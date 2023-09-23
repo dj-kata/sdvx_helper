@@ -399,8 +399,8 @@ class SDVXHelper:
             tmp = imagehash.average_hash(cr)
             img_j = Image.open('resources/result_head.png')
             hash_target2 = imagehash.average_hash(img_j)
-            ret3 = abs(hash_target2 - tmp) < 5
-            ret &= ret3
+            val2 = abs(hash_target2 - tmp) < 5
+            ret &= val2
 
         return ret
 
@@ -410,6 +410,7 @@ class SDVXHelper:
         ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
         ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
         return (sx,sy,ex,ey)
+    
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
         img = self.get_capture_after_rotate().crop(self.get_detect_points('onplay'))
