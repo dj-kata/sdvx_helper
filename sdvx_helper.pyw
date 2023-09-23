@@ -116,6 +116,8 @@ class SDVXHelper:
             'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
             # プレイ回数設定関連
             'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
+            # ブラスターゲージMAX時のリマインド用
+            'obs_txt_blastermax':'sdvx_helper_blastermax',
             # others
             'ignore_rankD':True, 'auto_update':True,
         }
@@ -181,6 +183,7 @@ class SDVXHelper:
             self.settings['obs_txt_plays'] = val['obs_txt_plays']
             self.settings['obs_txt_plays_header'] = val['obs_txt_plays_header']
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
+            self.settings['obs_txt_blastermax'] = val['obs_txt_blastermax']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -417,6 +420,16 @@ class SDVXHelper:
         ret = abs(hash_target - tmp) < 10
         return ret
     
+    # blaster gaugeが最大かどうかを検出
+    def is_blastermax(self):
+        img = self.get_capture_after_rotate().crop((926,1491,985,1509))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/blastermax.png')
+        hash_target = imagehash.average_hash(img)
+        ret = abs(hash_target - tmp) < 10
+        logger.debug('BLASTER GAUGEが100%になっています')
+        return ret
+    
     # 曲情報を切り出して保存
     def update_musicinfo(self):
         img = self.get_capture_after_rotate()
@@ -490,6 +503,10 @@ class SDVXHelper:
                     self.control_obs_sources('result0')
                     if self.settings['autosave_always']:
                         self.save_screenshot_general()
+                    if self.is_blastermax():
+                        self.window[self.settings['obs_txt_blastermax']].update('BLASTER GAUGEが最大です!!')
+                    else:
+                        self.window[self.settings['obs_txt_blastermax']].update('')
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
 
