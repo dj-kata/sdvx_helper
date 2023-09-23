@@ -10,7 +10,7 @@ import traceback
 from functools import partial
 from enum import Enum
 from tkinter import filedialog
-import json, datetime
+import json, datetime, winsound
 from PIL import Image, ImageFilter
 from gen_summary import *
 import imagehash, keyboard
@@ -315,6 +315,12 @@ class SDVXHelper:
             self.stop_thread = False
             self.th = False
 
+    def play_wav(self, filename):
+        try:
+            winsound.PlaySound(filename, winsound.SND_FILENAME)
+        except:
+            logger.debug(traceback.format_exc())
+
     def connect_obs(self):
         if self.obs != False:
             self.obs.close()
@@ -375,26 +381,28 @@ class SDVXHelper:
     def is_onresult(self):
         img = self.get_capture_after_rotate()
 
-        cr = img.crop(self.get_detect_points('onresult'))
+        cr = img.crop(self.get_detect_points('onresult_val0'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img_j)
-        ret = abs(hash_target - tmp) <5 
+        val0 = abs(hash_target - tmp) <5 
 
-        cr = img.crop(self.get_detect_points('onresult2'))
+        cr = img.crop(self.get_detect_points('onresult_val1'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult2.png')
         hash_target = imagehash.average_hash(img_j)
-        ret2 = abs(hash_target - tmp) < 5
+        val1 = abs(hash_target - tmp) < 5
 
-        cr = img.crop(self.get_detect_points('onresult_head'))
-        tmp = imagehash.average_hash(cr)
-        img_j = Image.open('resources/result_head.png')
-        hash_target2 = imagehash.average_hash(img_j)
-        ret3 = abs(hash_target2 - tmp) < 5
+        ret = val0 & val1
+        if self.params['onresult_enable_head']:
+            cr = img.crop(self.get_detect_points('onresult_head'))
+            tmp = imagehash.average_hash(cr)
+            img_j = Image.open('resources/result_head.png')
+            hash_target2 = imagehash.average_hash(img_j)
+            ret3 = abs(hash_target2 - tmp) < 5
+            ret &= ret3
 
-        #return ret & ret2 & ret3
-        return ret & ret2
+        return ret
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -513,6 +521,8 @@ class SDVXHelper:
                         self.save_screenshot_general()
                     if self.is_blastermax():
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
+                        if self.settings['alert_blastermax']:
+                            self.play_wav('resources/blastermax.wav')
                     else:
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'')
                 if self.detect_mode == detect_mode.select:
