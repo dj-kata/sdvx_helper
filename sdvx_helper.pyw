@@ -69,6 +69,8 @@ class SDVXHelper:
         self.obs = False
         self.plays = 0
         self.imgpath = os.getcwd()+'/out/capture.png'
+        with open('resources/params.json', 'r') as f:
+            self.params = json.load(f)
         keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
@@ -180,10 +182,10 @@ class SDVXHelper:
             self.settings['autosave_always'] = val['chk_always']
             self.settings['ignore_rankD'] = val['chk_ignore_rankD']
             self.settings['auto_update'] = val['chk_auto_update']
-            self.settings['obs_txt_plays'] = val['obs_txt_plays']
+            #self.settings['obs_txt_plays'] = val['obs_txt_plays']
             self.settings['obs_txt_plays_header'] = val['obs_txt_plays_header']
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
-            self.settings['obs_txt_blastermax'] = val['obs_txt_blastermax']
+            #self.settings['obs_txt_blastermax'] = val['obs_txt_blastermax']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -268,9 +270,9 @@ class SDVXHelper:
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
-            [par_text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
+            [sg.Text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
             [
-                par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
+                #par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
                 sg.Text('ヘッダ', tooltip='"play: "や"本日の曲数:"など'),sg.Input(self.settings['obs_txt_plays_header'], key='obs_txt_plays_header', size=(10,1)),
                 sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
             ],
@@ -366,45 +368,52 @@ class SDVXHelper:
         img = Image.open('resources/onselect.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
+        #logger.debug(f'onselect diff:{abs(hash_target-tmp)}')
         return ret
 
     # 現在の画面がリザルト画面かどうか判定
     def is_onresult(self):
         img = self.get_capture_after_rotate()
 
-        cr = img.crop((340,1600,539,1639))
+        cr = img.crop(self.get_detect_points('onresult'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img_j)
         ret = abs(hash_target - tmp) <5 
 
-        cr = img.crop((0,0,1079,149))
-        tmp2 = imagehash.average_hash(cr)
-        img_j = Image.open('resources/result_head.png')
-        hash_target2 = imagehash.average_hash(img_j)
-        ret2 = abs(hash_target2 - tmp2) < 5
-
-        cr = img.crop((30,1390,239,1429))
+        cr = img.crop(self.get_detect_points('onresult2'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult2.png')
         hash_target = imagehash.average_hash(img_j)
-        ret3 = abs(hash_target - tmp) < 5
+        ret2 = abs(hash_target - tmp) < 5
 
-        return ret & ret2 & ret3
+        cr = img.crop(self.get_detect_points('onresult_head'))
+        tmp = imagehash.average_hash(cr)
+        img_j = Image.open('resources/result_head.png')
+        hash_target2 = imagehash.average_hash(img_j)
+        ret3 = abs(hash_target2 - tmp) < 5
 
+        #return ret & ret2 & ret3
+        return ret & ret2
+
+    def get_detect_points(self, name):
+        sx = self.params[f'{name}_sx']
+        sy = self.params[f'{name}_sy']
+        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
+        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
+        return (sx,sy,ex,ey)
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
-        img = self.get_capture_after_rotate().crop((0,0,1080,200))
+        img = self.get_capture_after_rotate().crop(self.get_detect_points('onplay'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onplay.png') #.crop((550,1,750,85))
+        img = Image.open('resources/onplay.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
         return ret
 
     # 現在の画面が曲決定画面かどうか判定
     def is_ondetect(self):
-        # cropは右下まで入るので注意。実際のサイズは170x130となる。
-        img = self.get_capture_after_rotate().crop((240,1253,409,1382))
+        img = self.get_capture_after_rotate().crop(self.get_detect_points('ondetect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/ondetect.png')
         hash_target = imagehash.average_hash(img)
@@ -413,7 +422,7 @@ class SDVXHelper:
     
     # result, playの後の遷移画面(ゲームタイトルロゴ)かどうかを判定
     def is_onlogo(self):
-        img = self.get_capture_after_rotate().crop((460,850,659,1049))
+        img = self.get_capture_after_rotate().crop(self.get_detect_points('onlogo'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/logo.png')
         hash_target = imagehash.average_hash(img)
@@ -422,28 +431,27 @@ class SDVXHelper:
     
     # blaster gaugeが最大かどうかを検出
     def is_blastermax(self):
-        img = self.get_capture_after_rotate().crop((926,1491,985,1509))
+        img = self.get_capture_after_rotate().crop(self.get_detect_points('blastermax'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/blastermax.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
-        logger.debug('BLASTER GAUGEが100%になっています')
         return ret
     
     # 曲情報を切り出して保存
     def update_musicinfo(self):
         img = self.get_capture_after_rotate()
-        jacket = img.crop((237,387, 843,993))
+        jacket = img.crop(self.get_detect_points('info_jacket'))
         jacket.save('out/select_jacket.png')
-        title = img.crop((201,1091, 878,1212))
+        title = img.crop(self.get_detect_points('info_title'))
         title.save('out/select_title.png')
-        lv = img.crop((908,1107, 998,1192))
+        lv = img.crop(self.get_detect_points('info_lv'))
         lv.save('out/select_level.png')
-        bpm = img.crop((97,1127, 160,1172))
+        bpm = img.crop(self.get_detect_points('info_bpm'))
         bpm.save('out/select_bpm.png')
-        ef = img.crop((313,1275, 803,1302))
+        ef = img.crop(self.get_detect_points('info_ef'))
         ef.save('out/select_effector.png')
-        illust = img.crop((313,1333, 803,1360))
+        illust = img.crop(self.get_detect_points('info_illust'))
         illust.save('out/select_illustrator.png')
         self.obs.refresh_source('nowplaying')
         self.obs.refresh_source('nowplaying.html')
@@ -504,9 +512,9 @@ class SDVXHelper:
                     if self.settings['autosave_always']:
                         self.save_screenshot_general()
                     if self.is_blastermax():
-                        self.window[self.settings['obs_txt_blastermax']].update('BLASTER GAUGEが最大です!!')
+                        self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
                     else:
-                        self.window[self.settings['obs_txt_blastermax']].update('')
+                        self.obs.change_text(self.settings['obs_txt_blastermax'],'')
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
 
