@@ -76,7 +76,7 @@ class Updater:
         for f in p.glob('**/*.*'):
             try:
                 base = str(f.relative_to('tmp/sdvx_helper'))
-                print(f, base)
+                logger.debug(f)
                 shutil.move(str(f), target_dir+'/'+base)
             except Exception:
                 logger.debug(f"error! ({f})")
