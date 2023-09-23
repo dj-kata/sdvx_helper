@@ -469,9 +469,6 @@ class SDVXHelper:
     # メイン処理のループ
     # 速度を重視するため、認識処理は回転する前に行っておく
     def detect(self):
-        # TODO 
-        # 1. 曲決定画面での処理
-        # 2. プレー画面での処理
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
@@ -549,6 +546,8 @@ class SDVXHelper:
         self.gui_main()
         self.th = False
         self.control_obs_sources('boot')
+        plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
+        self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
         th = threading.Thread(target=self.detect, daemon=True)
         th.start()
 
