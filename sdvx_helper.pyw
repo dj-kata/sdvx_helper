@@ -114,6 +114,8 @@ class SDVXHelper:
             'obs_enable_result1':[],'obs_disable_result1':[],
             # スレッド終了時時の設定
             'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
+            # プレイ回数設定関連
+            'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
             # others
             'ignore_rankD':True, 'auto_update':True,
         }
@@ -176,6 +178,9 @@ class SDVXHelper:
             self.settings['autosave_always'] = val['chk_always']
             self.settings['ignore_rankD'] = val['chk_ignore_rankD']
             self.settings['auto_update'] = val['chk_auto_update']
+            self.settings['obs_txt_plays'] = val['obs_txt_plays']
+            self.settings['obs_txt_plays_header'] = val['obs_txt_plays_header']
+            self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -260,6 +265,12 @@ class SDVXHelper:
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
+            [par_text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
+            [
+                par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
+                sg.Text('ヘッダ', tooltip='"play: "や"本日の曲数:"など'),sg.Input(self.settings['obs_txt_plays_header'], key='obs_txt_plays_header', size=(10,1)),
+                sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
+            ],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
         ]
         layout = [
@@ -472,6 +483,8 @@ class SDVXHelper:
                     self.control_obs_sources('play0')
                     self.plays += 1
                     self.window['txt_plays'].update(str(self.plays))
+                    plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
+                    self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                     done_thissong = False # 曲が始まるタイミングでクリア
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
@@ -518,6 +531,8 @@ class SDVXHelper:
                     break
                 else:
                     try:
+                        plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
+                        self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                         self.gui_main()
                     except Exception as e:
                         print(traceback.format_exc())
