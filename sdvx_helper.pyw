@@ -64,6 +64,7 @@ class SDVXHelper:
         self.ico=self.ico_path('icon.ico')
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
+        self.last_autosave_time = datetime.datetime.now()
         self.stop_thread = False # 強制停止用
         self.window = False
         self.obs = False
@@ -102,7 +103,7 @@ class SDVXHelper:
         default_val = {
             'lx':0, 'ly':0,
             'host':'localhost', 'port':'4444', 'passwd':'',
-            'autosave_dir':'','autosave_always':False,
+            'autosave_dir':'','autosave_always':False,'autosave_interval':60,
             'obs_source':'', 'top_is_right':False, # 回転している前提、画面上部が右ならTrueにする
             # スレッド起動時の設定
             'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
@@ -119,7 +120,7 @@ class SDVXHelper:
             # プレイ回数設定関連
             'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
             # ブラスターゲージMAX時のリマインド用
-            'obs_txt_blastermax':'sdvx_helper_blastermax',
+            'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':True,
             # others
             'ignore_rankD':True, 'auto_update':True,
         }
@@ -147,6 +148,7 @@ class SDVXHelper:
     def save_screenshot_general(self):
         ts = os.path.getmtime(self.imgpath)
         now = datetime.datetime.fromtimestamp(ts)
+        self.last_autosave_time = now
         fmtnow = format(now, "%Y%m%d_%H%M%S")
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
@@ -445,6 +447,7 @@ class SDVXHelper:
         img = Image.open('resources/blastermax.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
+        print(ret, hash_target-tmp)
         return ret
     
     # 曲情報を切り出して保存
@@ -516,7 +519,12 @@ class SDVXHelper:
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
                     if self.settings['autosave_always']:
-                        self.save_screenshot_general()
+                        ts = os.path.getmtime(self.imgpath)
+                        now = datetime.datetime.fromtimestamp(ts)
+                        diff = (now - self.last_autosave_time).total_seconds()
+                        logger.debug(f'diff = {diff}s')
+                        if diff > self.settings['autosave_interval']:
+                            self.save_screenshot_general()
                     if self.is_blastermax():
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
                         if self.settings['alert_blastermax']:
