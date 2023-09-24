@@ -6,4 +6,5 @@ to_bin/*
 *.log
 *.pyc
 __pycache__/*
-sdvx_helper/resources/summary_full_bg.png
+sdvx_helper/*
+tmp/*
