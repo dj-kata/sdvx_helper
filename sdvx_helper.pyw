@@ -121,7 +121,7 @@ class SDVXHelper:
             # プレイ回数設定関連
             'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
             # ブラスターゲージMAX時のリマインド用
-            'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':True,
+            'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
             # others
             'ignore_rankD':True, 'auto_update':True,
         }
@@ -188,7 +188,7 @@ class SDVXHelper:
             #self.settings['obs_txt_plays'] = val['obs_txt_plays']
             self.settings['obs_txt_plays_header'] = val['obs_txt_plays_header']
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
-            #self.settings['obs_txt_blastermax'] = val['obs_txt_blastermax']
+            self.settings['alert_blastermax'] = val['alert_blastermax']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -279,6 +279,7 @@ class SDVXHelper:
                 sg.Text('ヘッダ', tooltip='"play: "や"本日の曲数:"など'),sg.Input(self.settings['obs_txt_plays_header'], key='obs_txt_plays_header', size=(10,1)),
                 sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
             ],
+            [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
         ]
         layout = [
@@ -449,7 +450,6 @@ class SDVXHelper:
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
         self.is_blastermax = ret
-        print(ret, hash_target-tmp)
         return ret
     
     # 曲情報を切り出して保存
