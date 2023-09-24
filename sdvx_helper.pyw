@@ -67,6 +67,7 @@ class SDVXHelper:
         self.last_autosave_time = datetime.datetime.now()
         self.stop_thread = False # 強制停止用
         self.is_blastermax = False
+        self.gen_first_vf = False
         self.window = False
         self.obs = False
         self.plays = 0
@@ -123,6 +124,7 @@ class SDVXHelper:
             # others
             'ignore_rankD':True, 'auto_update':True,
             'params_json':'resources/params.json',
+            'logpic_offset_time':2, # ログ生成画像について、起動の何時間前以降を対象とするか
         }
         ret = {}
         try:
@@ -157,6 +159,17 @@ class SDVXHelper:
         tmp.save(dst)
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
+
+    def save_playerinfo(self):
+        tmp = self.get_capture_after_rotate(self.imgpath)
+        vf_cur = tmp.crop(self.get_detect_points('vf'))
+        vf_cur.save('out/vf_cur.png')
+        class_cur = tmp.crop(self.get_detect_points('class'))
+        class_cur.save('out/class_cur.png')
+        if not self.gen_first_vf: # 本日1プレー目に保存しておく
+            vf_cur.save('out/vf_pre.png')
+            class_cur.save('out/class_pre.png')
+            self.gen_first_vf = True
 
     def get_capture_after_rotate(self, target=None):
         while True:
@@ -528,6 +541,7 @@ class SDVXHelper:
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']:
                             self.save_screenshot_general()
+                            self.save_playerinfo()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
                     if self.chk_blastermax():
@@ -551,7 +565,7 @@ class SDVXHelper:
 
     def main(self):
         now = datetime.datetime.now()
-        now_mod = now - datetime.timedelta(hours=2) # 多少の猶予をつける。2時間前までは遡る
+        now_mod = now - datetime.timedelta(hours=self.settings['logpic_offset_time']) # 多少の猶予をつける。2時間前までは遡る
 
         self.gen_summary = GenSummary(now_mod, self.settings['autosave_dir'], self.settings['ignore_rankD'])
         self.gen_summary.generate()
