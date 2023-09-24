@@ -32,6 +32,7 @@
     "blastermax_sy": 1582,
     "blastermax_w": 58,
     "blastermax_h": 19,
+
     "info_jacket_sx": 237,
     "info_jacket_sy": 387,
     "info_jacket_w": 607,
@@ -56,6 +57,7 @@
     "info_illust_sy": 1333,
     "info_illust_w": 489,
     "info_illust_h": 28,
+
     "lamp_sx": 630,
     "lamp_sy": 930,
     "lamp_w": 230,
@@ -64,6 +66,14 @@
     "gauge_sy": 1200,
     "gauge_w": 100,
     "gauge_h": 16,
+    "vf_sx":317,
+    "vf_sy":1529,
+    "vf_w":96,
+    "vf_h":36,
+    "class_sx":194,
+    "class_sy":1528,
+    "class_w":98,
+    "class_h":29,
 
     "log_maxnum": 30,
     "log_rowsize": 40,
