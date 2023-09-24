@@ -527,16 +527,14 @@ class SDVXHelper:
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']:
                             self.save_screenshot_general()
-                    self.chk_blastermax()
-                    if self.is_blastermax:
-                        self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
-                    else:
-                        self.obs.change_text(self.settings['obs_txt_blastermax'],'')
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
-                    if self.is_blastermax:
+                    if self.chk_blastermax():
+                        self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
                         if self.settings['alert_blastermax']:
                             self.play_wav('resources/blastermax.wav')
+                    else:
+                        self.obs.change_text(self.settings['obs_txt_blastermax'],'')
 
                 if pre_mode == detect_mode.play:
                     self.control_obs_sources('play1')
