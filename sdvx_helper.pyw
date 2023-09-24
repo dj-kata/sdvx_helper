@@ -71,8 +71,6 @@ class SDVXHelper:
         self.obs = False
         self.plays = 0
         self.imgpath = os.getcwd()+'/out/capture.png'
-        with open('resources/params.json', 'r') as f:
-            self.params = json.load(f)
         keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
@@ -124,6 +122,7 @@ class SDVXHelper:
             'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
             # others
             'ignore_rankD':True, 'auto_update':True,
+            'params_json':'resources/params.json',
         }
         ret = {}
         try:
@@ -140,6 +139,8 @@ class SDVXHelper:
                 print(f"{k}が設定ファイル内に存在しません。デフォルト値({default_val[k]}を登録します。)")
                 ret[k] = default_val[k]
         self.settings = ret
+        with open(self.settings['params_json'], 'r') as f:
+            self.params = json.load(f)
         return ret
 
     def save_settings(self):
@@ -530,7 +531,7 @@ class SDVXHelper:
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
                     if self.chk_blastermax():
-                        self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
+                        self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!　　　　　　　　　　　　')
                         if self.settings['alert_blastermax']:
                             self.play_wav('resources/blastermax.wav')
                     else:
