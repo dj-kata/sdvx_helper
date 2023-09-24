@@ -374,7 +374,7 @@ class SDVXHelper:
     
     # 現在の画面が選曲画面かどうか判定
     def is_onselect(self):
-        img = self.get_capture_after_rotate().crop((0,1310,149,1609))
+        img = self.get_capture_after_rotate().crop(self.get_detect_points('onselect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onselect.png')
         hash_target = imagehash.average_hash(img)
