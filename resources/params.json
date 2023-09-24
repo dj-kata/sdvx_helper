@@ -63,6 +63,14 @@
     "info_illust_w": 489,
     "info_illust_h": 28,
 
+    "lamp_sx":630,
+    "lamp_sy":930,
+    "lamp_w":230,
+    "lamp_h":50,
+    "gauge_sx":730,
+    "gauge_sy":1200,
+    "gauge_w":100,
+    "gauge_h":16,
 
     "$comment": "none"
 }
