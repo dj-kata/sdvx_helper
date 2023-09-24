@@ -20,14 +20,25 @@ hdl.setFormatter(hdl_formatter)
 logger.addHandler(hdl)
 
 class GenSummary:
-    def __init__(self, now, savedir, ignore_rankD=True, max_num=30):
+    def __init__(self, now, savedir, ignore_rankD=True):
         self.start = now
         self.savedir = savedir
         self.ignore_rankD = ignore_rankD
-        self.max_num = max_num
-        with open('resources/params.json', 'r') as f:
-            self.params = json.load(f)
+        self.load_settings()
+        self.max_num = self.params['log_maxnum']
         print(now, savedir)
+
+    def load_settings(self):
+        try:
+            with open('settings.json') as f:
+                self.settings = json.load(f)
+            with open(self.settings['params_json'], 'r') as f:
+                self.params = json.load(f)
+            logger.debug(f"params={self.params}")
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            with open('resources/params.json', 'r') as f:
+                self.params = json.load(f)
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -59,20 +70,18 @@ class GenSummary:
         return ret
 
     def put_result(self, img, bg, bg_small, idx):
-        rank = img.crop((958,1034, 1045,1111)) # 88x78
+        parts = {}
+        parts['rank'] = img.crop(self.get_detect_points('log_crop_rank'))
         img_d = Image.open('resources/rank_d.png')
         # ランクDの場合は飛ばす
-        if abs(imagehash.average_hash(rank) - imagehash.average_hash(img_d)) < 10:
+        if abs(imagehash.average_hash(parts['rank']) - imagehash.average_hash(img_d)) < 10:
             if self.ignore_rankD:
                 logger.debug(f'skip! (idx={idx})')
                 return False
             
         # 各パーツの切り取り
-        title = img.crop((379,1001, 905,1030)) # 527x30
-        difficulty = img.crop((55,870, 192,899)) # 138x30
-        rate = img.crop((680,1147, 776,1171)) # 97x25
-        score = img.crop((421,1072, 793,1126)) # 373x55
-        jacket = img.crop((57,916, 319,1178)) # 263x263
+        for i in ('title', 'title_small', 'difficulty', 'rate', 'score', 'jacket'):
+            parts[i] = img.crop(self.get_detect_points('log_crop_'+i))
 
         # クリアランプの抽出
         lamp = ''
@@ -89,43 +98,37 @@ class GenSummary:
             lamp = 'failed'
 
         # 各パーツのリサイズ
-        score = score.crop((0,0, 229,54)) # 上4桁だけにする
-        difficulty = difficulty.resize((69,15))
-        score = score.resize((86,20))
-        rank  = rank.resize((37,25))
-        rate  = rate.resize((80,20))
-        jacket = jacket.resize((36,36))
+        # 上4桁だけにする
+        parts['difficulty'] = parts['difficulty'].resize((69,15))
+        parts['score']      = parts['score'].resize((86,20))
+        parts['rank']       = parts['rank'].resize((37,25))
+        parts['rate']       = parts['rate'].resize((80,20))
+        parts['jacket']     = parts['jacket'].resize((36,36))
 
-        #diff_s0 = difficulty.crop((0,0,3,14))
-        #diff_s1 = difficulty.crop((44,0,68,14))
+        rowsize = self.params['log_rowsize']
+        parts['lamp'] = Image.open(f'resources/log_lamp_{lamp}.png')
+        parts['lamp_small'] = parts['lamp']
+        parts['score_small'] = parts['score']
+        parts['rank_small'] = parts['rank']
+        parts['jacket_small'] = parts['jacket']
+        parts['difficulty_small'] = parts['difficulty']
+        for i in self.params['log_parts']:
+            bg.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
 
-        bg.paste(jacket,     (20, 17+40*idx))
-        bg.paste(difficulty, (70, 28+40*idx))
-        bg.paste(title,      (150, 20+40*idx))
-        bg.paste(score,      (682, 25+40*idx))
-        bg.paste(rank,       (780, 22+40*idx))
-        bg.paste(rate,       (825, 25+40*idx))
-
-        title_small = img.crop((379,1001, 665,1030)) # 527x30
-        bg_small.paste(jacket,     (20, 17+40*idx))
-        bg_small.paste(difficulty, (70, 28+40*idx))
-        bg_small.paste(title_small,(150, 20+40*idx))
-        bg_small.paste(score,      (442, 25+40*idx))
-        #bg_small.paste(rank,       (540, 22+40*idx))
-        img_lamp = Image.open(f'resources/log_lamp_{lamp}.png')
-        bg_small.paste(img_lamp,       (540, 22+40*idx))
-        #logger.debug(f'processed (idx={idx})')
+        for i in self.params['log_small_parts']:
+            bg_small.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
         return True
 
     def generate(self):
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
 
         try:
-            bg = Image.open('resources/summary_full_bg.png')
-            bg_small = Image.open('resources/summary_small_bg.png')
+            #bg = Image.open('resources/summary_full_bg.png')
+            #bg_small = Image.open('resources/summary_small_bg.png')
             # 背景の単色画像を生成する場合はこれ
-            #bg = Image.new('RGB', (930,1300), (0,0,0))
-            #bg_small = Image.new('RGB', (590,1300), (0,0,0))
+            h = self.params['log_margin']*2 + self.params['log_maxnum']*self.params['log_rowsize']
+            bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
+            bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
             idx = 0
             for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
                 #logger.debug(f'f={f}')
@@ -146,6 +149,6 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=9,day=19)
-    a = GenSummary(start, 'pic', ignore_rankD=False, max_num=300)
+    start = datetime.datetime(year=2023,month=9,day=24,hour=16)
+    a = GenSummary(start, 'pic', ignore_rankD=False)
     a.generate()
