@@ -66,6 +66,7 @@ class SDVXHelper:
         self.gui_mode    = gui_mode.init
         self.last_autosave_time = datetime.datetime.now()
         self.stop_thread = False # 強制停止用
+        self.is_blastermax = False
         self.window = False
         self.obs = False
         self.plays = 0
@@ -441,12 +442,13 @@ class SDVXHelper:
         return ret
     
     # blaster gaugeが最大かどうかを検出
-    def is_blastermax(self):
+    def chk_blastermax(self):
         img = self.get_capture_after_rotate().crop(self.get_detect_points('blastermax'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/blastermax.png')
         hash_target = imagehash.average_hash(img)
         ret = abs(hash_target - tmp) < 10
+        self.is_blastermax = ret
         print(ret, hash_target-tmp)
         return ret
     
@@ -525,14 +527,16 @@ class SDVXHelper:
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']:
                             self.save_screenshot_general()
-                    if self.is_blastermax():
+                    self.chk_blastermax()
+                    if self.is_blastermax:
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'BLASTER GAUGEが最大です!!')
-                        if self.settings['alert_blastermax']:
-                            self.play_wav('resources/blastermax.wav')
                     else:
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'')
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
+                    if self.is_blastermax:
+                        if self.settings['alert_blastermax']:
+                            self.play_wav('resources/blastermax.wav')
 
                 if pre_mode == detect_mode.play:
                     self.control_obs_sources('play1')
