@@ -135,5 +135,9 @@ OBS上で```sdvx_helper_playcount```という名前のテキストソースを�
 F6キーを押すと指定したフォルダにキャプチャ画像を正しい向きで保存することができます。
 
 # その他
-困った時は[本レポジトリのIssue](https://github.com/dj-kata/sdvx_helper/issues)またはTwitter(@[cold_planet_](https://twitter.com/cold_planet_))にご連絡ください。  
-#ytlive_helper のハッシュタグも見るかもしれません。
+ライセンスはApache2.0に準拠するものとします。  
+
+クレジット表記などは特に必要ありませんが、概要欄などに書いてくれると喜びます。
+
+バグ報告や要望は[本レポジトリのIssue](https://github.com/dj-kata/sdvx_helper/issues)またはTwitter(@[cold_planet_](https://twitter.com/cold_planet_))にご連絡ください。  
+ytlive_helper でエゴサしてるかもしれません。
