@@ -42,7 +42,10 @@ class OBSSocket():
             return False
 
     def change_scene(self,name:str):
-        self.ws.set_current_program_scene(name)
+        try:
+            self.ws.set_current_program_scene(name)
+        except Exception:
+            pass
 
     def get_scenes(self):
         res = self.ws.get_scene_list()
