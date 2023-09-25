@@ -66,6 +66,8 @@
     "gauge_sy": 1200,
     "gauge_w": 100,
     "gauge_h": 16,
+    "gauge_clear_threshold": 10,
+    "gauge_hard_threshold": 15,
     "vf_sx":317,
     "vf_sy":1529,
     "vf_w":96,

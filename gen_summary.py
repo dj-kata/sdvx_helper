@@ -90,10 +90,10 @@ class GenSummary:
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_uc.png')):
             lamp = 'uc'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_clear.png')):
-            if self.comp_images(img.crop(self.get_detect_points('gauge')), Image.open('resources/gauge_hard.png')):
-                lamp = 'hard'
-            else:
+            if self.comp_images(img.crop(self.get_detect_points('gauge')), Image.open('resources/gauge_normal.png'), threshold=self.params['gauge_clear_threshold']):
                 lamp = 'clear'
+            else:
+                lamp = 'hard'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_failed.png')):
             lamp = 'failed'
 
