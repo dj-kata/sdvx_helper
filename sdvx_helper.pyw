@@ -573,7 +573,8 @@ class SDVXHelper:
         self.th = False
         self.control_obs_sources('boot')
         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
-        self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
+        if self.obs != False:
+            self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
         th = threading.Thread(target=self.detect, daemon=True)
         th.start()
 
@@ -592,7 +593,8 @@ class SDVXHelper:
                 else:
                     try:
                         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
-                        self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
+                        if self.obs != False:
+                            self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                         self.gui_main()
                     except Exception as e:
                         print(traceback.format_exc())
