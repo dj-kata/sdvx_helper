@@ -69,6 +69,7 @@ class Updater:
         target_dir = '.'
         logger.debug('now moving...')
         p = Path('tmp/sdvx_helper')
+        failed_list = []
         for f in p.iterdir():
             if f.is_dir():
                 subdir=f.relative_to('tmp/sdvx_helper')
@@ -79,11 +80,17 @@ class Updater:
                 logger.debug(f)
                 shutil.move(str(f), target_dir+'/'+base)
             except Exception:
+                if 'update.exe' not in str(f):
+                    failed_list.append(f)
                 logger.debug(f"error! ({f})")
                 logger.debug(traceback.format_exc())
         shutil.rmtree('tmp/sdvx_helper')
+        out = ''
+        if len(failed_list) > 0:
+            out = '更新に失敗したファイル(tmp/tmp.zipから手動展開してください): '
+            out += '\n'.join(failed_list)
 
-        self.window.write_event_value('-FINISH-', '')
+        self.window.write_event_value('-FINISH-', out)
 
     # icon用
     def ico_path(self, relative_path):
@@ -111,7 +118,8 @@ class Updater:
                 if value == 'Yes':
                     break
             elif ev == '-FINISH-':
-                sg.popup_ok('アップデート完了！', icon=self.ico)
+                msg = 'アップデート完了！\n' + val[ev]
+                sg.popup_ok(msg, icon=self.ico)
                 break
 
 if __name__ == '__main__':
