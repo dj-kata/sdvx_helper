@@ -141,5 +141,7 @@ F6キーを押すと指定したフォルダにキャプチャ画像を正しい
 
 クレジット表記などは特に必要ありませんが、概要欄などに書いてくれると喜びます。
 
+[このページ](https://github.com/dj-kata/sdvx_helper/wiki/%E3%83%88%E3%83%A9%E3%83%96%E3%83%AB%E3%82%B7%E3%83%A5%E3%83%BC%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0)にトラブルシューティング情報をまとめていく予定です。
+
 バグ報告や要望は[本レポジトリのIssue](https://github.com/dj-kata/sdvx_helper/issues)またはTwitter(@[cold_planet_](https://twitter.com/cold_planet_))にご連絡ください。  
 ytlive_helper でエゴサしてるかもしれません。
