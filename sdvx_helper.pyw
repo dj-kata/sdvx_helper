@@ -534,6 +534,7 @@ class SDVXHelper:
                     done_thissong = False # 曲が始まるタイミングでクリア
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
+                    self.save_playerinfo()
                     if self.settings['autosave_always']:
                         ts = os.path.getmtime(self.imgpath)
                         now = datetime.datetime.fromtimestamp(ts)
@@ -541,7 +542,6 @@ class SDVXHelper:
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']:
                             self.save_screenshot_general()
-                            self.save_playerinfo()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
                     if self.chk_blastermax():
