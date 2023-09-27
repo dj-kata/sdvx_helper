@@ -119,7 +119,47 @@ class GenSummary:
             bg_small.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
         return True
 
-    def generate(self):
+    def generate_today_all(self, dst:str):
+        logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
+        if type(dst) == str:
+            try:
+                # 枚数を検出
+                num = 0
+                bg = Image.new('RGB', (500,500), (0,0,0))
+                for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                    img = Image.open(f)
+                    ts = os.path.getmtime(f)
+                    now = datetime.datetime.fromtimestamp(ts)
+                    if self.start.timestamp() > now.timestamp():
+                        break
+                    if self.is_result(img):
+                        if self.put_result(img, bg, bg, 0):
+                            num += 1
+                print(f"検出した枚数num:{num}")
+                logger.debug(f"検出した枚数num:{num}")
+                if num == 0:
+                    print('本日のリザルトが1枚もありません。スキップします。')
+                    return False
+                # 画像生成
+                idx = 0
+                h = self.params['log_margin']*2 + max(num,self.params['log_maxnum'])*self.params['log_rowsize']
+                bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
+                bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
+                for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                    img = Image.open(f)
+                    ts = os.path.getmtime(f)
+                    now = datetime.datetime.fromtimestamp(ts)
+                    if self.start.timestamp() > now.timestamp():
+                        break
+                    if self.is_result(img):
+                        if self.put_result(img, bg, bg_small, idx):
+                            idx += 1
+                bg.save(dst)
+            except Exception as e:
+                logger.error(traceback.format_exc())
+            return True
+
+    def generate(self): # max_num_offset: 1日の最後など、全リザルトを対象としたい場合に大きい値を設定する
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
 
         try:
@@ -149,6 +189,6 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=9,day=24,hour=16)
-    a = GenSummary(start, 'pic', ignore_rankD=False)
-    a.generate()
+    start = datetime.datetime(year=2023,month=9,day=26,hour=0)
+    a = GenSummary(start, 'pic', ignore_rankD=True)
+    a.generate_today_all('hoge.png')

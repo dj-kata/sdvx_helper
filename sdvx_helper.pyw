@@ -509,6 +509,8 @@ class SDVXHelper:
             if self.detect_mode == detect_mode.play:
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
+            if self.detect_mode == detect_mode.result:
+                self.save_playerinfo()
             if self.detect_mode == detect_mode.select:
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
@@ -534,7 +536,6 @@ class SDVXHelper:
                     done_thissong = False # 曲が始まるタイミングでクリア
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
-                    self.save_playerinfo()
                     if self.settings['autosave_always']:
                         ts = os.path.getmtime(self.imgpath)
                         now = datetime.datetime.fromtimestamp(ts)
@@ -569,6 +570,7 @@ class SDVXHelper:
 
         self.gen_summary = GenSummary(now_mod, self.settings['autosave_dir'], self.settings['ignore_rankD'])
         self.gen_summary.generate()
+        self.starttime = now
         self.gui_main()
         self.th = False
         self.control_obs_sources('boot')
@@ -589,6 +591,9 @@ class SDVXHelper:
                 if self.gui_mode == gui_mode.main:
                     self.save_settings()
                     self.control_obs_sources('quit')
+                    summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
+                    print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
+                    self.gen_summary.generate_today_all(summary_filename)
                     break
                 else:
                     try:
