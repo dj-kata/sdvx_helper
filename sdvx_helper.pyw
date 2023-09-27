@@ -17,6 +17,7 @@ import imagehash, keyboard
 import subprocess
 from bs4 import BeautifulSoup
 import requests
+from manage_settings import *
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -75,6 +76,7 @@ class SDVXHelper:
         keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
+        self.save_settings() # 値が追加された場合のために、一度保存
         self.connect_obs()
 
         self.gen_summary = False
@@ -100,32 +102,6 @@ class SDVXHelper:
         return ret
 
     def load_settings(self):
-        default_val = {
-            'lx':0, 'ly':0,
-            'host':'localhost', 'port':'4444', 'passwd':'',
-            'autosave_dir':'','autosave_always':False,'autosave_interval':60,
-            'obs_source':'', 'top_is_right':False, # 回転している前提、画面上部が右ならTrueにする
-            # スレッド起動時の設定
-            'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
-            # 0: シーン開始時
-            'obs_enable_select0':[],'obs_disable_select0':[],'obs_scene_select':'',
-            'obs_enable_play0':[],'obs_disable_play0':[],'obs_scene_play':'',
-            'obs_enable_result0':[],'obs_disable_result0':[],'obs_scene_result':'',
-            # 1: シーン終了時
-            'obs_enable_select1':[],'obs_disable_select1':[],
-            'obs_enable_play1':[],'obs_disable_play1':[],
-            'obs_enable_result1':[],'obs_disable_result1':[],
-            # スレッド終了時時の設定
-            'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
-            # プレイ回数設定関連
-            'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
-            # ブラスターゲージMAX時のリマインド用
-            'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
-            # others
-            'ignore_rankD':True, 'auto_update':True,
-            'params_json':'resources/params.json',
-            'logpic_offset_time':2, # ログ生成画像について、起動の何時間前以降を対象とするか
-        }
         ret = {}
         try:
             with open(SETTING_FILE) as f:
@@ -203,6 +179,7 @@ class SDVXHelper:
             self.settings['obs_txt_plays_header'] = val['obs_txt_plays_header']
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
             self.settings['alert_blastermax'] = val['alert_blastermax']
+            self.settings['logpic_bg_alpha'] = val['logpic_bg_alpha']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -294,6 +271,7 @@ class SDVXHelper:
                 sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
             ],
             [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
+            [par_text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([str(i) for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
         ]
         layout = [
@@ -568,7 +546,7 @@ class SDVXHelper:
         now = datetime.datetime.now()
         now_mod = now - datetime.timedelta(hours=self.settings['logpic_offset_time']) # 多少の猶予をつける。2時間前までは遡る
 
-        self.gen_summary = GenSummary(now_mod, self.settings['autosave_dir'], self.settings['ignore_rankD'])
+        self.gen_summary = GenSummary(now_mod)
         self.gen_summary.generate()
         self.starttime = now
         self.gui_main()

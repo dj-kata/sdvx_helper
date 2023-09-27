@@ -20,13 +20,14 @@ hdl.setFormatter(hdl_formatter)
 logger.addHandler(hdl)
 
 class GenSummary:
-    def __init__(self, now, savedir, ignore_rankD=True):
+    def __init__(self, now):
         self.start = now
-        self.savedir = savedir
-        self.ignore_rankD = ignore_rankD
         self.load_settings()
+        self.savedir = self.settings['autosave_dir']
+        self.ignore_rankD = self.settings['ignore_rankD']
+        self.alpha = self.settings['logpic_bg_alpha']
         self.max_num = self.params['log_maxnum']
-        print(now, savedir)
+        print(now, self.savedir)
 
     def load_settings(self):
         try:
@@ -144,6 +145,7 @@ class GenSummary:
                 idx = 0
                 h = self.params['log_margin']*2 + max(num,self.params['log_maxnum'])*self.params['log_rowsize']
                 bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
+                bg.putalpha(self.alpha)
                 bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
                 for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
                     img = Image.open(f)
@@ -169,6 +171,8 @@ class GenSummary:
             h = self.params['log_margin']*2 + self.params['log_maxnum']*self.params['log_rowsize']
             bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
             bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
+            bg.putalpha(self.alpha) #背景を透過
+            bg_small.putalpha(self.alpha)
             idx = 0
             for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
                 #logger.debug(f'f={f}')
@@ -190,5 +194,6 @@ class GenSummary:
 
 if __name__ == '__main__':
     start = datetime.datetime(year=2023,month=9,day=26,hour=0)
-    a = GenSummary(start, 'pic', ignore_rankD=True)
+    a = GenSummary(start)
+    a.generate()
     a.generate_today_all('hoge.png')
