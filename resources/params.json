@@ -1,8 +1,13 @@
 {
-    "onplay_sx": 0,
-    "onplay_sy": 0,
-    "onplay_w": 1080,
-    "onplay_h": 200,
+    "onplay_val1_sx": 0,
+    "onplay_val1_sy": 420,
+    "onplay_val1_w": 131,
+    "onplay_val1_h": 88,
+    "onplay_val2_sx": 15,
+    "onplay_val2_sy": 876,
+    "onplay_val2_w": 296,
+    "onplay_val2_h": 16,
+
     "onselect_sx": 0,
     "onselect_sy": 1310,
     "onselect_w": 150,

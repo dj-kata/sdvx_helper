@@ -409,12 +409,18 @@ class SDVXHelper:
     
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
-        img = self.get_capture_after_rotate().crop(self.get_detect_points('onplay'))
+        img_o = self.get_capture_after_rotate()
+        img = img_o.crop(self.get_detect_points('onplay_val1'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onplay.png')
+        img = Image.open('resources/onplay1.png')
         hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 10
-        return ret
+        ret1 = abs(hash_target - tmp) < 10
+        img = img_o.crop(self.get_detect_points('onplay_val2'))
+        tmp = imagehash.average_hash(img)
+        img = Image.open('resources/onplay2.png')
+        hash_target = imagehash.average_hash(img)
+        ret2 = abs(hash_target - tmp) < 10
+        return ret1&ret2
 
     # 現在の画面が曲決定画面かどうか判定
     def is_ondetect(self):
@@ -500,7 +506,8 @@ class SDVXHelper:
                         self.obs.save_screenshot()
                         self.update_musicinfo()
                         done_thissong = True
-                if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
+                #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
+                if self.is_onplay():
                     self.detect_mode = detect_mode.play
 
             # 状態遷移判定
