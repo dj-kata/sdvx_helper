@@ -65,7 +65,9 @@ class SDVXHelper:
         self.ico=self.ico_path('icon.ico')
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
+        self.last_play0_time = datetime.datetime.now()
         self.last_autosave_time = datetime.datetime.now()
+        self.img_rot = False # 正しい向きに直したImage形式の画像
         self.stop_thread = False # 強制停止用
         self.is_blastermax = False
         self.gen_first_vf = False
@@ -137,10 +139,9 @@ class SDVXHelper:
         print(f"スクリーンショットを保存しました -> {dst}")
 
     def save_playerinfo(self):
-        tmp = self.get_capture_after_rotate(self.imgpath)
-        vf_cur = tmp.crop(self.get_detect_points('vf'))
+        vf_cur = self.img_rot.crop(self.get_detect_points('vf'))
         vf_cur.save('out/vf_cur.png')
-        class_cur = tmp.crop(self.get_detect_points('class'))
+        class_cur = self.img_rot.crop(self.get_detect_points('class'))
         class_cur.save('out/class_cur.png')
         if not self.gen_first_vf: # 本日1プレー目に保存しておく
             vf_cur.save('out/vf_pre.png')
@@ -161,6 +162,7 @@ class SDVXHelper:
                 break
             except Exception:
                 continue
+        self.img_rot = ret
         return ret
     
     def update_settings(self, ev, val):
@@ -365,7 +367,7 @@ class SDVXHelper:
     
     # 現在の画面が選曲画面かどうか判定
     def is_onselect(self):
-        img = self.get_capture_after_rotate().crop(self.get_detect_points('onselect'))
+        img = self.img_rot.crop(self.get_detect_points('onselect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onselect.png')
         hash_target = imagehash.average_hash(img)
@@ -375,15 +377,13 @@ class SDVXHelper:
 
     # 現在の画面がリザルト画面かどうか判定
     def is_onresult(self):
-        img = self.get_capture_after_rotate()
-
-        cr = img.crop(self.get_detect_points('onresult_val0'))
+        cr = self.img_rot.crop(self.get_detect_points('onresult_val0'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
         hash_target = imagehash.average_hash(img_j)
         val0 = abs(hash_target - tmp) <5 
 
-        cr = img.crop(self.get_detect_points('onresult_val1'))
+        cr = self.img_rot.crop(self.get_detect_points('onresult_val1'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult2.png')
         hash_target = imagehash.average_hash(img_j)
@@ -391,7 +391,7 @@ class SDVXHelper:
 
         ret = val0 & val1
         if self.params['onresult_enable_head']:
-            cr = img.crop(self.get_detect_points('onresult_head'))
+            cr = self.img_rot.crop(self.get_detect_points('onresult_head'))
             tmp = imagehash.average_hash(cr)
             img_j = Image.open('resources/result_head.png')
             hash_target2 = imagehash.average_hash(img_j)
@@ -409,13 +409,12 @@ class SDVXHelper:
     
     # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
-        img_o = self.get_capture_after_rotate()
-        img = img_o.crop(self.get_detect_points('onplay_val1'))
+        img = self.img_rot.crop(self.get_detect_points('onplay_val1'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onplay1.png')
         hash_target = imagehash.average_hash(img)
         ret1 = abs(hash_target - tmp) < 10
-        img = img_o.crop(self.get_detect_points('onplay_val2'))
+        img = self.img_rot.crop(self.get_detect_points('onplay_val2'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onplay2.png')
         hash_target = imagehash.average_hash(img)
@@ -424,7 +423,7 @@ class SDVXHelper:
 
     # 現在の画面が曲決定画面かどうか判定
     def is_ondetect(self):
-        img = self.get_capture_after_rotate().crop(self.get_detect_points('ondetect'))
+        img = self.img_rot.crop(self.get_detect_points('ondetect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/ondetect.png')
         hash_target = imagehash.average_hash(img)
@@ -433,7 +432,7 @@ class SDVXHelper:
     
     # result, playの後の遷移画面(ゲームタイトルロゴ)かどうかを判定
     def is_onlogo(self):
-        img = self.get_capture_after_rotate().crop(self.get_detect_points('onlogo'))
+        img = self.img_rot.crop(self.get_detect_points('onlogo'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/logo.png')
         hash_target = imagehash.average_hash(img)
@@ -442,7 +441,7 @@ class SDVXHelper:
     
     # blaster gaugeが最大かどうかを検出
     def chk_blastermax(self):
-        img = self.get_capture_after_rotate().crop(self.get_detect_points('blastermax'))
+        img = self.img_rot.crop(self.get_detect_points('blastermax'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/blastermax.png')
         hash_target = imagehash.average_hash(img)
@@ -452,23 +451,22 @@ class SDVXHelper:
     
     # 曲情報を切り出して保存
     def update_musicinfo(self):
-        img = self.get_capture_after_rotate()
-        jacket = img.crop(self.get_detect_points('info_jacket'))
+        jacket = self.img_rot.crop(self.get_detect_points('info_jacket'))
         jacket.save('out/select_jacket.png')
-        title = img.crop(self.get_detect_points('info_title'))
+        title = self.img_rot.crop(self.get_detect_points('info_title'))
         title.save('out/select_title.png')
-        lv = img.crop(self.get_detect_points('info_lv'))
+        lv = self.img_rot.crop(self.get_detect_points('info_lv'))
         lv.save('out/select_level.png')
-        bpm = img.crop(self.get_detect_points('info_bpm'))
+        bpm = self.img_rot.crop(self.get_detect_points('info_bpm'))
         bpm.save('out/select_bpm.png')
-        ef = img.crop(self.get_detect_points('info_ef'))
+        ef = self.img_rot.crop(self.get_detect_points('info_ef'))
         ef.save('out/select_effector.png')
-        illust = img.crop(self.get_detect_points('info_illust'))
+        illust = self.img_rot.crop(self.get_detect_points('info_illust'))
         illust.save('out/select_illustrator.png')
         self.obs.refresh_source('nowplaying')
         self.obs.refresh_source('nowplaying.html')
 
-        img.save('out/select_whole.png')
+        self.img_rot.save('out/select_whole.png')
 
     # メイン処理のループ
     # 速度を重視するため、認識処理は回転する前に行っておく
@@ -480,6 +478,7 @@ class SDVXHelper:
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
             self.obs.save_screenshot()
+            self.get_capture_after_rotate()
             pre_mode = self.detect_mode
             # 全モード共通の処理
             if self.is_onlogo():
@@ -494,7 +493,8 @@ class SDVXHelper:
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.result:
-                self.save_playerinfo()
+                if self.is_onresult():
+                    self.save_playerinfo()
             if self.detect_mode == detect_mode.select:
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
@@ -502,13 +502,18 @@ class SDVXHelper:
                 if not done_thissong:
                     if self.is_ondetect():
                         print(f"曲決定画面を検出")
-                        time.sleep(2)
+                        time.sleep(self.settings['detect_wait'])
                         self.obs.save_screenshot()
                         self.update_musicinfo()
                         done_thissong = True
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                 if self.is_onplay():
-                    self.detect_mode = detect_mode.play
+                    ts = os.path.getmtime(self.imgpath)
+                    now = datetime.datetime.fromtimestamp(ts)
+                    diff = (now - self.last_play0_time).total_seconds()
+                    logger.debug(f'diff = {diff}s')
+                    if diff > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
+                        self.detect_mode = detect_mode.play
 
             # 状態遷移判定
             if pre_mode != self.detect_mode:
@@ -526,7 +531,7 @@ class SDVXHelper:
                         now = datetime.datetime.fromtimestamp(ts)
                         diff = (now - self.last_autosave_time).total_seconds()
                         logger.debug(f'diff = {diff}s')
-                        if diff > self.settings['autosave_interval']:
+                        if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
                             self.save_screenshot_general()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
@@ -538,6 +543,7 @@ class SDVXHelper:
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'')
 
                 if pre_mode == detect_mode.play:
+                    self.last_play0_time = datetime.datetime.now()
                     self.control_obs_sources('play1')
                 if pre_mode == detect_mode.result:
                     self.control_obs_sources('result1')
