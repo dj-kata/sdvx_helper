@@ -474,9 +474,9 @@ class SDVXHelper:
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
-        if not self.obs.save_screenshot():
-            print("\nゲーム画面が検出できません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
-            self.window['txt_obswarning'].update('Error! ゲーム画面未設定')
+        if self.settings['obs_source'] == '':
+            print("\nゲーム画面用ソースが設定されていません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
+            self.window['txt_obswarning'].update('error! ゲーム画面未設定')
             return False
         logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
