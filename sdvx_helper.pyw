@@ -293,7 +293,7 @@ class SDVXHelper:
             [
                 par_text('plays:'), par_text(str(self.plays), key='txt_plays')
                 ,par_text('mode:'), par_text(self.detect_mode.name, key='txt_mode')
-                ,par_text('warning! OBSに接続できません', key='txt_obswarning', text_color="#ff0000")],
+                ,par_text('error! OBS接続不可', key='txt_obswarning', text_color="#ff0000")],
             [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
             [par_text('', size=(40,1), key='txt_info')],
             [sg.Output(size=(63,8), key='output', font=(None, 9))],
@@ -334,7 +334,7 @@ class SDVXHelper:
             self.obs = False
             print('obs socket error!')
             if self.gui_mode == gui_mode.main:
-                self.window['txt_obswarning'].update('warning! OBSに接続できません')
+                self.window['txt_obswarning'].update('error! OBS接続不可')
                 print('Error!! OBSとの接続に失敗しました。')
             return False
 
@@ -473,6 +473,10 @@ class SDVXHelper:
     def detect(self):
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
+            return False
+        if not self.obs.save_screenshot():
+            print("\nゲーム画面が検出できません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
+            self.window['txt_obswarning'].update('Error! ゲーム画面未設定')
             return False
         logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
