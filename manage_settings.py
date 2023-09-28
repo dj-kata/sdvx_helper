@@ -1,7 +1,7 @@
 default_val = {
     'lx':0, 'ly':0,
     'host':'localhost', 'port':'4444', 'passwd':'',
-    'autosave_dir':'','autosave_always':False,'autosave_interval':60,'play0_interval':6,
+    'autosave_dir':'','autosave_always':False,'autosave_interval':60,'play0_interval':10,
     'detect_wait':3.5,
     'obs_source':'', 'top_is_right':False, # 回転している前提、画面上部が右ならTrueにする
     # スレッド起動時の設定
