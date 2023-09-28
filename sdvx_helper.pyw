@@ -504,6 +504,7 @@ class SDVXHelper:
                         print(f"曲決定画面を検出")
                         time.sleep(self.settings['detect_wait'])
                         self.obs.save_screenshot()
+                        self.get_capture_after_rotate()
                         self.update_musicinfo()
                         done_thissong = True
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
