@@ -52,7 +52,7 @@ sdvx_helper.exeをクリックすると実行できます。
 
 自動アップデート機能を搭載しており、更新データがある際は起動時にアップデートが走るようになっています。  
 
-# ytlive_helperの設定方法
+# sdvx_helperの設定方法
 ## 1. OBS(28以降)でwebsocketが使えるように設定する。
 OBSwebsocketについては、インストールされていない場合は[ここ](https://github.com/obsproject/obs-websocket/releases)から最新のalphaってついてないバージョンの(～Windows-Installer.exe)をDLしてインストールしてください。  
 OBSのメニューバー内ツール→WebSocketサーバ設定で以下のように設定してあればOK。
