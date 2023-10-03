@@ -1,3 +1,5 @@
+English ver is [here](https://github.com/dj-kata/sdvx_helper/blob/main/en_README.md).
+
 # sdvx_helper
 コナステ版SOUND VOLTEX用の配信補助ツールです。  
 OBSでの配信を想定しています。  
