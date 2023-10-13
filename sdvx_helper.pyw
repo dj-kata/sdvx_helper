@@ -140,13 +140,14 @@ class SDVXHelper:
 
     def save_playerinfo(self):
         vf_cur = self.img_rot.crop(self.get_detect_points('vf'))
-        vf_cur.save('out/vf_cur.png')
-        class_cur = self.img_rot.crop(self.get_detect_points('class'))
-        class_cur.save('out/class_cur.png')
-        if not self.gen_first_vf: # 本日1プレー目に保存しておく
-            vf_cur.save('out/vf_pre.png')
-            class_cur.save('out/class_pre.png')
-            self.gen_first_vf = True
+        if np.array(vf_cur).sum() > 1400000:
+            vf_cur.save('out/vf_cur.png')
+            class_cur = self.img_rot.crop(self.get_detect_points('class'))
+            class_cur.save('out/class_cur.png')
+            if not self.gen_first_vf: # 本日1プレー目に保存しておく
+                vf_cur.save('out/vf_pre.png')
+                class_cur.save('out/class_pre.png')
+                self.gen_first_vf = True
 
     def get_capture_after_rotate(self, target=None):
         while True:
