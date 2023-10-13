@@ -135,10 +135,14 @@ class GenSummary:
             rsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,0].sum()
             gsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,1].sum()
             bsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,2].sum()
+            #print(rsum, gsum, bsum)
             if rsum < gsum:
                 lamp = 'clear'
             else:
-                lamp = 'hard'
+                if gsum > 200000:
+                    lamp = 'class_clear'
+                else:
+                    lamp = 'hard'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_failed.png')):
             lamp = 'failed'
 
@@ -239,7 +243,7 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=10,day=12,hour=0)
+    start = datetime.datetime(year=2023,month=10,day=2,hour=0)
     a = GenSummary(start)
     a.generate()
     #a.generate_today_all('hoge.png')
