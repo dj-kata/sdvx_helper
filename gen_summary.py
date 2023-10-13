@@ -23,6 +23,7 @@ class GenSummary:
     def __init__(self, now):
         self.start = now
         self.load_settings()
+        self.load_score_hashes()
         self.savedir = self.settings['autosave_dir']
         self.ignore_rankD = self.settings['ignore_rankD']
         self.alpha = self.settings['logpic_bg_alpha']
@@ -41,18 +42,58 @@ class GenSummary:
             with open('resources/params.json', 'r') as f:
                 self.params = json.load(f)
 
+    def load_score_hashes(self):
+        self.score_hash_small = []
+        self.score_hash_large = []
+        for i in range(10):
+            self.score_hash_small.append(imagehash.average_hash(Image.open(f'resources/result_score_s{i}.png')))
+            self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
+
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
         sy = self.params[f'{name}_sy']
         ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
         ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
         return (sx,sy,ex,ey)
-    
+
+    # スコアの抽出
+    # PIL.Imageを受け取ってintのスコアを返す
+    # resources/result_score_{l,s}{0-9}.pngはグレースケールなので注意    
+    def get_score(self, img):
+        img_gray = img.convert('L')
+        tmp = []
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_large_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_large_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_large_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_large_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_small_4')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_small_5')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_small_6')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_score_small_7')))
+        out = []
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            minid = -1
+            minval = 999999
+            if j < 4:
+                for i,h in enumerate(self.score_hash_large):
+                    val = abs(h - hash)
+                    minid = i if val<minval else minid
+                    minval = val if val<minval else minval
+            else:
+                for i,h in enumerate(self.score_hash_small):
+                    val = abs(h - hash)
+                    minid = i if val<minval else minid
+                    minval = val if val<minval else minval
+            out.append(minid)
+        ret = int(''.join(map(str, out)))
+        return ret
+
     def comp_images(self, img1, img2, threshold=10):
         val1 = imagehash.average_hash(img1)
         val2 = imagehash.average_hash(img2)
         return abs(val2-val1) < threshold
-
+    
     def is_result(self,img):
         cr = img.crop(self.get_detect_points('onresult_val0'))
         img_j = Image.open('resources/onresult.png')
@@ -91,7 +132,10 @@ class GenSummary:
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_uc.png')):
             lamp = 'uc'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_clear.png')):
-            if self.comp_images(img.crop(self.get_detect_points('gauge')), Image.open('resources/gauge_normal.png'), threshold=self.params['gauge_clear_threshold']):
+            rsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,0].sum()
+            gsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,1].sum()
+            bsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,2].sum()
+            if rsum < gsum:
                 lamp = 'clear'
             else:
                 lamp = 'hard'
@@ -183,6 +227,8 @@ class GenSummary:
                 if self.start.timestamp() > now.timestamp():
                     break
                 if self.is_result(img):
+                    print(f)
+                    self.get_score(img)
                     if self.put_result(img, bg, bg_small, idx):
                         idx += 1
                     if idx >= self.max_num:
@@ -193,7 +239,7 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=9,day=26,hour=0)
+    start = datetime.datetime(year=2023,month=10,day=12,hour=0)
     a = GenSummary(start)
     a.generate()
-    a.generate_today_all('hoge.png')
+    #a.generate_today_all('hoge.png')
