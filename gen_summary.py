@@ -54,8 +54,40 @@ class GenSummary:
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
 
-        with open('resources/musiclist.pkl', 'rb') as f:
-            self.musiclist = pickle.load(f)
+        try:
+            with open('resources/musiclist.pkl', 'rb') as f:
+                self.musiclist = pickle.load(f)
+        except:
+            print('musiclist読み込み時エラー。新規作成します。')
+            self.musiclist = {}
+            self.musiclist['jacket'] = {}
+            self.musiclist['jacket']['nov'] = {}
+            self.musiclist['jacket']['adv'] = {}
+            self.musiclist['jacket']['exh'] = {}
+            self.musiclist['jacket']['APPEND'] = {}
+            self.musiclist['info'] = {}
+            self.musiclist['info']['nov'] = {}
+            self.musiclist['info']['adv'] = {}
+            self.musiclist['info']['exh'] = {}
+            self.musiclist['info']['APPEND'] = {}
+
+        # 譜面毎のハッシュ一覧を作っておく(検索用)
+        # keyはハッシュ値、右辺は曲名
+        self.musiclist_hash = {}
+        self.musiclist_hash['jacket'] = {}
+        self.musiclist_hash['jacket']['nov'] = {}
+        self.musiclist_hash['jacket']['adv'] = {}
+        self.musiclist_hash['jacket']['exh'] = {}
+        self.musiclist_hash['jacket']['APPEND'] = {}
+        self.musiclist_hash['info'] = {}
+        self.musiclist_hash['info']['nov'] = {}
+        self.musiclist_hash['info']['adv'] = {}
+        self.musiclist_hash['info']['exh'] = {}
+        self.musiclist_hash['info']['APPEND'] = {}
+        for pos in ('jacket', 'info'):
+            for diff in ('nov', 'adv', 'exh', 'APPEND'):
+                for s in self.musiclist[pos][diff].keys():
+                    self.musiclist_hash[pos][diff][self.musiclist[pos][diff][s][0]] = s
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -166,16 +198,10 @@ class GenSummary:
             ret &= val2
         return ret
 
-    def put_result(self, img, bg, bg_small, idx):
+    def cut_result_parts(self, img):
         parts = {}
         parts['rank'] = img.crop(self.get_detect_points('log_crop_rank'))
-        img_d = Image.open('resources/rank_d.png')
-        # ランクDの場合は飛ばす
-        if abs(imagehash.average_hash(parts['rank']) - imagehash.average_hash(img_d)) < 10:
-            if self.ignore_rankD:
-                logger.debug(f'skip! (idx={idx})')
-                return False
-            
+
         # 各パーツの切り取り
         for i in ('title', 'title_small', 'difficulty', 'rate', 'score', 'jacket', 'info'):
             parts[i] = img.crop(self.get_detect_points('log_crop_'+i))
@@ -211,7 +237,6 @@ class GenSummary:
         parts['jacket_org'] = parts['jacket']
         parts['jacket']     = parts['jacket'].resize((36,36))
 
-        rowsize = self.params['log_rowsize']
         parts['lamp'] = Image.open(f'resources/log_lamp_{lamp}.png')
         parts['lamp_small'] = parts['lamp']
         parts['score_small'] = parts['score']
@@ -219,6 +244,19 @@ class GenSummary:
         parts['jacket_small'] = parts['jacket']
         parts['difficulty_small'] = parts['difficulty']
         self.result_parts = parts
+        return parts
+
+    def put_result(self, img, bg, bg_small, idx):
+        img_d = Image.open('resources/rank_d.png')
+        # ランクDの場合は飛ばす
+        if abs(imagehash.average_hash(img.crop(self.get_detect_points('log_crop_rank'))) - imagehash.average_hash(img_d)) < 10:
+            if self.ignore_rankD:
+                logger.debug(f'skip! (idx={idx})')
+                return False
+            
+        parts = self.cut_result_parts(img)
+        rowsize = self.params['log_rowsize']
+
         for i in self.params['log_parts']:
             bg.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
 
@@ -287,15 +325,18 @@ class GenSummary:
             difficulty = 'exh'
         else:
             difficulty = 'APPEND'
-        for h in self.musiclist['jacket'][difficulty].keys():
-            if abs(imagehash.hex_to_hash(h) - hash_jacket) < 5:
-                ret = self.musiclist['jacket'][difficulty][h]
+        for h in self.musiclist_hash['jacket'][difficulty].keys():
+            h = imagehash.hex_to_hash(h)
+            if abs(h - hash_jacket) < 5:
+                ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                 break
         if not detected:
-            for h in self.musiclist['info'][difficulty].keys():
-                if abs(imagehash.hex_to_hash(h) - hash_info) < 5:
-                    ret = self.musiclist['info'][difficulty][h]
-                    break
+            pass # 曲名エリアからの認識だと精度が悪いので放置
+            #for h in self.musiclist_hash['info'][difficulty].keys():
+            #    h = imagehash.hex_to_hash(h)
+            #    if abs(h - hash_info) < 5:
+            #        ret = self.musiclist_hash['info'][difficulty][str(h)]
+            #        #break
         self.difficulty = difficulty
         return ret
     
@@ -303,25 +344,25 @@ class GenSummary:
     def chk_ocr(self, iternum=500):
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
         try:
-            h = self.params['log_margin']*2 + iternum*self.params['log_rowsize']
-            bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
-            bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
             idx = 0
             for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
                 img = Image.open(f)
                 if self.is_result(img):
                     cur,pre = self.get_score(img)
-                    if self.put_result(img, bg, bg_small, idx) != False:
+                    if self.cut_result_parts(img) != False:
                         idx+=1
                         ocr_result = self.ocr()
                         print(f"{f[-19:]}: {cur:,} ({pre:,}), {ocr_result}")
                         if ocr_result == False:
-                            self.send_webhook()
+                            pass
+                            #self.send_webhook()
                 if idx >= iternum:
                     break
         except Exception as e:
             logger.error(traceback.format_exc())
 
+    def get_result_files(self):
+        return reversed(glob.glob(self.savedir+'/sdvx_*.png'))
 
     def generate(self): # max_num_offset: 1日の最後など、全リザルトを対象としたい場合に大きい値を設定する
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
@@ -361,4 +402,4 @@ if __name__ == '__main__':
     a = GenSummary(start)
     #a.generate()
     #a.generate_today_all('hoge.png')
-    a.chk_ocr(3)
+    a.chk_ocr(60)
