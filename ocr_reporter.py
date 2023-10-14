@@ -107,6 +107,28 @@ class Reporter:
         self.titles = titles
         print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
 
+    def send_webhook(self, title, difficulty):
+        if self.gen_summary.result_parts != False:
+            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
+            msg = f"**{title}**\n"
+            for i in ('jacket_org', 'info'):
+                msg += f"- **{imagehash.average_hash(self.gen_summary.result_parts[i])}**\n"
+            img_bytes = io.BytesIO()
+            self.gen_summary.result_parts['info'].save(img_bytes, format='PNG')
+            webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
+            msg += f"(difficulty: **{difficulty.upper()}**)"
+
+            webhook.content=msg
+
+        res = webhook.execute()
+
+    def send_pkl(self):
+        webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
+        with open('resources/musiclist.pkl', 'rb') as f:
+            webhook.add_file(file=f.read(), filename='musiclist.pkl')
+        webhook.content = f"追加した譜面数: {self.num_added_fumen}"
+        res = webhook.execute()
+    
     ##############################################
     ##########          GUIの設定
     ##############################################
@@ -192,6 +214,8 @@ class Reporter:
             ev, val = self.window.read()
             if ev in (sg.WIN_CLOSED, 'Escape:27', '-WINDOW CLOSE ATTEMPTED-', 'btn_close_info', 'btn_close_setting'):
                 self.save()
+                if self.num_added_fumen > 0:
+                    self.send_pkl()
                 break
             elif ev == 'files': # ファイル選択時
                 f = self.window['files'].get()[val[ev][0]]
@@ -207,11 +231,16 @@ class Reporter:
                     self.window['state'].update('')
                     self.window['hash_jacket'].update(str(imagehash.average_hash(parts['jacket_org'])))
                     self.window['hash_info'].update(str(imagehash.average_hash(parts['info'])))
-                    self.gen_summary.ocr()
+                    res_ocr = self.gen_summary.ocr()
                     if self.gen_summary.difficulty != False:
                         self.window['combo_difficulty'].update(self.gen_summary.difficulty)
                     else:
                         self.window['combo_difficulty'].update('')
+                    print(res_ocr)
+                    if res_ocr == False:
+                        self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。')
+                    else:
+                        self.window['state'].update('')
                 else:
                     self.window['jacket'].update(None)
                     self.window['info'].update(None)
@@ -231,9 +260,11 @@ class Reporter:
                     print(difficulty, hash_jacket, hash_info)
                     if (difficulty != '') and (hash_jacket != ''):
                         # TODO ジャケットなしの曲はinfoを登録する
+                        self.send_webhook(music[0], difficulty)
                         if music[0] not in self.musiclist['info'][difficulty].keys():
                             print('登録されていません。全譜面の情報を登録します。')
                             for i,diff in enumerate(diff_table):
+                                self.num_added_fumen += 1
                                 self.musiclist['jacket'][diff][music[0]] = [str(hash_jacket), music[1], music[3+i]]
                                 if hash_info != '':
                                     self.musiclist['info'][diff][music[0]] = [str(hash_info), music[1], music[3+i]]
@@ -242,6 +273,7 @@ class Reporter:
                                 self.filelist_bgcolor[val['files'][0]][-1] = '#333399'
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
                         else:
+                            self.num_added_fumen += 1
                             print(f'曲自体の登録はされています。この譜面({difficulty})のみhashを修正します。')
                             self.musiclist['jacket'][difficulty][music[0]][0] = str(hash_jacket)
                             if hash_info != '':
@@ -250,6 +282,7 @@ class Reporter:
                                 self.filelist_bgcolor[val['files'][0]][-2] = '#dddddd'
                                 self.filelist_bgcolor[val['files'][0]][-1] = '#333399'
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
+                        self.window['num_added_fumen'].update(self.num_added_fumen)
                     else:
                         print('難易度が取得できません')
 
