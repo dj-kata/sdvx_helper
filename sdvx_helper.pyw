@@ -176,7 +176,7 @@ class SDVXHelper:
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
         self.gen_summary.cut_result_parts(tmp)
-        res_ocr = self.gen_summary.ocr()
+        res_ocr = self.gen_summary.ocr(notify=True)
         if res_ocr != False: # OCRで曲名認識に成功
             for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
                 title = title.replace(ch, '')

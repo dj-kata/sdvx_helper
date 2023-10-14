@@ -24,6 +24,7 @@ class GenSummary:
     def __init__(self, now):
         self.start = now
         self.result_parts = False
+        self.difficulty = False
         self.load_settings()
         self.load_hashes()
         self.savedir = self.settings['autosave_dir']
@@ -170,9 +171,9 @@ class GenSummary:
             webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
             msg = ''
             for i in ('jacket_org', 'info'):
-                msg += f"- **{imagehash.average_hash(self.gen_summary.result_parts[i])}**\n"
+                msg += f"- **{imagehash.average_hash(self.result_parts[i])}**\n"
             img_bytes = io.BytesIO()
-            self.gen_summary.result_parts['info'].save(img_bytes, format='PNG')
+            self.result_parts['info'].save(img_bytes, format='PNG')
             webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
             msg += f"(difficulty: **{self.difficulty.upper()}**)"
 
@@ -225,6 +226,9 @@ class GenSummary:
                     lamp = 'hard'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_failed.png')):
             lamp = 'failed'
+
+        if lamp == '':
+            return False
 
         # 各パーツのリサイズ
         # 上4桁だけにする
@@ -305,7 +309,7 @@ class GenSummary:
                 logger.error(traceback.format_exc())
             return True
         
-    def ocr(self):
+    def ocr(self, notify:bool=False):
         diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
         hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
         hash_adv = imagehash.average_hash(Image.open('resources/difficulty_adv.png'))
@@ -325,20 +329,21 @@ class GenSummary:
             difficulty = 'exh'
         else:
             difficulty = 'APPEND'
+        self.difficulty = difficulty
         for h in self.musiclist_hash['jacket'][difficulty].keys():
             h = imagehash.hex_to_hash(h)
             if abs(h - hash_jacket) < 5:
                 ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                 break
         if not detected:
-            self.send_webhook()
+            if notify:
+                self.send_webhook()
             # 曲名エリアからの認識だと精度が悪いので放置
             #for h in self.musiclist_hash['info'][difficulty].keys():
             #    h = imagehash.hex_to_hash(h)
             #    if abs(h - hash_info) < 5:
             #        ret = self.musiclist_hash['info'][difficulty][str(h)]
             #        #break
-        self.difficulty = difficulty
         return ret
     
     # OCRの動作確認用。未検出のものを見つけて報告するために使う。

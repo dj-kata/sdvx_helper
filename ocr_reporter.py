@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 import sys
 import requests
 import pickle
+import threading
 from collections import defaultdict
 from gen_summary import *
 from manage_settings import *
@@ -29,6 +30,7 @@ class Reporter:
         self.ico=self.ico_path('icon.ico')
         self.num_added_music = 0 # 登録した曲数
         self.num_added_fumen = 0 # 登録した譜面数(>=num_added_music)
+        self.flg_registered = {} # key:ファイル名、値:登録済みならTrue.do_coloringの結果保存用。
         self.gui()
         self.main()
 
@@ -126,7 +128,7 @@ class Reporter:
         webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
         with open('resources/musiclist.pkl', 'rb') as f:
             webhook.add_file(file=f.read(), filename='musiclist.pkl')
-        webhook.content = f"追加した譜面数: {self.num_added_fumen}"
+        webhook.content = f"追加した譜面数: {self.num_added_fumen}, total: {len(self.musiclist['jacket']['exh'])}"
         res = webhook.execute()
     
     ##############################################
@@ -186,7 +188,7 @@ class Reporter:
             to_push = True
             if self.window['filter'].get().strip() != '':
                 for search_word in self.window['filter'].get().strip().split(' '):
-                    if search_word.lower() not in s[0].lower():
+                    if (search_word.lower() not in s[0].lower()) and (search_word.lower() not in s[1].lower()):
                         to_push = False
             if to_push: # 表示するデータを追加
                 ret.append(s)
@@ -208,6 +210,21 @@ class Reporter:
             #    ret.append(f)
         self.filelist_bgcolor = bgcs
         return ret, bgcs
+    
+    # ファイル一覧に対し、OCR結果に応じた色を付ける
+    def do_coloring(self):
+        for i,f in enumerate(list(self.gen_summary.get_result_files())):
+            img = Image.open(f)
+            if self.gen_summary.is_result(img):
+                self.gen_summary.cut_result_parts(img)
+                res = self.gen_summary.ocr()
+                if res != False:
+                    self.filelist_bgcolor[i][1] = '#dddddd'
+                    self.filelist_bgcolor[i][2] = '#333399'
+            else:
+                self.filelist_bgcolor[i][1] = '#dddddd'
+                self.filelist_bgcolor[i][2] = '#333333'
+        self.window['files'].update(row_colors=self.filelist_bgcolor)
 
     def main(self):
         while True:
@@ -254,6 +271,10 @@ class Reporter:
             elif ev == 'clear':
                 self.window['filter'].update('')
                 self.window['musics'].update(self.get_musiclist())
+            elif ev == 'coloring':
+                self.th_coloring = threading.Thread(target=self.do_coloring, daemon=True)
+                self.th_coloring.start()
+                self.window['state'].update('ファイル一覧をOCR結果に応じて色付け中。しばらくお待ちください。', text_color='#000000')
             elif ev == 'register':
                 music = self.window['txt_title'].get()
                 if music != '':
