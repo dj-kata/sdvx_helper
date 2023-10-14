@@ -267,9 +267,6 @@ class GenSummary:
                 logger.error(traceback.format_exc())
             return True
         
-    def calc_hamming_dist(self, hash1, hash2):
-        return hash1-hash2 < 5
-
     def ocr(self):
         diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
         hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
@@ -291,14 +288,12 @@ class GenSummary:
         else:
             difficulty = 'APPEND'
         for h in self.musiclist['jacket'][difficulty].keys():
-            detected = self.calc_hamming_dist(imagehash.hex_to_hash(h), hash_jacket)
-            if detected:
+            if abs(imagehash.hex_to_hash(h) - hash_jacket) < 5:
                 ret = self.musiclist['jacket'][difficulty][h]
                 break
         if not detected:
             for h in self.musiclist['info'][difficulty].keys():
-                detected = self.calc_hamming_dist(imagehash.hex_to_hash(h), hash_info)
-                if detected:
+                if abs(imagehash.hex_to_hash(h) - hash_info) < 5:
                     ret = self.musiclist['info'][difficulty][h]
                     break
         self.difficulty = difficulty
