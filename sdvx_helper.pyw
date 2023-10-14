@@ -134,9 +134,12 @@ class SDVXHelper:
         fmtnow = format(now, "%Y%m%d_%H%M%S")
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
-        tmp.save(dst)
         self.gen_summary.cut_result_parts(tmp)
         res_ocr = self.gen_summary.ocr()
+        if res_ocr != False:
+            cur,_ = self.gen_summary.get_score(tmp)
+            dst = f"{self.settings['autosave_dir']}/sdvx_{res_ocr}_{self.gen_summary.difficulty}_{cur}__{fmtnow}.png"
+        tmp.save(dst)
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
 
