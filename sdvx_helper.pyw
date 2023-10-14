@@ -138,7 +138,7 @@ class SDVXHelper:
         res_ocr = self.gen_summary.ocr()
         if res_ocr != False:
             cur,_ = self.gen_summary.get_score(tmp)
-            dst = f"{self.settings['autosave_dir']}/sdvx_{res_ocr}_{self.gen_summary.difficulty}_{cur}__{fmtnow}.png"
+            dst = f"{self.settings['autosave_dir']}/sdvx_{res_ocr}_{self.gen_summary.difficulty}_{self.gen_summary.lamp}_{cur}.png"
         tmp.save(dst)
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")

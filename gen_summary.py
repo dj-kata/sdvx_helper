@@ -169,13 +169,12 @@ class GenSummary:
         if self.result_parts != False:
             webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
             msg = ''
-            for idx,i in enumerate(('jacket_org', 'info', 'difficulty_org')):
-                img_bytes = io.BytesIO()
-                self.result_parts[i].save(img_bytes, format='PNG')
-                webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
-                if idx < 2:
-                    msg += f"{i}: **{imagehash.average_hash(self.result_parts[i])}**\n"
-            msg += f"(difficulty: {self.difficulty})"
+            for i in ('jacket_org', 'info'):
+                msg += f"- **{imagehash.average_hash(self.gen_summary.result_parts[i])}**\n"
+            img_bytes = io.BytesIO()
+            self.gen_summary.result_parts['info'].save(img_bytes, format='PNG')
+            webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
+            msg += f"(difficulty: **{self.difficulty.upper()}**)"
 
             webhook.content=msg
 
@@ -244,6 +243,7 @@ class GenSummary:
         parts['jacket_small'] = parts['jacket']
         parts['difficulty_small'] = parts['difficulty']
         self.result_parts = parts
+        self.lamp = lamp
         return parts
 
     def put_result(self, img, bg, bg_small, idx):
@@ -331,7 +331,8 @@ class GenSummary:
                 ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                 break
         if not detected:
-            pass # 曲名エリアからの認識だと精度が悪いので放置
+            self.send_webhook()
+            # 曲名エリアからの認識だと精度が悪いので放置
             #for h in self.musiclist_hash['info'][difficulty].keys():
             #    h = imagehash.hex_to_hash(h)
             #    if abs(h - hash_info) < 5:
