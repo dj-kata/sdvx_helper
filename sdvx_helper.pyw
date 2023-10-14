@@ -137,8 +137,11 @@ class SDVXHelper:
         self.gen_summary.cut_result_parts(tmp)
         res_ocr = self.gen_summary.ocr()
         if res_ocr != False:
+            title = res_ocr
+            for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
+                title = title.replace(ch, '')
             cur,_ = self.gen_summary.get_score(tmp)
-            dst = f"{self.settings['autosave_dir']}/sdvx_{res_ocr}_{self.gen_summary.difficulty}_{self.gen_summary.lamp}_{cur}.png"
+            dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}.png"
         tmp.save(dst)
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
