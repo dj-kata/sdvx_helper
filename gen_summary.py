@@ -1,10 +1,11 @@
 #!/usr/bin/python3
-import glob, os
+import glob, os, io
 from PIL import Image
 import imagehash
 import datetime, json
 import logging, logging.handlers, traceback
 import numpy as np
+from discord_webhook import DiscordWebhook
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -22,6 +23,7 @@ logger.addHandler(hdl)
 class GenSummary:
     def __init__(self, now):
         self.start = now
+        self.result_parts = False
         self.load_settings()
         self.load_score_hashes()
         self.savedir = self.settings['autosave_dir']
@@ -45,9 +47,11 @@ class GenSummary:
     def load_score_hashes(self):
         self.score_hash_small = []
         self.score_hash_large = []
+        self.bestscore_hash   = []
         for i in range(10):
             self.score_hash_small.append(imagehash.average_hash(Image.open(f'resources/result_score_s{i}.png')))
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
+            self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -86,13 +90,59 @@ class GenSummary:
                     minid = i if val<minval else minid
                     minval = val if val<minval else minval
             out.append(minid)
-        ret = int(''.join(map(str, out)))
-        return ret
+        cur_score = int(''.join(map(str, out)))
+
+        # bestスコアの処理
+        tmp = []
+        out = []
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_4')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_5')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_6')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestscore_7')))
+        #for j,t in enumerate(tmp):
+        #    hash = imagehash.average_hash(t)
+        #    t.save(f"result_bestscore_{hash}.png")
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            minid = -1
+            minval = 999999
+            for i,h in enumerate(self.bestscore_hash):
+                val = abs(h - hash)
+                minid = i if val<minval else minid
+                minval = val if val<minval else minval
+            if minid in (9,8): # 8,9の判定を間違えやすいので、左下の色を見て判別
+                if np.array(t)[10][1] < 100:
+                    minid = 9
+                else:
+                    minid = 8
+            out.append(minid)
+        pre_score = int(''.join(map(str, out)))
+
+        return cur_score, pre_score
 
     def comp_images(self, img1, img2, threshold=10):
         val1 = imagehash.average_hash(img1)
         val2 = imagehash.average_hash(img2)
         return abs(val2-val1) < threshold
+    
+    def send_webhook(self):
+        if self.result_parts != False:
+            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/637686494991089684/rzUsDWKFN5FLnpXq3JR9ZirvwbkE3hcV_w0z6Ixo7G5Om9cE6MWdMyJ6CHwWVipX_z-l", username="unknown title info")
+            msg = ''
+            for idx,i in enumerate(('jacket_org', 'info', 'difficulty')):
+                img_bytes = io.BytesIO()
+                self.result_parts[i].save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
+                if idx < 2:
+                    msg += f"{i}: **{imagehash.average_hash(self.result_parts[i])}**\n"
+
+            webhook.content=msg
+
+        res = webhook.execute()
     
     def is_result(self,img):
         cr = img.crop(self.get_detect_points('onresult_val0'))
@@ -122,7 +172,7 @@ class GenSummary:
                 return False
             
         # 各パーツの切り取り
-        for i in ('title', 'title_small', 'difficulty', 'rate', 'score', 'jacket'):
+        for i in ('title', 'title_small', 'difficulty', 'rate', 'score', 'jacket', 'info'):
             parts[i] = img.crop(self.get_detect_points('log_crop_'+i))
 
         # クリアランプの抽出
@@ -152,6 +202,7 @@ class GenSummary:
         parts['score']      = parts['score'].resize((86,20))
         parts['rank']       = parts['rank'].resize((37,25))
         parts['rate']       = parts['rate'].resize((80,20))
+        parts['jacket_org'] = parts['jacket']
         parts['jacket']     = parts['jacket'].resize((36,36))
 
         rowsize = self.params['log_rowsize']
@@ -161,6 +212,7 @@ class GenSummary:
         parts['rank_small'] = parts['rank']
         parts['jacket_small'] = parts['jacket']
         parts['difficulty_small'] = parts['difficulty']
+        self.result_parts = parts
         for i in self.params['log_parts']:
             bg.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
 
@@ -182,7 +234,7 @@ class GenSummary:
                     if self.start.timestamp() > now.timestamp():
                         break
                     if self.is_result(img):
-                        if self.put_result(img, bg, bg, 0):
+                        if self.put_result(img, bg, bg, 0) != False:
                             num += 1
                 print(f"検出した枚数num:{num}")
                 logger.debug(f"検出した枚数num:{num}")
@@ -202,7 +254,7 @@ class GenSummary:
                     if self.start.timestamp() > now.timestamp():
                         break
                     if self.is_result(img):
-                        if self.put_result(img, bg, bg_small, idx):
+                        if self.put_result(img, bg, bg_small, idx) != False:
                             idx += 1
                 bg.save(dst)
             except Exception as e:
@@ -231,10 +283,11 @@ class GenSummary:
                 if self.start.timestamp() > now.timestamp():
                     break
                 if self.is_result(img):
-                    print(f)
-                    self.get_score(img)
-                    if self.put_result(img, bg, bg_small, idx):
+                    cur,pre = self.get_score(img)
+                    print(f"{f[-19:]}: {cur:,} ({pre:,})")
+                    if self.put_result(img, bg, bg_small, idx) != False:
                         idx += 1
+                        #self.send_webhook()
                     if idx >= self.max_num:
                         break
             bg.save('out/summary_full.png')
