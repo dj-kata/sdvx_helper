@@ -42,6 +42,7 @@ FONTs = ('Meiryo',8)
 par_text = partial(sg.Text, font=FONT)
 par_btn = partial(sg.Button, pad=(3,0), font=FONT, enable_events=True, border_width=0)
 SETTING_FILE = 'settings.json'
+ALLLOG_FILE = 'alllog.pkl'
 sg.theme('SystemDefault')
 try:
     with open('version.txt', 'r') as f:
@@ -59,6 +60,25 @@ class detect_mode(Enum):
     select = 1
     play = 2
     result = 3
+
+class OnePlayData:
+    def __init__(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
+        self.title = title
+        self.cur_score = cur_score
+        self.pre_score = pre_score
+        self.lamp = lamp
+        self.difficulty = difficulty
+        self.date = date
+        self.diff = cur_score - pre_score
+
+    def __eq__(self, other):
+        if not isinstance(other, OnePlayData):
+            return NotImplemented
+
+        return (self.title == other.title) and (self.difficulty == other.difficulty) and (self.cur_score == other.cur_score) and (self.pre_score == other.pre_score) and (self.lamp == other.lamp) and (self.date == other.date)
+    
+    def disp(self): # debug
+        print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
 class SDVXHelper:
     def __init__(self):
@@ -102,6 +122,17 @@ class SDVXHelper:
                 ret = tag['href'].split('/')[-1]
                 break # 1番上が最新なので即break
         return ret
+    
+    def load_alllog(self):
+        try:
+            with open(ALLLOG_FILE, 'rb') as f:
+                self.alllog = pickle.load(f)
+        except Exception:
+            self.alllog = []
+
+    def save_alllog(self):
+        with open(ALLLOG_FILE, 'wb') as f:
+            pickle.dump(self.alllog, f)
 
     def load_settings(self):
         ret = {}
@@ -136,13 +167,21 @@ class SDVXHelper:
         tmp = self.get_capture_after_rotate(self.imgpath)
         self.gen_summary.cut_result_parts(tmp)
         res_ocr = self.gen_summary.ocr()
-        if res_ocr != False:
-            title = res_ocr
+        if res_ocr != False: # OCRで曲名認識に成功
             for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
                 title = title.replace(ch, '')
-            cur,_ = self.gen_summary.get_score(tmp)
             dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}.png"
         tmp.save(dst)
+        if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
+            title = res_ocr
+            ts = os.path.getmtime(dst)
+            now = datetime.datetime.fromtimestamp(ts)
+            fmtnow = format(now, "%Y%m%d_%H%M%S")
+            cur,pre = self.gen_summary.get_score(tmp)
+            onedata = OnePlayData(title=title, cur_score=cur, pre_score=pre, lamp=self.gen_summary.lamp, difficulty=self.gen_summary.difficulty, date=fmtnow)
+            onedata.disp()
+            self.alllog.append(onedata)
+            
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
 
