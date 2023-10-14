@@ -25,4 +25,8 @@ default_val = {
     'params_json':'resources/params.json',
     'logpic_offset_time':2, # ログ画像について、起動の何時間前以降を対象とするか
     'logpic_bg_alpha':255, # ログ画像について、背景の透明度(0-255, 0:完全に透過)
+    'autoload_musiclist':True, # 曲リストを起動時にDLするかどうか。デバッグのためにオフにできるようにしている。
+
+    # debug
+    'dbg_enable_output':True # GUIのoutput部分を表示するかどうか。Falseにすると標準出力される。
 }

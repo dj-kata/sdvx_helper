@@ -18,6 +18,7 @@ import subprocess
 from bs4 import BeautifulSoup
 import requests
 from manage_settings import *
+import urllib
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -99,6 +100,8 @@ class SDVXHelper:
 
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
+        self.load_alllog()
+        self.update_musiclist()
         self.connect_obs()
 
         self.gen_summary = False
@@ -111,6 +114,12 @@ class SDVXHelper:
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
+    
+    # 曲リストを最新化
+    def update_musiclist(self):
+        if self.settings['autoload_musiclist']:
+            urllib.request.urlretrieve(self.params['url_musiclist'], 'resources/musiclist.pkl')
+        print('musiclist.pklを更新しました。')
 
     def get_latest_version(self):
         ret = None
@@ -128,6 +137,7 @@ class SDVXHelper:
             with open(ALLLOG_FILE, 'rb') as f:
                 self.alllog = pickle.load(f)
         except Exception:
+            print(f"プレーログファイル(alllog.pkl)がありません。新規作成します。")
             self.alllog = []
 
     def save_alllog(self):
@@ -344,8 +354,9 @@ class SDVXHelper:
                 ,par_text('error! OBS接続不可', key='txt_obswarning', text_color="#ff0000")],
             [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
             [par_text('', size=(40,1), key='txt_info')],
-            [sg.Output(size=(63,8), key='output', font=(None, 9))],
         ]
+        if self.settings['dbg_enable_output']:
+            layout.append([sg.Output(size=(63,8), key='output', font=(None, 9))])
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.connect_obs():
             self.window['txt_obswarning'].update('')
@@ -638,6 +649,8 @@ class SDVXHelper:
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
+                    self.save_alllog()
+                    print(f"プレーログを保存しました。")
                     break
                 else:
                     try:
