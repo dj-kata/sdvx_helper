@@ -272,7 +272,6 @@ class GenSummary:
 
     def ocr(self):
         diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
-        diff.save('difficulty.png')
         hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
         hash_adv = imagehash.average_hash(Image.open('resources/difficulty_adv.png'))
         hash_exh = imagehash.average_hash(Image.open('resources/difficulty_exh.png'))
