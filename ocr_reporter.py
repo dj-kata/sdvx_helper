@@ -109,7 +109,7 @@ class Reporter:
 
     def send_webhook(self, title, difficulty):
         if self.gen_summary.result_parts != False:
-            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
+            webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
             msg = f"**{title}**\n"
             for i in ('jacket_org', 'info'):
                 msg += f"- **{imagehash.average_hash(self.gen_summary.result_parts[i])}**\n"
@@ -123,7 +123,7 @@ class Reporter:
         res = webhook.execute()
 
     def send_pkl(self):
-        webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
+        webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
         with open('resources/musiclist.pkl', 'rb') as f:
             webhook.add_file(file=f.read(), filename='musiclist.pkl')
         webhook.content = f"追加した譜面数: {self.num_added_fumen}"
@@ -141,7 +141,7 @@ class Reporter:
         layout = [
             [
                 sg.Text('search:'), sg.Input('', size=(40,1), key='filter', enable_events=True), sg.Button('clear'), sg.Text('(登録済: '), sg.Text("0", key='num_added_music'), sg.Text('曲, '), sg.Text('0', key='num_added_fumen'), sg.Text('譜面)')
-                ,sg.Text('                      hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
+                ,sg.Text('                      title:'), sg.Input('', key='txt_title'), sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
                 ,sg.Text('難易度:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty')
             ],
             [sg.Button('曲登録', key='register'), sg.Button('ファイル一覧に色付け(重いです)', key='coloring')],
@@ -238,36 +238,40 @@ class Reporter:
                         self.window['combo_difficulty'].update('')
                     print(res_ocr)
                     if res_ocr == False:
-                        self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。')
+                        self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
                     else:
                         self.window['state'].update('')
                 else:
                     self.window['jacket'].update(None)
                     self.window['info'].update(None)
                     self.window['difficulty'].update(None)
-                    self.window['state'].update('(リザルト画像ではないファイル)')
+                    self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
+            elif ev == 'musics':
+                if len(val['musics']) > 0:
+                    self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])
             elif ev == 'filter':
                 self.window['musics'].update(self.get_musiclist())
             elif ev == 'clear':
                 self.window['filter'].update('')
                 self.window['musics'].update(self.get_musiclist())
             elif ev == 'register':
-                if len(val['musics']) > 0:
-                    music = self.musiclist_gui[val['musics'][0]]
+                music = self.window['txt_title'].get()
+                if music != '':
                     hash_jacket = self.window['hash_jacket'].get()
                     hash_info = self.window['hash_info'].get()
                     difficulty = val['combo_difficulty']
                     print(difficulty, hash_jacket, hash_info)
                     if (difficulty != '') and (hash_jacket != ''):
                         # TODO ジャケットなしの曲はinfoを登録する
-                        self.send_webhook(music[0], difficulty)
-                        if music[0] not in self.musiclist['info'][difficulty].keys():
+                        self.send_webhook(music, difficulty)
+                        self.window['state'].update('登録しました！', text_color='#000000')
+                        if music not in self.musiclist['info'][difficulty].keys():
                             print('登録されていません。全譜面の情報を登録します。')
                             for i,diff in enumerate(diff_table):
                                 self.num_added_fumen += 1
-                                self.musiclist['jacket'][diff][music[0]] = [str(hash_jacket), music[1], music[3+i]]
+                                self.musiclist['jacket'][diff][music] = str(hash_jacket)
                                 if hash_info != '':
-                                    self.musiclist['info'][diff][music[0]] = [str(hash_info), music[1], music[3+i]]
+                                    self.musiclist['info'][diff][music] = str(hash_info)
                             if len(val['files']) > 0:
                                 self.filelist_bgcolor[val['files'][0]][-2] = '#dddddd'
                                 self.filelist_bgcolor[val['files'][0]][-1] = '#333399'
@@ -275,9 +279,9 @@ class Reporter:
                         else:
                             self.num_added_fumen += 1
                             print(f'曲自体の登録はされています。この譜面({difficulty})のみhashを修正します。')
-                            self.musiclist['jacket'][difficulty][music[0]][0] = str(hash_jacket)
+                            self.musiclist['jacket'][difficulty][music] = str(hash_jacket)
                             if hash_info != '':
-                                self.musiclist['info'][diff][music[0]] = [str(hash_info), music[1], music[3+i]]
+                                self.musiclist['info'][diff][music] = str(hash_info)
                             if len(val['files']) > 0:
                                 self.filelist_bgcolor[val['files'][0]][-2] = '#dddddd'
                                 self.filelist_bgcolor[val['files'][0]][-1] = '#333399'

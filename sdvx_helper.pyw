@@ -135,6 +135,8 @@ class SDVXHelper:
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
         tmp.save(dst)
+        self.gen_summary.cut_result_parts(tmp)
+        res_ocr = self.gen_summary.ocr()
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
 

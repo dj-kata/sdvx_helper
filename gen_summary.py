@@ -87,7 +87,7 @@ class GenSummary:
         for pos in ('jacket', 'info'):
             for diff in ('nov', 'adv', 'exh', 'APPEND'):
                 for s in self.musiclist[pos][diff].keys():
-                    self.musiclist_hash[pos][diff][self.musiclist[pos][diff][s][0]] = s
+                    self.musiclist_hash[pos][diff][self.musiclist[pos][diff][s]] = s
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -167,7 +167,7 @@ class GenSummary:
     
     def send_webhook(self):
         if self.result_parts != False:
-            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
+            webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
             msg = ''
             for idx,i in enumerate(('jacket_org', 'info', 'difficulty_org')):
                 img_bytes = io.BytesIO()
