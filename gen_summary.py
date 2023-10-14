@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-import glob, os, io
+import glob, os, io, pickle
 from PIL import Image
 import imagehash
 import datetime, json
@@ -25,7 +25,7 @@ class GenSummary:
         self.start = now
         self.result_parts = False
         self.load_settings()
-        self.load_score_hashes()
+        self.load_hashes()
         self.savedir = self.settings['autosave_dir']
         self.ignore_rankD = self.settings['ignore_rankD']
         self.alpha = self.settings['logpic_bg_alpha']
@@ -44,7 +44,8 @@ class GenSummary:
             with open('resources/params.json', 'r') as f:
                 self.params = json.load(f)
 
-    def load_score_hashes(self):
+    # スコアの数字及び、曲名情報のハッシュを読む
+    def load_hashes(self):
         self.score_hash_small = []
         self.score_hash_large = []
         self.bestscore_hash   = []
@@ -52,6 +53,9 @@ class GenSummary:
             self.score_hash_small.append(imagehash.average_hash(Image.open(f'resources/result_score_s{i}.png')))
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
+
+        with open('resources/musiclist.pkl', 'rb') as f:
+            self.musiclist = pickle.load(f)
 
     def get_detect_points(self, name):
         sx = self.params[f'{name}_sx']
@@ -131,14 +135,15 @@ class GenSummary:
     
     def send_webhook(self):
         if self.result_parts != False:
-            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/637686494991089684/rzUsDWKFN5FLnpXq3JR9ZirvwbkE3hcV_w0z6Ixo7G5Om9cE6MWdMyJ6CHwWVipX_z-l", username="unknown title info")
+            webhook = DiscordWebhook(url="https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s", username="unknown title info")
             msg = ''
-            for idx,i in enumerate(('jacket_org', 'info', 'difficulty')):
+            for idx,i in enumerate(('jacket_org', 'info', 'difficulty_org')):
                 img_bytes = io.BytesIO()
                 self.result_parts[i].save(img_bytes, format='PNG')
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
                 if idx < 2:
                     msg += f"{i}: **{imagehash.average_hash(self.result_parts[i])}**\n"
+            msg += f"(difficulty: {self.difficulty})"
 
             webhook.content=msg
 
@@ -198,6 +203,7 @@ class GenSummary:
 
         # 各パーツのリサイズ
         # 上4桁だけにする
+        parts['difficulty_org'] = parts['difficulty']
         parts['difficulty'] = parts['difficulty'].resize((69,15))
         parts['score']      = parts['score'].resize((86,20))
         parts['rank']       = parts['rank'].resize((37,25))
@@ -260,6 +266,68 @@ class GenSummary:
             except Exception as e:
                 logger.error(traceback.format_exc())
             return True
+        
+    def calc_hamming_dist(self, hash1, hash2):
+        return hash1-hash2 < 5
+
+    def ocr(self):
+        diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
+        diff.save('difficulty.png')
+        hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
+        hash_adv = imagehash.average_hash(Image.open('resources/difficulty_adv.png'))
+        hash_exh = imagehash.average_hash(Image.open('resources/difficulty_exh.png'))
+        hash_cur = imagehash.average_hash(diff)
+
+        hash_jacket = imagehash.average_hash(self.result_parts['jacket_org'])
+        hash_info   = imagehash.average_hash(self.result_parts['info'])
+        detected = False
+        ret = False
+        difficulty = False
+        if abs(hash_nov - hash_cur) < 2:
+            difficulty = 'nov'
+        elif abs(hash_adv - hash_cur) < 2:
+            difficulty = 'adv'
+        elif abs(hash_exh - hash_cur) < 2:
+            difficulty = 'exh'
+        else:
+            difficulty = 'APPEND'
+        for h in self.musiclist['jacket'][difficulty].keys():
+            detected = self.calc_hamming_dist(imagehash.hex_to_hash(h), hash_jacket)
+            if detected:
+                ret = self.musiclist['jacket'][difficulty][h]
+                break
+        if not detected:
+            for h in self.musiclist['info'][difficulty].keys():
+                detected = self.calc_hamming_dist(imagehash.hex_to_hash(h), hash_info)
+                if detected:
+                    ret = self.musiclist['info'][difficulty][h]
+                    break
+        self.difficulty = difficulty
+        return ret
+    
+    # OCRの動作確認用。未検出のものを見つけて報告するために使う。
+    def chk_ocr(self, iternum=500):
+        logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
+        try:
+            h = self.params['log_margin']*2 + iternum*self.params['log_rowsize']
+            bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
+            bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
+            idx = 0
+            for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                img = Image.open(f)
+                if self.is_result(img):
+                    cur,pre = self.get_score(img)
+                    if self.put_result(img, bg, bg_small, idx) != False:
+                        idx+=1
+                        ocr_result = self.ocr()
+                        print(f"{f[-19:]}: {cur:,} ({pre:,}), {ocr_result}")
+                        if ocr_result == False:
+                            self.send_webhook()
+                if idx >= iternum:
+                    break
+        except Exception as e:
+            logger.error(traceback.format_exc())
+
 
     def generate(self): # max_num_offset: 1日の最後など、全リザルトを対象としたい場合に大きい値を設定する
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
@@ -284,7 +352,6 @@ class GenSummary:
                     break
                 if self.is_result(img):
                     cur,pre = self.get_score(img)
-                    print(f"{f[-19:]}: {cur:,} ({pre:,})")
                     if self.put_result(img, bg, bg_small, idx) != False:
                         idx += 1
                         #self.send_webhook()
@@ -296,7 +363,8 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=10,day=2,hour=0)
+    start = datetime.datetime(year=2023,month=10,day=12,hour=0)
     a = GenSummary(start)
-    a.generate()
+    #a.generate()
     #a.generate_today_all('hoge.png')
+    a.chk_ocr(3)
