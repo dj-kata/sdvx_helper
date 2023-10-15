@@ -28,5 +28,6 @@ default_val = {
     'autoload_musiclist':True, # 曲リストを起動時にDLするかどうか。デバッグのためにオフにできるようにしている。
 
     # debug
+    'send_webhook':True, # OCR失敗時にwebhookで自動報告するかどうか
     'dbg_enable_output':True # GUIのoutput部分を表示するかどうか。Falseにすると標準出力される。
 }
