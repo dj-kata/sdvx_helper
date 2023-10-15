@@ -344,6 +344,12 @@ class GenSummary:
             #    if abs(h - hash_info) < 5:
             #        ret = self.musiclist_hash['info'][difficulty][str(h)]
             #        #break
+        else:
+            tmp = Image.open('resources/no_jacket.png')
+            hash_no_jacket = imagehash.average_hash(tmp)
+            if abs(hash_jacket - hash_no_jacket) < 5:
+                print('ジャケット削除済みの曲なので判定結果をクリアします。')
+                ret = False
         return ret
     
     # OCRの動作確認用。未検出のものを見つけて報告するために使う。
