@@ -223,23 +223,25 @@ class Reporter:
                 res = self.gen_summary.ocr()
                 if res != False:
                     self.filelist_bgcolor[i][1] = '#dddddd'
-                    self.filelist_bgcolor[i][2] = '#333399'
-                    if res != False: # OCRで曲名認識に成功
-                        title = res
-                        cur,pre = self.gen_summary.get_score(img)
-                        ts = os.path.getmtime(f)
-                        now = datetime.datetime.fromtimestamp(ts)
-                        fmtnow = format(now, "%Y%m%d_%H%M%S")
-                        for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
-                            title = title.replace(ch, '')
-                        for ch in (' ', '　'):
-                            title = title.replace(ch, '_')
-                        dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
+                    self.filelist_bgcolor[i][2] = '#333333'
+                    title = res
+                    cur,pre = self.gen_summary.get_score(img)
+                    ts = os.path.getmtime(f)
+                    now = datetime.datetime.fromtimestamp(ts)
+                    fmtnow = format(now, "%Y%m%d_%H%M%S")
+                    for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
+                        title = title.replace(ch, '')
+                    for ch in (' ', '　'):
+                        title = title.replace(ch, '_')
+                    dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
+                    try:
                         os.rename(f, dst)
+                    except Exception:
+                        print(f'既に存在するファイル名なのでskip。({dst})')
             else:
                 self.filelist_bgcolor[i][1] = '#dddddd'
                 self.filelist_bgcolor[i][2] = '#333333'
-        self.window['files'].update(row_colors=self.filelist_bgcolor)
+        self.window['files'].update(list(self.gen_summary.get_result_files()),row_colors=self.filelist_bgcolor)
         self.window['state'].update('色付けを完了しました。', text_color='#000000')
 
     def main(self):
@@ -253,33 +255,36 @@ class Reporter:
             elif ev == 'files': # ファイル選択時
                 if len(val[ev]) > 0:
                     f = self.window['files'].get()[val[ev][0]]
-                    img = Image.open(f)
-                    if self.gen_summary.is_result(img):
-                        parts = self.gen_summary.cut_result_parts(Image.open(f))
-                        parts['jacket_org'].resize((100,100)).save('out/tmp_jacket.png')
-                        parts['info'].save('out/tmp_info.png')
-                        parts['difficulty_org'].save('out/tmp_difficulty.png')
-                        self.window['jacket'].update('out/tmp_jacket.png')
-                        self.window['info'].update('out/tmp_info.png')
-                        self.window['difficulty'].update('out/tmp_difficulty.png')
-                        self.window['state'].update('')
-                        self.window['hash_jacket'].update(str(imagehash.average_hash(parts['jacket_org'])))
-                        self.window['hash_info'].update(str(imagehash.average_hash(parts['info'])))
-                        res_ocr = self.gen_summary.ocr()
-                        if self.gen_summary.difficulty != False:
-                            self.window['combo_difficulty'].update(self.gen_summary.difficulty)
-                        else:
-                            self.window['combo_difficulty'].update('')
-                        print(res_ocr)
-                        if res_ocr == False:
-                            self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
-                        else:
+                    try:
+                        img = Image.open(f)
+                        if self.gen_summary.is_result(img):
+                            parts = self.gen_summary.cut_result_parts(Image.open(f))
+                            parts['jacket_org'].resize((100,100)).save('out/tmp_jacket.png')
+                            parts['info'].save('out/tmp_info.png')
+                            parts['difficulty_org'].save('out/tmp_difficulty.png')
+                            self.window['jacket'].update('out/tmp_jacket.png')
+                            self.window['info'].update('out/tmp_info.png')
+                            self.window['difficulty'].update('out/tmp_difficulty.png')
                             self.window['state'].update('')
-                    else:
-                        self.window['jacket'].update(None)
-                        self.window['info'].update(None)
-                        self.window['difficulty'].update(None)
-                        self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
+                            self.window['hash_jacket'].update(str(imagehash.average_hash(parts['jacket_org'])))
+                            self.window['hash_info'].update(str(imagehash.average_hash(parts['info'])))
+                            res_ocr = self.gen_summary.ocr()
+                            if self.gen_summary.difficulty != False:
+                                self.window['combo_difficulty'].update(self.gen_summary.difficulty)
+                            else:
+                                self.window['combo_difficulty'].update('')
+                            print(res_ocr)
+                            if res_ocr == False:
+                                self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
+                            else:
+                                self.window['state'].update('')
+                        else:
+                            self.window['jacket'].update(None)
+                            self.window['info'].update(None)
+                            self.window['difficulty'].update(None)
+                            self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
+                    except Exception:
+                        self.window['state'].update('error! ファイル見つかりません', text_color='#ff0000')
             elif ev == 'musics':
                 if len(val['musics']) > 0:
                     self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])
