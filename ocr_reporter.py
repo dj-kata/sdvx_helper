@@ -15,6 +15,7 @@ import threading
 from collections import defaultdict
 from gen_summary import *
 from manage_settings import *
+import traceback
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
@@ -28,8 +29,7 @@ class Reporter:
         self.load_musiclist()
         self.read_bemaniwiki()
         self.ico=self.ico_path('icon.ico')
-        self.num_added_music = 0 # 登録した曲数
-        self.num_added_fumen = 0 # 登録した譜面数(>=num_added_music)
+        self.num_added_fumen = 0 # 登録した譜面数
         self.flg_registered = {} # key:ファイル名、値:登録済みならTrue.do_coloringの結果保存用。
         self.gui()
         self.main()
@@ -109,23 +109,25 @@ class Reporter:
         self.titles = titles
         print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
 
-    def send_webhook(self, title, difficulty):
-        if self.gen_summary.result_parts != False:
+    def send_webhook(self, title, difficulty, hash_jacket, hash_info):
+        try:
             webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
             msg = f"**{title}**\n"
-            for i in ('jacket_org', 'info'):
-                msg += f"- **{imagehash.average_hash(self.gen_summary.result_parts[i])}**\n"
-            img_bytes = io.BytesIO()
-            self.gen_summary.result_parts['info'].crop((0,0,260,65)).save(img_bytes, format='PNG')
-            webhook.add_file(file=img_bytes.getvalue(), filename=f'info.png')
-            img_bytes = io.BytesIO()
-            self.gen_summary.result_parts['difficulty'].save(img_bytes, format='PNG')
-            webhook.add_file(file=img_bytes.getvalue(), filename=f'difficulty.png')
+            msg += f" - **{hash_jacket}**"
+            if hash_info != "":
+                msg += f" - **{hash_info}**"
+            if self.gen_summary.result_parts != False:
+                img_bytes = io.BytesIO()
+                self.gen_summary.result_parts['info'].crop((0,0,260,65)).save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'info.png')
+                img_bytes = io.BytesIO()
+                self.gen_summary.result_parts['difficulty'].save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'difficulty.png')
             msg += f"(difficulty: **{difficulty.upper()}**)"
-
             webhook.content=msg
-
-        res = webhook.execute()
+            res = webhook.execute()
+        except Exception:
+            print(traceback.format_exc())
 
     def send_pkl(self):
         webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
@@ -146,9 +148,14 @@ class Reporter:
         ]
         layout = [
             [
-                sg.Text('search:'), sg.Input('', size=(40,1), key='filter', enable_events=True), sg.Button('clear'), sg.Text('(登録済: '), sg.Text("0", key='num_added_music'), sg.Text('曲, '), sg.Text('0', key='num_added_fumen'), sg.Text('譜面)')
-                ,sg.Text('                      title:'), sg.Input('', key='txt_title'), sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
-                ,sg.Text('難易度:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty')
+                sg.Text('search:', font=(None,16)), sg.Input('', size=(40,1), key='filter', font=(None,16), enable_events=True), sg.Button('clear', font=(None,16)), sg.Text('(登録済: ', font=(None,16)), sg.Text('0', key='num_added_fumen', font=(None,16)), sg.Text('譜面)', font=(None,16))
+            ],
+            [
+                sg.Text('title:', font=(None,16)), sg.Input('', key='txt_title', font=(None,16), size=(50,1))
+            ],
+            [
+                sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
+                ,sg.Text('難易度:', font=(None,16)), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty', font=(None,16))
             ],
             [sg.Button('曲登録', key='register'), sg.Button('ファイル一覧に色付け(重いです)', key='coloring')],
             [sg.Table(
@@ -161,6 +168,7 @@ class Reporter:
                 ,key='musics'
                 ,size=(120,10)
                 ,enable_events=True
+                ,font=(None, 16)
                 )
             ],
             [sg.Table(
@@ -173,12 +181,13 @@ class Reporter:
                 ,key='files'
                 ,size=(90,10)
                 ,enable_events=True
+                ,font=(None, 16)
                 )
             ],
             [sg.Text('', text_color="#ff0000", key='state')],
             [sg.Image(None, size=(100,100), key='jacket'), sg.Column(layout_info)]
         ]
-        self.window = sg.Window(f"SDVX helper - OCR未検出曲報告ツール", layout, resizable=True, grab_anywhere=True,return_keyboard_events=True,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']), size=(700,600))
+        self.window = sg.Window(f"SDVX helper - OCR未検出曲報告ツール", layout, resizable=True, grab_anywhere=True,return_keyboard_events=True,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']), size=(900,780))
         self.window['musics'].expand(expand_x=True, expand_y=True)
         self.window['files'].expand(expand_x=True, expand_y=True)
         self.window['musics'].update(self.get_musiclist())
@@ -319,9 +328,9 @@ class Reporter:
                     print(difficulty, hash_jacket, hash_info)
                     if (difficulty != '') and (hash_jacket != ''):
                         # TODO ジャケットなしの曲はinfoを登録する
-                        self.send_webhook(music, difficulty)
-                        self.window['state'].update('登録しました！', text_color='#000000')
+                        self.send_webhook(music, difficulty, hash_jacket, hash_info)
                         if music not in self.musiclist['info'][difficulty].keys():
+                            self.window['state'].update('曲が未登録。全譜面の情報を登録します。', text_color='#000000')
                             print('登録されていません。全譜面の情報を登録します。')
                             for i,diff in enumerate(diff_table):
                                 self.num_added_fumen += 1
@@ -334,6 +343,7 @@ class Reporter:
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
                         else:
                             self.num_added_fumen += 1
+                            self.window['state'].update(f'曲自体は登録済み。{difficulty}のhashを修正しました。', text_color='#000000')
                             print(f'曲自体の登録はされています。この譜面({difficulty})のみhashを修正します。')
                             self.musiclist['jacket'][difficulty][music] = str(hash_jacket)
                             if hash_info != '':
