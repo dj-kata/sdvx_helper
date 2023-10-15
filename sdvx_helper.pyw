@@ -177,18 +177,18 @@ class SDVXHelper:
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
         tmp = self.get_capture_after_rotate(self.imgpath)
         self.gen_summary.cut_result_parts(tmp)
+        cur,pre = self.gen_summary.get_score(tmp)
         res_ocr = self.gen_summary.ocr(notify=True)
         if res_ocr != False: # OCRで曲名認識に成功
             title = res_ocr
             for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
                 title = title.replace(ch, '')
-            dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}.png"
+            dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
         tmp.save(dst)
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
             fmtnow = format(now, "%Y%m%d_%H%M%S")
-            cur,pre = self.gen_summary.get_score(tmp)
             onedata = OnePlayData(title=title, cur_score=cur, pre_score=pre, lamp=self.gen_summary.lamp, difficulty=self.gen_summary.difficulty, date=fmtnow)
             onedata.disp()
             self.alllog.append(onedata)
@@ -647,6 +647,10 @@ class SDVXHelper:
                 if self.gui_mode == gui_mode.main:
                     self.save_settings()
                     self.control_obs_sources('quit')
+                    # 直近10プレーのログを表示
+                    if len(self.alllog) > 10:
+                        for l in self.alllog[-10:]:
+                            l.disp()
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
