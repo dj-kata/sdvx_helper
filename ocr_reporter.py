@@ -128,7 +128,8 @@ class Reporter:
         webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
         with open('resources/musiclist.pkl', 'rb') as f:
             webhook.add_file(file=f.read(), filename='musiclist.pkl')
-        webhook.content = f"追加した譜面数: {self.num_added_fumen}, total: {len(self.musiclist['jacket']['exh'])}"
+        webhook.content = f"追加した譜面数: {self.num_added_fumen}, total: {len(self.musiclist['jacket']['APPEND'])+len(self.musiclist['jacket']['nov'])+len(self.musiclist['jacket']['adv'])+len(self.musiclist['jacket']['exh'])}"
+        webhook.content += f", 曲数:{len(self.musiclist['jacket']['APPEND'])}"
         res = webhook.execute()
     
     ##############################################
@@ -199,6 +200,7 @@ class Reporter:
         ret = []
         bgcs = []
         for i,f in enumerate(self.gen_summary.get_result_files()):
+            print(f)
             ret.append(f)
             if i%2 == 0:
                 bgcs.append([len(bgcs), '#000000', '#ffffff'])
@@ -213,6 +215,7 @@ class Reporter:
     
     # ファイル一覧に対し、OCR結果に応じた色を付ける
     def do_coloring(self):
+        self.gen_summary.load_hashes()
         for i,f in enumerate(list(self.gen_summary.get_result_files())):
             img = Image.open(f)
             if self.gen_summary.is_result(img):
@@ -221,10 +224,23 @@ class Reporter:
                 if res != False:
                     self.filelist_bgcolor[i][1] = '#dddddd'
                     self.filelist_bgcolor[i][2] = '#333399'
+                    if res != False: # OCRで曲名認識に成功
+                        title = res
+                        cur,pre = self.gen_summary.get_score(img)
+                        ts = os.path.getmtime(f)
+                        now = datetime.datetime.fromtimestamp(ts)
+                        fmtnow = format(now, "%Y%m%d_%H%M%S")
+                        for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
+                            title = title.replace(ch, '')
+                        for ch in (' ', '　'):
+                            title = title.replace(ch, '_')
+                        dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
+                        os.rename(f, dst)
             else:
                 self.filelist_bgcolor[i][1] = '#dddddd'
                 self.filelist_bgcolor[i][2] = '#333333'
         self.window['files'].update(row_colors=self.filelist_bgcolor)
+        self.window['state'].update('色付けを完了しました。', text_color='#000000')
 
     def main(self):
         while True:
@@ -235,34 +251,35 @@ class Reporter:
                     self.send_pkl()
                 break
             elif ev == 'files': # ファイル選択時
-                f = self.window['files'].get()[val[ev][0]]
-                img = Image.open(f)
-                if self.gen_summary.is_result(img):
-                    parts = self.gen_summary.cut_result_parts(Image.open(f))
-                    parts['jacket_org'].resize((100,100)).save('out/tmp_jacket.png')
-                    parts['info'].save('out/tmp_info.png')
-                    parts['difficulty_org'].save('out/tmp_difficulty.png')
-                    self.window['jacket'].update('out/tmp_jacket.png')
-                    self.window['info'].update('out/tmp_info.png')
-                    self.window['difficulty'].update('out/tmp_difficulty.png')
-                    self.window['state'].update('')
-                    self.window['hash_jacket'].update(str(imagehash.average_hash(parts['jacket_org'])))
-                    self.window['hash_info'].update(str(imagehash.average_hash(parts['info'])))
-                    res_ocr = self.gen_summary.ocr()
-                    if self.gen_summary.difficulty != False:
-                        self.window['combo_difficulty'].update(self.gen_summary.difficulty)
-                    else:
-                        self.window['combo_difficulty'].update('')
-                    print(res_ocr)
-                    if res_ocr == False:
-                        self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
-                    else:
+                if len(val[ev]) > 0:
+                    f = self.window['files'].get()[val[ev][0]]
+                    img = Image.open(f)
+                    if self.gen_summary.is_result(img):
+                        parts = self.gen_summary.cut_result_parts(Image.open(f))
+                        parts['jacket_org'].resize((100,100)).save('out/tmp_jacket.png')
+                        parts['info'].save('out/tmp_info.png')
+                        parts['difficulty_org'].save('out/tmp_difficulty.png')
+                        self.window['jacket'].update('out/tmp_jacket.png')
+                        self.window['info'].update('out/tmp_info.png')
+                        self.window['difficulty'].update('out/tmp_difficulty.png')
                         self.window['state'].update('')
-                else:
-                    self.window['jacket'].update(None)
-                    self.window['info'].update(None)
-                    self.window['difficulty'].update(None)
-                    self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
+                        self.window['hash_jacket'].update(str(imagehash.average_hash(parts['jacket_org'])))
+                        self.window['hash_info'].update(str(imagehash.average_hash(parts['info'])))
+                        res_ocr = self.gen_summary.ocr()
+                        if self.gen_summary.difficulty != False:
+                            self.window['combo_difficulty'].update(self.gen_summary.difficulty)
+                        else:
+                            self.window['combo_difficulty'].update('')
+                        print(res_ocr)
+                        if res_ocr == False:
+                            self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
+                        else:
+                            self.window['state'].update('')
+                    else:
+                        self.window['jacket'].update(None)
+                        self.window['info'].update(None)
+                        self.window['difficulty'].update(None)
+                        self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
             elif ev == 'musics':
                 if len(val['musics']) > 0:
                     self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])
@@ -302,12 +319,13 @@ class Reporter:
                             print(f'曲自体の登録はされています。この譜面({difficulty})のみhashを修正します。')
                             self.musiclist['jacket'][difficulty][music] = str(hash_jacket)
                             if hash_info != '':
-                                self.musiclist['info'][diff][music] = str(hash_info)
+                                self.musiclist['info'][difficulty][music] = str(hash_info)
                             if len(val['files']) > 0:
                                 self.filelist_bgcolor[val['files'][0]][-2] = '#dddddd'
                                 self.filelist_bgcolor[val['files'][0]][-1] = '#333399'
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
                         self.window['num_added_fumen'].update(self.num_added_fumen)
+                        self.save()
                     else:
                         print('難易度が取得できません')
 

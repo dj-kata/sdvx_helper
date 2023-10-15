@@ -368,7 +368,8 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
     def get_result_files(self):
-        return reversed(glob.glob(self.savedir+'/sdvx_*.png'))
+        return sorted(glob.glob(self.savedir+'/sdvx_*.png'), key=os.path.getmtime, reverse=True)
+        #return reversed(glob.glob(self.savedir+'/sdvx_*.png'))
 
     def generate(self): # max_num_offset: 1日の最後など、全リザルトを対象としたい場合に大きい値を設定する
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
