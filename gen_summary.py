@@ -339,7 +339,7 @@ class GenSummary:
                 ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                 break
         if not detected:
-            if notify:
+            if notify and self.settings['send_webhook']:
                 self.send_webhook()
             # 曲名エリアからの認識だと精度が悪いので放置
             #for h in self.musiclist_hash['info'][difficulty].keys():
