@@ -173,9 +173,13 @@ class GenSummary:
                 msg = ''
                 for i in ('jacket_org', 'info'):
                     msg += f"- **{imagehash.average_hash(self.result_parts[i])}**\n"
+                # 添付ファイル
                 img_bytes = io.BytesIO()
-                self.result_parts['info'].save(img_bytes, format='PNG')
-                webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
+                self.gen_summary.result_parts['info'].crop((0,0,260,65)).save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'info.png')
+                img_bytes = io.BytesIO()
+                self.gen_summary.result_parts['difficulty'].save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'difficulty.png')
                 msg += f"(difficulty: **{self.difficulty.upper()}**)"
 
                 webhook.content=msg
