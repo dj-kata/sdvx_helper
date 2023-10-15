@@ -217,7 +217,11 @@ class Reporter:
     def do_coloring(self):
         self.gen_summary.load_hashes()
         for i,f in enumerate(list(self.gen_summary.get_result_files())):
-            img = Image.open(f)
+            try:
+                img = Image.open(f)
+            except Exception:
+                print(f'ファイルが見つかりません。スキップします。({f})')
+                continue
             if self.gen_summary.is_result(img):
                 self.gen_summary.cut_result_parts(img)
                 res = self.gen_summary.ocr()
