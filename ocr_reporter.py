@@ -282,6 +282,11 @@ class Reporter:
                                 self.window['state'].update('曲名DBに登録されていません。曲を選択してから曲登録を押してもらえると喜びます。', text_color='#ff0000')
                             else:
                                 self.window['state'].update('')
+                            #diff = parts['difficulty_org'].crop((0,0,70,30))
+                            #rsum = np.array(diff)[:,:,0].sum()
+                            #gsum = np.array(diff)[:,:,1].sum()
+                            #bsum = np.array(diff)[:,:,2].sum()
+                            #self.window['state'].update(f"sum (r,g,b)=({rsum}, {gsum}, {bsum})", text_color='#000000')
                         else:
                             self.window['jacket'].update(None)
                             self.window['info'].update(None)
@@ -289,6 +294,7 @@ class Reporter:
                             self.window['state'].update('(リザルト画像ではないファイル)', text_color='#ff0000')
                     except Exception:
                         self.window['state'].update('error! ファイル見つかりません', text_color='#ff0000')
+                        print(traceback.format_exc())
             elif ev == 'musics':
                 if len(val['musics']) > 0:
                     self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])

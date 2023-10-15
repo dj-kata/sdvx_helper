@@ -324,11 +324,14 @@ class GenSummary:
         detected = False
         ret = False
         difficulty = False
-        if abs(hash_nov - hash_cur) < 2:
+        rsum = np.array(diff)[:,:,0].sum()
+        gsum = np.array(diff)[:,:,1].sum()
+        bsum = np.array(diff)[:,:,2].sum()
+        if (rsum<190000) and (gsum<180000) and (bsum>300000):
             difficulty = 'nov'
-        elif abs(hash_adv - hash_cur) < 2:
+        elif (rsum>300000) and (gsum>260000) and (bsum<180000):
             difficulty = 'adv'
-        elif abs(hash_exh - hash_cur) < 2:
+        elif (rsum>300000) and (gsum<180000) and (bsum<180000):
             difficulty = 'exh'
         else:
             difficulty = 'APPEND'
