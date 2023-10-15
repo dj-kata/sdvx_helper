@@ -118,6 +118,7 @@ class SDVXHelper:
     # 曲リストを最新化
     def update_musiclist(self):
         if self.settings['autoload_musiclist']:
+            os.remove('resources/musiclist.pkl')
             urllib.request.urlretrieve(self.params['url_musiclist'], 'resources/musiclist.pkl')
         print('musiclist.pklを更新しました。')
 
