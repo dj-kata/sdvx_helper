@@ -275,7 +275,7 @@ class GenSummary:
                 # 枚数を検出
                 num = 0
                 bg = Image.new('RGB', (500,500), (0,0,0))
-                for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                for f in self.get_result_files():
                     img = Image.open(f)
                     ts = os.path.getmtime(f)
                     now = datetime.datetime.fromtimestamp(ts)
@@ -295,7 +295,7 @@ class GenSummary:
                 bg = Image.new('RGB', (self.params['log_width'],h), (0,0,0))
                 bg.putalpha(self.alpha)
                 bg_small = Image.new('RGB', (self.params['log_small_width'],h), (0,0,0))
-                for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+                for f in self.get_result_files():
                     img = Image.open(f)
                     ts = os.path.getmtime(f)
                     now = datetime.datetime.fromtimestamp(ts)
@@ -357,7 +357,7 @@ class GenSummary:
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
         try:
             idx = 0
-            for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+            for f in self.get_result_files():
                 img = Image.open(f)
                 if self.is_result(img):
                     cur,pre = self.get_score(img)
@@ -375,7 +375,6 @@ class GenSummary:
 
     def get_result_files(self):
         return sorted(glob.glob(self.savedir+'/sdvx_*.png'), key=os.path.getmtime, reverse=True)
-        #return reversed(glob.glob(self.savedir+'/sdvx_*.png'))
 
     def generate(self): # max_num_offset: 1日の最後など、全リザルトを対象としたい場合に大きい値を設定する
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
@@ -390,7 +389,7 @@ class GenSummary:
             bg.putalpha(self.alpha) #背景を透過
             bg_small.putalpha(self.alpha)
             idx = 0
-            for f in reversed(glob.glob(self.savedir+'/sdvx_*.png')):
+            for f in self.get_result_files():
                 #logger.debug(f'f={f}')
                 img = Image.open(f)
                 ts = os.path.getmtime(f)
@@ -411,8 +410,8 @@ class GenSummary:
             logger.error(traceback.format_exc())
 
 if __name__ == '__main__':
-    start = datetime.datetime(year=2023,month=10,day=12,hour=0)
+    start = datetime.datetime(year=2023,month=10,day=15,hour=0)
     a = GenSummary(start)
-    #a.generate()
+    a.generate()
     #a.generate_today_all('hoge.png')
-    a.chk_ocr(60)
+    #a.chk_ocr(60)
