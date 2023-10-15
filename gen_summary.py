@@ -167,19 +167,22 @@ class GenSummary:
         return abs(val2-val1) < threshold
     
     def send_webhook(self):
-        if self.result_parts != False:
-            webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
-            msg = ''
-            for i in ('jacket_org', 'info'):
-                msg += f"- **{imagehash.average_hash(self.result_parts[i])}**\n"
-            img_bytes = io.BytesIO()
-            self.result_parts['info'].save(img_bytes, format='PNG')
-            webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
-            msg += f"(difficulty: **{self.difficulty.upper()}**)"
+        try:
+            if (self.result_parts != False) and self.settings['send_webhook']:
+                webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
+                msg = ''
+                for i in ('jacket_org', 'info'):
+                    msg += f"- **{imagehash.average_hash(self.result_parts[i])}**\n"
+                img_bytes = io.BytesIO()
+                self.result_parts['info'].save(img_bytes, format='PNG')
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'{i}.png')
+                msg += f"(difficulty: **{self.difficulty.upper()}**)"
 
-            webhook.content=msg
+                webhook.content=msg
 
-        res = webhook.execute()
+            res = webhook.execute()
+        except Exception:
+            logger.debug(traceback.format_exc())
     
     def is_result(self,img):
         cr = img.crop(self.get_detect_points('onresult_val0'))
