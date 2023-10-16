@@ -150,6 +150,9 @@ F6キーを押すと指定したフォルダにキャプチャ画像を正しい
 
 クレジット表記などは特に必要ありませんが、概要欄などに書いてくれると喜びます。
 
+[曲名認識用DB登録へのご協力のお願い](https://github.com/dj-kata/sdvx_helper/wiki/OCR%E6%A9%9F%E8%83%BD%E3%81%AEDB%E4%BD%9C%E6%88%90%E3%81%B8%E3%81%AE%E5%8D%94%E5%8A%9B%E4%BE%9D%E9%A0%BC)  
+[開発用Discord](https://discord.gg/3krMhQyc)では曲名認識(OCR)機能の開発状況を確認することができます。  
+
 [このページ](https://github.com/dj-kata/sdvx_helper/wiki/%E3%83%88%E3%83%A9%E3%83%96%E3%83%AB%E3%82%B7%E3%83%A5%E3%83%BC%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0)にトラブルシューティング情報をまとめていく予定です。
 
 バグ報告や要望は[本レポジトリのIssue](https://github.com/dj-kata/sdvx_helper/issues)またはTwitter(@[cold_planet_](https://twitter.com/cold_planet_))にご連絡ください。  
