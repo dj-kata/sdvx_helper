@@ -354,7 +354,7 @@ class Reporter:
                     if (difficulty != '') and (hash_jacket != ''):
                         # TODO ジャケットなしの曲はinfoを登録する
                         self.send_webhook(music, difficulty, hash_jacket, hash_info)
-                        if music not in self.musiclist['info'][difficulty].keys():
+                        if music not in self.musiclist['jacket'][difficulty].keys():
                             self.window['state'].update('曲が未登録。全譜面の情報を登録します。', text_color='#000000')
                             print('登録されていません。全譜面の情報を登録します。')
                             for i,diff in enumerate(diff_table):
