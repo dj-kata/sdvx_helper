@@ -16,6 +16,7 @@ from collections import defaultdict
 from gen_summary import *
 from manage_settings import *
 import traceback
+import urllib
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
@@ -24,8 +25,9 @@ diff_table = ['nov', 'adv', 'exh', 'APPEND']
 class Reporter:
     def __init__(self):
         start = datetime.datetime(year=2023,month=10,day=12,hour=0)
-        self.gen_summary = GenSummary(start)
         self.load_settings()
+        self.update_musiclist()
+        self.gen_summary = GenSummary(start)
         self.load_musiclist()
         self.read_bemaniwiki()
         self.ico=self.ico_path('icon.ico')
@@ -40,6 +42,15 @@ class Reporter:
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
+
+    # 曲リストを最新化
+    def update_musiclist(self):
+        try:
+            os.remove('resources/musiclist.pkl')
+        except Exception:
+            pass
+        urllib.request.urlretrieve(self.params['url_musiclist'], 'resources/musiclist.pkl')
+        print('musiclist.pklを更新しました。')
 
     def load_settings(self):
         ret = {}
@@ -355,7 +366,7 @@ class Reporter:
                         # TODO ジャケットなしの曲はinfoを登録する
                         self.send_webhook(music, difficulty, hash_jacket, hash_info)
                         if music not in self.musiclist['jacket'][difficulty].keys():
-                            self.window['state'].update('曲が未登録。全譜面の情報を登録します。', text_color='#000000')
+                            self.window['state'].update(f'曲が未登録。全譜面の情報を登録します。({music} / {hash_jacket})', text_color='#000000')
                             print('登録されていません。全譜面の情報を登録します。')
                             for i,diff in enumerate(diff_table):
                                 self.num_added_fumen += 1
@@ -368,7 +379,7 @@ class Reporter:
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
                         else:
                             self.num_added_fumen += 1
-                            self.window['state'].update(f'曲自体は登録済み。{difficulty}のhashを修正しました。', text_color='#000000')
+                            self.window['state'].update(f'曲自体は登録済み。{difficulty}のhashを修正しました。({music} / {hash_jacket})', text_color='#000000')
                             print(f'曲自体の登録はされています。この譜面({difficulty})のみhashを修正します。')
                             self.musiclist['jacket'][difficulty][music] = str(hash_jacket)
                             if hash_info != '':
@@ -379,6 +390,9 @@ class Reporter:
                                 self.window['files'].update(row_colors=self.filelist_bgcolor)
                         self.window['num_added_fumen'].update(self.num_added_fumen)
                         self.save()
+                        self.window['hash_jacket'].update('')
+                        self.window['hash_info'].update('')
+                        self.window['txt_title'].update('')
                     else:
                         print('難易度が取得できません')
             elif ev == 'combo_diff_db': # hash値リスト側の難易度設定を変えた時に入る
