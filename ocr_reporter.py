@@ -146,23 +146,12 @@ class Reporter:
             [sg.Image(None, size=(137,29), key='difficulty')],
             [sg.Image(None, size=(526,64), key='info')],
         ]
-        layout = [
-            [
-                sg.Text('search:', font=(None,16)), sg.Input('', size=(40,1), key='filter', font=(None,16), enable_events=True), sg.Button('clear', font=(None,16)), sg.Text('(登録済: ', font=(None,16)), sg.Text('0', key='num_added_fumen', font=(None,16)), sg.Text('譜面)', font=(None,16))
-            ],
-            [
-                sg.Text('title:', font=(None,16)), sg.Input('', key='txt_title', font=(None,16), size=(50,1))
-            ],
-            [
-                sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
-                ,sg.Text('難易度:', font=(None,16)), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty', font=(None,16))
-            ],
-            [sg.Button('曲登録', key='register'), sg.Button('ファイル一覧に色付け(重いです)', key='coloring')],
+        layout_tables = [
             [sg.Table(
                 []
                 ,headings=header
                 ,auto_size_columns=False
-                ,col_widths=[50,40,7,3,3,3,3]
+                ,col_widths=[40,40,7,3,3,3,3]
                 ,alternating_row_color='#eeeeee'
                 ,justification='left'
                 ,key='musics'
@@ -184,12 +173,49 @@ class Reporter:
                 ,font=(None, 16)
                 )
             ],
+        ]
+        layout_db = [
+            [
+                sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_diff_db', font=(None,16), enable_events=True),
+                sg.Text('0', key='num_hash'), sg.Text('曲')
+            ],
+            [
+                sg.Table(
+                    []
+                    ,headings=['title', 'hash']
+                    ,auto_size_columns=False
+                    ,col_widths=[40, 20]
+                    ,alternating_row_color='#eeeeee'
+                    ,justification='left'
+                    ,key='db'
+                    ,size=(90,10)
+                    ,enable_events=True
+                    ,font=(None, 16)
+                )
+            ],
+        ]
+        layout = [
+            [
+                sg.Text('search:', font=(None,16)), sg.Input('', size=(40,1), key='filter', font=(None,16), enable_events=True), sg.Button('clear', font=(None,16)), sg.Text('(登録済: ', font=(None,16)), sg.Text('0', key='num_added_fumen', font=(None,16)), sg.Text('譜面)', font=(None,16))
+            ],
+            [
+                sg.Text('title:', font=(None,16)), sg.Input('', key='txt_title', font=(None,16), size=(50,1))
+            ],
+            [
+                sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
+                ,sg.Text('難易度:', font=(None,16)), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty', font=(None,16))
+            ],
+            [sg.Button('曲登録', key='register'), sg.Button('ファイル一覧に色付け(重いです)', key='coloring')],
+            [sg.Column(layout_tables, key='column_table'), sg.Column(layout_db, key='column_db')],
             [sg.Text('', text_color="#ff0000", key='state')],
             [sg.Image(None, size=(100,100), key='jacket'), sg.Column(layout_info)]
         ]
         self.window = sg.Window(f"SDVX helper - OCR未検出曲報告ツール", layout, resizable=True, grab_anywhere=True,return_keyboard_events=True,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']), size=(900,780))
         self.window['musics'].expand(expand_x=True, expand_y=True)
         self.window['files'].expand(expand_x=True, expand_y=True)
+        self.window['column_table'].expand(expand_x=True, expand_y=True)
+        self.window['db'].expand(expand_x=True, expand_y=True)
+        self.window['column_db'].expand(expand_x=True, expand_y=True)
         self.window['musics'].update(self.get_musiclist())
         filelist, bgcs = self.get_filelist()
         self.window['files'].update(filelist, row_colors=bgcs)
@@ -212,7 +238,6 @@ class Reporter:
         ret = []
         bgcs = []
         for i,f in enumerate(self.gen_summary.get_result_files()):
-            print(f)
             ret.append(f)
             if i%2 == 0:
                 bgcs.append([len(bgcs), '#000000', '#ffffff'])
@@ -356,6 +381,13 @@ class Reporter:
                         self.save()
                     else:
                         print('難易度が取得できません')
+            elif ev == 'combo_diff_db': # hash値リスト側の難易度設定を変えた時に入る
+                if val[ev] != '':
+                    titles = [k for k in self.musiclist['jacket'][val[ev]].keys()]
+                    titles = sorted(titles, key=str.lower)
+                    dat = [ (k, self.musiclist['jacket'][val[ev]][k]) for k in titles ]
+                    self.window['db'].update(dat)
+                    self.window['num_hash'].update(len(titles))
 
 if __name__ == '__main__':
     a = Reporter()
