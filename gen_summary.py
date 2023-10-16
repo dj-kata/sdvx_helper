@@ -344,6 +344,7 @@ class GenSummary:
             h = imagehash.hex_to_hash(h)
             if abs(h - hash_jacket) < 5:
                 ret = self.musiclist_hash['jacket'][difficulty][str(h)]
+                logger.debug(f"OCR pass: {abs(h - hash_jacket)<5}, h:{str(h)}, cur:{str(hash_jacket)}, diff:{abs(h - hash_jacket)<5}")
                 break
         if not detected:
             if notify and self.settings['send_webhook']:
