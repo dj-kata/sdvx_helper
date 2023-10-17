@@ -1,0 +1,305 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>hoge</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <style>
+            body { 
+            background-color: rgba(0, 0, 0, 0.85);
+            margin: 10px;
+            padding: 10px;
+            overflow: hidden;
+            font-family:"RocknRoll One";
+            color:#2196F3;   
+            font-size: 64px;
+            color: #fff;
+            text-shadow: 6px 6px 0 #000,
+                         -2px 2px 0 #000,
+                         2px -2px 0 #000,
+                         -2px -2px 0 #000;
+            }
+            div#all{
+                height:2000px;
+                background-color: rgba(0, 0, 0, 0.95);
+            }
+            table#title {
+                color: #aaddff;
+                background-color: rgba(0, 0, 100, 0.95);
+                font-size: 110px;
+                line-height: 140%;
+                width:100%;
+            }
+            table#title td{
+            	white-space:nowrap;
+            }
+            table#title td:nth-child(1){
+                max-width: 10px;
+            	overflow:hidden;
+            	text-overflow:ellipsis;
+            }
+            table#title td:nth-child(2){
+                width:13%;
+                margin-right:1%;
+                padding-right:1%;
+            }
+            table#title td:nth-child(3){
+                text-align: right;
+                width:10%;
+            }
+            table#result {
+                font-size: 96px;
+            	width:100%;
+            }
+            table#result td {
+            	white-space:nowrap;
+            }
+            table#result td:nth-child(1) {
+            	width:22%;
+            }
+            table#result td:nth-child(2) {
+            	width:5%;
+            	margin-right:1%;
+            }
+            table#result td:nth-child(3) {
+            	width:12%;
+                text-align:right;
+            }
+            table#result td:nth-child(4) {
+            	width:22%;
+                text-align:center;
+            }
+            table#result td:nth-child(5) {
+            	max-width:10px;
+            	overflow:hidden;
+            	text-overflow:ellipsis;
+            }
+            table#best {
+                font-size: 80px;
+            	width:100%;
+            }
+            table#best td {
+            	white-space:nowrap;
+            }
+            table#best td:nth-child(1) {
+                color:#ffccff;
+                width:20%;
+            }
+            table#best td:nth-child(2) {
+                color:#ffffff;
+                width:15%;
+                padding-right:3%;
+                text-align:right;
+            }
+            table#best td:nth-child(3) {
+                color:#cccccc;
+                width:20%;
+                padding-right:3%;
+                text-align:center;
+            }
+            table#best td:nth-child(4) {
+                max-width:10px;
+                overflow:hidden;
+                text-overflow:ellipsis;
+                color:#77bb77;
+            }
+            .MAX{
+                animation-name: flashmax;
+                animation-duration: 0.4s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashmax {
+                0%   { color: #ff2828; }
+                20%  { color: #d5ff28; }
+                40%  { color: #28ff7e; }
+                60%  { color: #2872ff; }
+                80%  { color: #d528ff; }
+                100% { color: #ff2828; }
+            }
+            .AAA{
+                color:#ffff28;
+            }
+            .AA{
+                color:#c3c3c3;
+            }
+            .A{
+                color:#2ddf71;
+            }
+            .B{
+                color:#7777ff;
+            }
+            .C{
+                color:#7777ff;
+            }
+            .D{
+                color:#7777ff;
+            }
+            .E{
+                color:#7777ff;
+            }
+            .F{
+                color:#7777ff;
+            }
+            .fc{
+                animation-name: flashfc;
+                animation-duration: 0.2s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfc {
+                0%   { background-color: #ff2828; }
+                20%  { background-color: #d5ff28; }
+                40%  { background-color: #28ff7e; }
+                60%  { background-color: #2872ff; }
+                80%  { background-color: #d528ff; }
+                100% { background-color: #ff2828; }
+            }
+            .failed{
+                animation-name: flashfailed;
+                animation-duration: 0.08s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfailed {
+                0%   { background-color: #ff2828; }
+                50%  { background-color: #282828; }
+                100% { background-color: #ff2828; }
+            }
+            .ac{background-color: #ff66ff;}
+            .ec{background-color: #22ff22;}
+            .nc{background-color: #22ccff;}
+            .hc{background-color: #ffffff;}
+            .exh{
+                animation-name: flashexh;
+                animation-duration: 0.08s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashexh {
+                0%   { background-color: #ff2828; }
+                50%  { background-color: #ffff28; }
+                100% { background-color: #ff2828; }
+            }
+            sp12hard{
+                color:#ff86b4;
+                padding: 0px;
+            }
+            sp12clear{
+                color:#9ee7ff;
+                padding: 0px;
+                display: none;
+            }
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script>
+        function loadXml() {
+            var getxml = $.ajax({
+                url: './history_cursong.xml',
+                type: 'GET',
+                dataType: 'xml',
+                cache: false
+            });
+            getxml.done(function(xml){
+                // xmlデータからほしいデータをfindで探し処理
+                var out = "";
+                var title = $(xml).find('Items title').text();
+                var lv = $(xml).find('Items lv').text();
+                var difficulty = $(xml).find('Items difficulty').text();
+                if (difficulty == "APPEND"){
+                    difficulty = '';
+                }else{
+                    difficulty = '('+difficulty+')';
+                }
+                var best_score = Number($(xml).find('Items best_score').text());
+                    best_score=Math.floor(best_score)
+                var best_lamp = $(xml).find('Items best_lamp').text();
+                $(xml).find("Items Result").each(function(index, item){
+                    var date = $(item).find('date').text();
+                    var lamp = $(item).find('lamp').text();
+                    var score = Number($(item).find('score').text());
+                    score=Math.floor(score / 10000)
+                    if (lamp == "failed"){
+                        lamp = '<span class="failed">FAILED</span>'
+                    }
+                    else if (lamp == "clear"){
+                        lamp = '<span class="clear">COMP</span>'
+                    }
+                    else if (lamp == "hard"){
+                        lamp = '<span class="hard">EXC</span>'
+                    }
+                    else if (lamp == "uc"){
+                        lamp = '<span class="uc">UC</span>'
+                    }
+                    else if (lamp == "puc"){
+                        lamp = '<span class="puc">PUC</span>'
+                    }
+                    else{ // Failed, No playは何も表示しない
+                        lamp = ''
+                    }
+                    // テーブルに追加
+                    out += '<tr><td><font color="#ffffaa">'+date+'</font></td>';
+                    out += '    <td>'+score+'</td>';
+                    out += '    <td>'+lamp+'</td>';
+                    out += '</tr>'
+                    if (index == 19){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。
+                        return false;
+                    }
+                });
+                var title_html = "<tr>";
+                    title_html += "<td>"+title+"</td>";
+                    title_html += "<td>"+difficulty+"</td>";
+                    title_html += "<td>Lv"+lv+"</td>";
+                    title_html += "</tr>";
+                if (best_lamp == "failed"){
+                    best_lamp = '<span class="failed">FAILED</span>'
+                }
+                else if (best_lamp == "clear"){
+                    best_lamp = '<span class="clear">COMP</span>'
+                }
+                else if (best_lamp == "hard"){
+                    best_lamp = '<span class="hard">EXC</span>'
+                }
+                else if (best_lamp == "uc"){
+                    best_lamp = '<span class="uc">UC</span>'
+                }
+                else if (best_lamp == "puc"){
+                    best_lamp = '<span class="puc">PUC</span>'
+                }
+                else{ // Failed, No playは何も表示しない
+                    best_lamp = ''
+                }
+                var best_html = "";
+                    best_html += "<tr><td>best(score)</td><td>"+best_score+"</td></tr>";
+                    best_html += "<tr><td>best(lamp)</td><td>"+best_lamp+"</td></tr>";
+                $('#title tbody').html(title_html);
+                $('#best tbody').html(best_html);
+                $('#result tbody').html(out);
+            });
+            getxml.fail(function(err) {
+                $(songtitle).text("ERROR!!!"+err);
+                //alert('failed');
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var roopTimer = setInterval(loadXml, 1000);
+        });
+
+</script>
+</head>
+<body>
+  <div id="all">
+    <table id="title">
+      <tbody>
+      </tbody>
+    </table>
+    <table id="best">
+      <tbody>
+      </tbody>
+    </table>
+    <table id="result">
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

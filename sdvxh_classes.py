@@ -90,24 +90,40 @@ class SDVXLogger:
     # 新規データのpush
     # その曲のプレーログ一覧を返す
     def push(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
+        # 先にHTMLを作成
+        self.gen_history_cursong(title, cur_score, lamp, difficulty)
+
         tmp = OnePlayData(title=title, cur_score=cur_score, pre_score=pre_score, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
             self.alllog.push(tmp)
 
         # ここでHTML表示用XMLを作成
-        self.gen_history_cursong(title, cur_score, lamp, difficulty)
 
     # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, cur_score:int, lamp:str, difficulty:str):
         logs, info = self.get_fumen_data(title, difficulty)
         lv = info.lv
-        vf = self.get_vf_single(cur_score, lamp, lv)
-        if (logs != False):
-            print(title, difficulty, lv, vf)
-            for p in logs:
-                p.disp()
-        else:
-            pass # invalid的なデータを書き込みたい
+        vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
+        with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
+            f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+            f.write("<Items>\n")
+            f.write(f"    <title>{title}</title>\n")
+            f.write(f"    <difficulty>{difficulty}</difficulty>\n")
+
+            if (logs != False):
+                f.write(f"    <lv>{lv}</lv>\n")
+                f.write(f"    <best_score>{info.best_score}</best_score>\n")
+                f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
+                # このプレーの履歴とか、その他
+                for p in logs:
+                    f.write(f"    <Result>\n")
+                    f.write(f"        <score>{p.cur_score}</score>\n")
+                    f.write(f"        <lamp>{p.lamp}</lamp>\n")
+                    f.write(f"        <date>{p.date}</date>\n")
+                    f.write(f"    </Result>\n")
+            else:
+                pass # invalid的なデータを書き込みたい
+            f.write("</Items>\n")
 
     def get_vf_single(self, score, lamp, lv):
         if lamp == 'puc':
