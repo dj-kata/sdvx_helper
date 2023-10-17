@@ -8,7 +8,6 @@ from obssocket import OBSSocket
 import logging, logging.handlers
 import traceback
 from functools import partial
-from enum import Enum
 from tkinter import filedialog
 import json, datetime, winsound
 from PIL import Image, ImageFilter
@@ -18,6 +17,7 @@ import subprocess
 from bs4 import BeautifulSoup
 import requests
 from manage_settings import *
+from sdvxh_classes import *
 import urllib
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
@@ -50,36 +50,6 @@ try:
         SWVER = f.readline().strip()
 except Exception:
     SWVER = "v?.?.?"
-
-class gui_mode(Enum):
-    init = 0
-    main = 1
-    setting = 2
-    obs_control = 3
-class detect_mode(Enum):
-    init = 0
-    select = 1
-    play = 2
-    result = 3
-
-class OnePlayData:
-    def __init__(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
-        self.title = title
-        self.cur_score = cur_score
-        self.pre_score = pre_score
-        self.lamp = lamp
-        self.difficulty = difficulty
-        self.date = date
-        self.diff = cur_score - pre_score
-
-    def __eq__(self, other):
-        if not isinstance(other, OnePlayData):
-            return NotImplemented
-
-        return (self.title == other.title) and (self.difficulty == other.difficulty) and (self.cur_score == other.cur_score) and (self.pre_score == other.pre_score) and (self.lamp == other.lamp) and (self.date == other.date)
-    
-    def disp(self): # debug
-        print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
 class SDVXHelper:
     def __init__(self):
@@ -117,10 +87,14 @@ class SDVXHelper:
     
     # 曲リストを最新化
     def update_musiclist(self):
-        if self.settings['autoload_musiclist']:
-            os.remove('resources/musiclist.pkl')
-            urllib.request.urlretrieve(self.params['url_musiclist'], 'resources/musiclist.pkl')
-        print('musiclist.pklを更新しました。')
+        try:
+            if self.settings['autoload_musiclist']:
+                with urllib.request.urlopen(self.params['url_musiclist']) as wf:
+                    with open('resources/musiclist.pkl', 'wb') as f:
+                        f.write(wf.read())
+                print('musiclist.pklを更新しました。')
+        except Exception:
+            print(traceback.format_exc())
 
     def get_latest_version(self):
         ret = None
