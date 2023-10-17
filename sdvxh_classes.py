@@ -92,7 +92,7 @@ class SDVXLogger:
     def push(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
         tmp = OnePlayData(title=title, cur_score=cur_score, pre_score=pre_score, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
-            self.alllog.push(tmp)
+            self.alllog.append(tmp)
 
         # ここでHTML表示用XMLを作成
         self.gen_history_cursong(title, cur_score, lamp, difficulty)
