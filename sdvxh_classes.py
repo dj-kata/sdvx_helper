@@ -100,18 +100,18 @@ class SDVXLogger:
     # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, cur_score:int, lamp:str, difficulty:str):
         logs, info = self.get_fumen_data(title, difficulty)
-        lv = info.lv
-        vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
         with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<Items>\n")
             f.write(f"    <title>{title}</title>\n")
             f.write(f"    <difficulty>{difficulty}</difficulty>\n")
 
-            if (logs != False):
+            if (logs != False) and (info != False):
+                lv = info.lv
                 f.write(f"    <lv>{lv}</lv>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
+                vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
                 vf_12 = int(vf/10)
                 vf_3 = vf % 10
                 f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
