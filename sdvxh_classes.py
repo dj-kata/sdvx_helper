@@ -138,19 +138,19 @@ class SDVXLogger:
         else:
             coef_lamp = 0.5
 
-        if score >= 9900000:
+        if score >= 9900000: # S
             coef_grade = 1.05
-        if score >= 9800000:
+        if score >= 9800000: # AAA+
             coef_grade = 1.02
-        if score >= 9700000:
+        if score >= 9700000: # AAA
             coef_grade = 1
-        if score >= 9500000:
+        if score >= 9500000: # AA+
             coef_grade = 0.97
-        if score >= 9300000:
+        if score >= 9300000: # AA
             coef_grade = 0.94
-        if score >= 9000000:
+        if score >= 9000000: # A+
             coef_grade = 0.91
-        if score >= 8700000:
+        if score >= 8700000: # A
             coef_grade = 0.88
         if score >= 7500000:
             coef_grade = 0.85
