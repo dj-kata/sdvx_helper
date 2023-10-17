@@ -343,6 +343,7 @@ class GenSummary:
         for h in self.musiclist_hash['jacket'][difficulty].keys():
             h = imagehash.hex_to_hash(h)
             if abs(h - hash_jacket) < 5:
+                detected = True
                 ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                 logger.debug(f"OCR pass: {abs(h - hash_jacket)<5}, h:{str(h)}, cur:{str(hash_jacket)}, diff:{abs(h - hash_jacket)<5}")
                 break
