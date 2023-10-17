@@ -43,7 +43,6 @@ FONTs = ('Meiryo',8)
 par_text = partial(sg.Text, font=FONT)
 par_btn = partial(sg.Button, pad=(3,0), font=FONT, enable_events=True, border_width=0)
 SETTING_FILE = 'settings.json'
-ALLLOG_FILE = 'alllog.pkl'
 sg.theme('SystemDefault')
 try:
     with open('version.txt', 'r') as f:
@@ -70,7 +69,7 @@ class SDVXHelper:
 
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
-        self.load_alllog()
+        self.sdvx_logger = SDVXLogger()
         self.update_musiclist()
         self.connect_obs()
 
@@ -107,18 +106,6 @@ class SDVXHelper:
                 break # 1番上が最新なので即break
         return ret
     
-    def load_alllog(self):
-        try:
-            with open(ALLLOG_FILE, 'rb') as f:
-                self.alllog = pickle.load(f)
-        except Exception:
-            print(f"プレーログファイル(alllog.pkl)がありません。新規作成します。")
-            self.alllog = []
-
-    def save_alllog(self):
-        with open(ALLLOG_FILE, 'wb') as f:
-            pickle.dump(self.alllog, f)
-
     def load_settings(self):
         ret = {}
         try:
@@ -163,9 +150,7 @@ class SDVXHelper:
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
             fmtnow = format(now, "%Y%m%d_%H%M%S")
-            onedata = OnePlayData(title=title, cur_score=cur, pre_score=pre, lamp=self.gen_summary.lamp, difficulty=self.gen_summary.difficulty, date=fmtnow)
-            onedata.disp()
-            self.alllog.append(onedata)
+            self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
             
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
@@ -628,7 +613,7 @@ class SDVXHelper:
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
-                    self.save_alllog()
+                    self.sdvx_logger.save_alllog()
                     print(f"プレーログを保存しました。")
                     break
                 else:
