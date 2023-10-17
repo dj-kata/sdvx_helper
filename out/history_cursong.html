@@ -212,6 +212,7 @@
                 var best_score = Number($(xml).find('Items best_score').text());
                     best_score=Math.floor(best_score)
                 var best_lamp = $(xml).find('Items best_lamp').text();
+                var vf = $(xml).find('Items vf').text();
                 $(xml).find("Items Result").each(function(index, item){
                     var date = $(item).find('date').text();
                     var lamp = $(item).find('lamp').text();
@@ -270,6 +271,7 @@
                 var best_html = "";
                     best_html += "<tr><td>best(score)</td><td>"+best_score+"</td></tr>";
                     best_html += "<tr><td>best(lamp)</td><td>"+best_lamp+"</td></tr>";
+                    best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
                 $('#title tbody').html(title_html);
                 $('#best tbody').html(best_html);
                 $('#result tbody').html(out);

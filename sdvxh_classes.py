@@ -114,6 +114,9 @@ class SDVXLogger:
                 f.write(f"    <lv>{lv}</lv>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
+                vf_12 = int(vf/10)
+                vf_3 = vf % 10
+                f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
                 # このプレーの履歴とか、その他
                 for p in logs:
                     f.write(f"    <Result>\n")
