@@ -3,9 +3,24 @@ from gen_summary import *
 from manage_settings import *
 import requests
 from bs4 import BeautifulSoup
+import logging, logging.handlers
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
+os.makedirs('log', exist_ok=True)
+os.makedirs('out', exist_ok=True)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+hdl = logging.handlers.RotatingFileHandler(
+    f'log/{os.path.basename(__file__).split(".")[0]}.log',
+    encoding='utf-8',
+    maxBytes=1024*1024*2,
+    backupCount=1,
+)
+hdl.setLevel(logging.DEBUG)
+hdl_formatter = logging.Formatter('%(asctime)s %(filename)s:%(lineno)5d %(funcName)s() [%(levelname)s] %(message)s')
+hdl.setFormatter(hdl_formatter)
+logger.addHandler(hdl)
 
 
 class gui_mode(Enum):
@@ -121,7 +136,8 @@ class SDVXLogger:
                     f.write(f"    <Result>\n")
                     f.write(f"        <score>{p.cur_score}</score>\n")
                     f.write(f"        <lamp>{p.lamp}</lamp>\n")
-                    f.write(f"        <date>{p.date}</date>\n")
+                    mod_date = f"{p.date[:4]}-{p.date[4:6]}-{p.date[6:8]}"
+                    f.write(f"        <date>{mod_date}</date>\n")
                     f.write(f"    </Result>\n")
             else:
                 pass # invalid的なデータを書き込みたい
@@ -141,21 +157,21 @@ class SDVXLogger:
 
         if score >= 9900000: # S
             coef_grade = 1.05
-        if score >= 9800000: # AAA+
+        elif score >= 9800000: # AAA+
             coef_grade = 1.02
-        if score >= 9700000: # AAA
+        elif score >= 9700000: # AAA
             coef_grade = 1
-        if score >= 9500000: # AA+
+        elif score >= 9500000: # AA+
             coef_grade = 0.97
-        if score >= 9300000: # AA
+        elif score >= 9300000: # AA
             coef_grade = 0.94
-        if score >= 9000000: # A+
+        elif score >= 9000000: # A+
             coef_grade = 0.91
-        if score >= 8700000: # A
+        elif score >= 8700000: # A
             coef_grade = 0.88
-        if score >= 7500000:
+        elif score >= 7500000:
             coef_grade = 0.85
-        if score >= 6500000:
+        elif score >= 6500000:
             coef_grade = 0.82
         else:
             coef_grade = 0.8
@@ -169,18 +185,19 @@ class SDVXLogger:
         logs = []
         best_score = 0
         best_lamp = ''
-        for p in self.alllog:
+        for p in reversed(self.alllog):
             if (p.title == title) and (p.difficulty == difficulty):
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
                 best_score = p.cur_score if p.cur_score > best_score else best_score
-                logs.append(p)
+                if p.cur_score > 7000000: # 最低スコアを設定 TODO
+                    logs.append(p)
         try:
             tmp = self.titles[title]
             artist = tmp[1]
             bpm    = tmp[2]
             lv     = tmp[3+diff_table.index(difficulty)]
-            return logs, info
         except:
+            logger.debug(traceback.format_exc())
             artist = ''
             bpm = ''
             lv = '??'
