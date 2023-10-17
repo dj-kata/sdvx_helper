@@ -111,10 +111,11 @@ class SDVXLogger:
                 f.write(f"    <lv>{lv}</lv>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
-                vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
-                vf_12 = int(vf/10)
-                vf_3 = vf % 10
-                f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
+                if (info.best_lamp != '') and type(lv) == int:
+                    vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
+                    vf_12 = int(vf/10)
+                    vf_3 = vf % 10
+                    f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
                 # このプレーの履歴とか、その他
                 for p in logs:
                     f.write(f"    <Result>\n")
@@ -171,7 +172,7 @@ class SDVXLogger:
         for p in self.alllog:
             if (p.title == title) and (p.difficulty == difficulty):
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
-                best_score = p.score if p.score > best_score else best_score
+                best_score = p.cur_score if p.cur_score > best_score else best_score
                 logs.append(p)
         try:
             tmp = self.titles[title]
