@@ -41,7 +41,7 @@ logger.addHandler(hdl)
 
 class Reporter:
     def __init__(self):
-        start = datetime.datetime(year=2023,month=10,day=12,hour=0)
+        start = datetime.datetime.now()
         self.load_settings()
         self.update_musiclist()
         self.gen_summary = GenSummary(start)
