@@ -17,10 +17,27 @@ from gen_summary import *
 from manage_settings import *
 import traceback
 import urllib
+import logging, logging.handlers
+from tkinter import filedialog
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
 diff_table = ['nov', 'adv', 'exh', 'APPEND']
+
+os.makedirs('log', exist_ok=True)
+os.makedirs('out', exist_ok=True)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+hdl = logging.handlers.RotatingFileHandler(
+    f'log/{os.path.basename(__file__).split(".")[0]}.log',
+    encoding='utf-8',
+    maxBytes=1024*1024*2,
+    backupCount=1,
+)
+hdl.setLevel(logging.DEBUG)
+hdl_formatter = logging.Formatter('%(asctime)s %(filename)s:%(lineno)5d %(funcName)s() [%(levelname)s] %(message)s')
+hdl.setFormatter(hdl_formatter)
+logger.addHandler(hdl)
 
 class Reporter:
     def __init__(self):
@@ -46,26 +63,27 @@ class Reporter:
     # 曲リストを最新化
     def update_musiclist(self):
         try:
-            os.remove('resources/musiclist.pkl')
+            with urllib.request.urlopen(self.params['url_musiclist']) as wf:
+                with open('resources/musiclist.pkl', 'wb') as f:
+                    f.write(wf.read())
+            logger.debug('musiclist.pklを更新しました。')
         except Exception:
-            pass
-        urllib.request.urlretrieve(self.params['url_musiclist'], 'resources/musiclist.pkl')
-        print('musiclist.pklを更新しました。')
+            logger.debug(traceback.format_exc())
 
     def load_settings(self):
         ret = {}
         try:
             with open(SETTING_FILE) as f:
                 ret = json.load(f)
-                print(f"設定をロードしました。\n")
+                logger.debug(f"設定をロードしました。\n")
         except Exception as e:
             logger.debug(traceback.format_exc())
-            print(f"有効な設定ファイルなし。デフォルト値を使います。")
+            logger.debug(f"有効な設定ファイルなし。デフォルト値を使います。")
 
         ### 後から追加した値がない場合にもここでケア
         for k in default_val.keys():
             if not k in ret.keys():
-                print(f"{k}が設定ファイル内に存在しません。デフォルト値({default_val[k]}を登録します。)")
+                logger.debug(f"{k}が設定ファイル内に存在しません。デフォルト値({default_val[k]}を登録します。)")
                 ret[k] = default_val[k]
         self.settings = ret
         with open(self.settings['params_json'], 'r') as f:
@@ -77,7 +95,7 @@ class Reporter:
             with open('resources/musiclist.pkl', 'rb') as f:
                 self.musiclist = pickle.load(f)
         except:
-            print('musiclist読み込み時エラー。新規作成します。')
+            logger.debug('musiclist読み込み時エラー。新規作成します。')
             self.musiclist = {}
             self.musiclist['jacket'] = {}
             self.musiclist['jacket']['nov'] = {}
@@ -89,7 +107,28 @@ class Reporter:
             self.musiclist['info']['adv'] = {}
             self.musiclist['info']['exh'] = {}
             self.musiclist['info']['APPEND'] = {}
-    
+
+    def merge_musiclist(self):
+        filename = filedialog.askopenfilename()
+        try:
+            with open(filename, 'rb') as f:
+                tmp = pickle.load(f)
+            pre_len = len(self.musiclist['jacket']['exh'].keys())
+            for pos in ('jacket', 'info'):
+                for diff in ('nov', 'adv', 'exh', 'APPEND'):
+                    for s in tmp[pos][diff].keys(): # 曲名のリスト
+                        if s not in self.musiclist[pos][diff].keys():
+                            self.musiclist[pos][diff][s] = tmp[pos][diff][s]
+                            logger.debug(f'added! {s}({diff},{pos}): {tmp[pos][diff][s]}')
+                        elif self.musiclist[pos][diff][s] != tmp[pos][diff][s]:
+                            logger.debug(f'merged! {s}({diff},{pos}): {tmp[pos][diff][s]} (before:{self.musiclist[pos][diff][s]})')
+                            self.musiclist[pos][diff][s] = tmp[pos][diff][s]
+            cur_len = len(self.musiclist['jacket']['exh'].keys())
+            logger.debug(f'マージ完了。{pre_len:,} -> {cur_len:,}')
+            print(f'マージ完了。{pre_len:,} -> {cur_len:,}')
+        except Exception:
+            logger.debug(traceback.format_exc())
+
     def save(self):
         with open('resources/musiclist.pkl', 'wb') as f:
             pickle.dump(self.musiclist, f)
@@ -187,8 +226,9 @@ class Reporter:
         ]
         layout_db = [
             [
-                sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_diff_db', font=(None,16), enable_events=True),
-                sg.Text('0', key='num_hash'), sg.Text('曲')
+                sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_diff_db', font=(None,16), enable_events=True)
+                ,sg.Button('外部pklのマージ', key='merge')
+                ,sg.Text('0', key='num_hash'), sg.Text('曲')
             ],
             [
                 sg.Table(
@@ -402,6 +442,8 @@ class Reporter:
                     dat = [ (k, self.musiclist['jacket'][val[ev]][k]) for k in titles ]
                     self.window['db'].update(dat)
                     self.window['num_hash'].update(len(titles))
+            elif ev == 'merge': # pklのマージボタン
+                self.merge_musiclist()
 
 if __name__ == '__main__':
     a = Reporter()
