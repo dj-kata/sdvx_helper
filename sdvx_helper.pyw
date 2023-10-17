@@ -606,10 +606,6 @@ class SDVXHelper:
                 if self.gui_mode == gui_mode.main:
                     self.save_settings()
                     self.control_obs_sources('quit')
-                    # 直近10プレーのログを表示
-                    if len(self.alllog) > 10:
-                        for l in self.alllog[-10:]:
-                            l.disp()
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
