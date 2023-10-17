@@ -90,14 +90,12 @@ class SDVXLogger:
     # 新規データのpush
     # その曲のプレーログ一覧を返す
     def push(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
-        # 先にHTMLを作成
-        self.gen_history_cursong(title, cur_score, lamp, difficulty)
-
         tmp = OnePlayData(title=title, cur_score=cur_score, pre_score=pre_score, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
             self.alllog.push(tmp)
 
         # ここでHTML表示用XMLを作成
+        self.gen_history_cursong(title, cur_score, lamp, difficulty)
 
     # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, cur_score:int, lamp:str, difficulty:str):
