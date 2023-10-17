@@ -164,24 +164,27 @@ class SDVXLogger:
     # ある譜面のログと曲情報を取得。自己べを取得する関係で1つにまとめている。
     def get_fumen_data(self, title:str, difficulty:str):
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
-        lamp_table = ['failed', 'clear', 'hard', 'uc', 'puc']
+        lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
+        logs = []
+        best_score = 0
+        best_lamp = ''
+        for p in self.alllog:
+            if (p.title == title) and (p.difficulty == difficulty):
+                best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
+                best_score = p.score if p.score > best_score else best_score
+                logs.append(p)
         try:
             tmp = self.titles[title]
             artist = tmp[1]
             bpm    = tmp[2]
             lv     = tmp[3+diff_table.index(difficulty)]
-            logs = []
-            best_score = 0
-            best_lamp = 'failed'
-            for p in self.alllog:
-                if (p.title == title) and (p.difficulty == difficulty):
-                    best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
-                    best_score = p.score if p.score > best_score else best_score
-                    logs.append(p)
-            info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp)
             return logs, info
         except:
-            return False, False
+            artist = ''
+            bpm = ''
+            lv = '??'
+        info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp)
+        return logs, info
 
     # bemaniwikiから曲、Lvの一覧を取得.将来的にはAPPENDの譜面名も取得したい(TODO)
     def read_bemaniwiki(self):
