@@ -279,11 +279,12 @@ class SDVXHelper:
         layout_gamemode = [
             [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
         ]
-        layout_autosave = [
+        layout_etc = [
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
+            [sg.Button('保存したリザルト画像をプレーログに反映(重いです)', key='read_from_result')],
             [sg.Text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
             [
                 #par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
@@ -297,7 +298,7 @@ class SDVXHelper:
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
             [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
-            [sg.Frame('その他設定', layout=layout_autosave, title_color='#000044')],
+            [sg.Frame('その他設定', layout=layout_etc, title_color='#000044')],
         ]
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
@@ -683,6 +684,8 @@ class SDVXHelper:
             elif ev in ('btn_setting', '設定'):
                 self.stop()
                 self.gui_setting()
+            elif ev == 'read_from_result':
+                self.sdvx_logger.import_from_resultimg()
 
 if __name__ == '__main__':
     a = SDVXHelper()
