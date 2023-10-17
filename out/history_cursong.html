@@ -8,7 +8,7 @@
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
         <style>
             body { 
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: rgba(0, 0, 0, 0);
             margin: 10px;
             padding: 10px;
             overflow: hidden;
@@ -22,8 +22,8 @@
                          -2px -2px 0 #000;
             }
             div#all{
-                height:2000px;
-                background-color: rgba(0, 0, 0, 0.95);
+                /*height:2000px;*/
+                background-color: rgba(0, 0, 0, 0);
             }
             table#title {
                 color: #aaddff;
@@ -157,37 +157,18 @@
             }
             .failed{
                 animation-name: flashfailed;
-                animation-duration: 0.08s;
+                animation-duration: 0.8s;
                 animation-iteration-count: infinite;
             }
             @keyframes flashfailed {
-                0%   { background-color: #ff2828; }
-                50%  { background-color: #282828; }
-                100% { background-color: #ff2828; }
+                0%   { color: #ff2828; }
+                50%  { color: #282828; }
+                100% { color: #ff2828; }
             }
-            .ac{background-color: #ff66ff;}
-            .ec{background-color: #22ff22;}
-            .nc{background-color: #22ccff;}
-            .hc{background-color: #ffffff;}
-            .exh{
-                animation-name: flashexh;
-                animation-duration: 0.08s;
-                animation-iteration-count: infinite;
-            }
-            @keyframes flashexh {
-                0%   { background-color: #ff2828; }
-                50%  { background-color: #ffff28; }
-                100% { background-color: #ff2828; }
-            }
-            sp12hard{
-                color:#ff86b4;
-                padding: 0px;
-            }
-            sp12clear{
-                color:#9ee7ff;
-                padding: 0px;
-                display: none;
-            }
+            .clear{color: #77ff77;}
+            .hard{color: #ffc115;}
+            .uc{color: #ff7777;}
+            .puc{color: #ffff99;}
         </style>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script>
@@ -269,7 +250,7 @@
                     best_lamp = ''
                 }
                 var best_html = "";
-                    best_html += "<tr><td>best(score)</td><td>"+best_score+"</td></tr>";
+                    best_html += "<tr><td>best(score)</td><td>"+best_score.toLocaleString()+"</td></tr>";
                     best_html += "<tr><td>best(lamp)</td><td>"+best_lamp+"</td></tr>";
                     best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
                 $('#title tbody').html(title_html);
