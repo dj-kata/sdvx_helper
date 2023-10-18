@@ -99,6 +99,7 @@ class SDVXLogger:
         try:
             with open(ALLLOG_FILE, 'rb') as f:
                 self.alllog = pickle.load(f)
+            self.alllog.sort()
         except Exception:
             print(f"プレーログファイル(alllog.pkl)がありません。新規作成します。")
             self.alllog = []
@@ -258,3 +259,4 @@ class SDVXLogger:
                         playdat.disp()
                 else:
                     print(f"認識失敗！ {f}")
+        self.alllog.sort()
