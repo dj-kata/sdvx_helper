@@ -59,7 +59,7 @@ class OnePlayData:
         print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
 class MusicInfo:
-    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv:int, best_score:int, best_lamp:str):
+    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str):
         self.title = title
         self.artist = artist
         self.bpm = bpm
@@ -67,6 +67,56 @@ class MusicInfo:
         self.lv = lv
         self.best_score = best_score
         self.best_lamp = best_lamp
+        self.vf = self.get_vf_single(best_score, best_lamp, lv) if (best_lamp!='') and (type(lv)==int) else 0
+
+    def disp(self):
+        msg = f"{self.title}({self.difficulty}) Lv:{self.lv}"
+        msg += f" {self.best_score:,}, {self.best_lamp}, VF:{self.vf}"
+
+        print(msg)
+
+    # 単曲のVFを計算
+    # 例えば16PUCなら369を返す。36.9と表示するのは上位側でやる。
+    def get_vf_single(self, score, lamp, lv):
+        if lamp == 'puc':
+            coef_lamp = 1.1
+        elif lamp == 'uc':
+            coef_lamp = 1.05
+        elif lamp == 'hard':
+            coef_lamp = 1.02
+        elif lamp == 'clear':
+            coef_lamp = 1
+        else:
+            coef_lamp = 0.5
+
+        if score >= 9900000: # S
+            coef_grade = 1.05
+        elif score >= 9800000: # AAA+
+            coef_grade = 1.02
+        elif score >= 9700000: # AAA
+            coef_grade = 1
+        elif score >= 9500000: # AA+
+            coef_grade = 0.97
+        elif score >= 9300000: # AA
+            coef_grade = 0.94
+        elif score >= 9000000: # A+
+            coef_grade = 0.91
+        elif score >= 8700000: # A
+            coef_grade = 0.88
+        elif score >= 7500000:
+            coef_grade = 0.85
+        elif score >= 6500000:
+            coef_grade = 0.82
+        else:
+            coef_grade = 0.8
+        ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
+        return ret
+
+    # ソート用。VF順で並ぶようにする
+    def __lt__(self, other):
+        if not isinstance(other, MusicInfo):
+            return NotImplemented
+        return self.vf < other.vf
 
 class SDVXLogger:
     def __init__(self):
@@ -132,11 +182,9 @@ class SDVXLogger:
                 f.write(f"    <lv>{lv}</lv>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
-                if (info.best_lamp != '') and type(lv) == int:
-                    vf = self.get_vf_single(info.best_score, info.best_lamp, lv)
-                    vf_12 = int(vf/10)
-                    vf_3 = vf % 10
-                    f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
+                vf_12 = int(info.vf/10)
+                vf_3 = info.vf % 10
+                f.write(f"    <vf>{vf_12}.{vf_3}</vf>\n")
                 # このプレーの履歴とか、その他
                 for p in logs:
                     f.write(f"    <Result>\n")
@@ -149,41 +197,6 @@ class SDVXLogger:
                 pass # invalid的なデータを書き込みたい
             f.write("</Items>\n")
 
-    def get_vf_single(self, score, lamp, lv):
-        if lamp == 'puc':
-            coef_lamp = 1.1
-        elif lamp == 'uc':
-            coef_lamp = 1.05
-        elif lamp == 'hard':
-            coef_lamp = 1.02
-        elif lamp == 'clear':
-            coef_lamp = 1
-        else:
-            coef_lamp = 0.5
-
-        if score >= 9900000: # S
-            coef_grade = 1.05
-        elif score >= 9800000: # AAA+
-            coef_grade = 1.02
-        elif score >= 9700000: # AAA
-            coef_grade = 1
-        elif score >= 9500000: # AA+
-            coef_grade = 0.97
-        elif score >= 9300000: # AA
-            coef_grade = 0.94
-        elif score >= 9000000: # A+
-            coef_grade = 0.91
-        elif score >= 8700000: # A
-            coef_grade = 0.88
-        elif score >= 7500000:
-            coef_grade = 0.85
-        elif score >= 6500000:
-            coef_grade = 0.82
-        else:
-            coef_grade = 0.8
-        ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
-        return ret
-
     # ある譜面のログと曲情報を取得。自己べを取得する関係で1つにまとめている。
     def get_fumen_data(self, title:str, difficulty:str):
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
@@ -193,6 +206,9 @@ class SDVXLogger:
         best_lamp = ''
         for p in reversed(self.alllog):
             if (p.title == title) and (p.difficulty == difficulty):
+                #p.disp()
+                if p.lamp == 'class_clear': # TODO 段位抜けはノマゲ扱いにしておく
+                    p.lamp = 'clear'
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
                 best_score = p.cur_score if p.cur_score > best_score else best_score
                 if p.cur_score > 7000000: # 最低スコアを設定 TODO
@@ -209,6 +225,32 @@ class SDVXLogger:
             lv = '??'
         info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp)
         return logs, info
+    
+    # alllogから全譜面のbest情報を作成
+    # alllogのエントリは同じ譜面を含む場合があるが、本関数は出力間で譜面を全て独立させる
+    def get_best_allfumen(self):
+        fumenlist = []
+        ret = []
+        for l in self.alllog:
+            if [l.title, l.difficulty] not in fumenlist:
+                fumenlist.append([l.title, l.difficulty])
+        for title, diff in fumenlist:
+            _, info = self.get_fumen_data(title, diff)
+            if info != False:
+                ret.append(info)
+        ret.sort(reverse=True)
+        self.best_allfumen = ret
+        return ret
+    
+    def get_total_vf(self):
+        ret = 0
+        for i,s in enumerate(self.best_allfumen):
+            s.disp()
+            if i >= 50:
+                break
+            ret += s.vf
+        print(f"VOLFORCE: {ret/1000}")
+        return ret / 1000
 
     # bemaniwikiから曲、Lvの一覧を取得.将来的にはAPPENDの譜面名も取得したい(TODO)
     def read_bemaniwiki(self):
@@ -260,3 +302,7 @@ class SDVXLogger:
                 else:
                     print(f"認識失敗！ {f}")
         self.alllog.sort()
+
+if __name__ == '__main__':
+    a = SDVXLogger()
+    a.get_best_allfumen()
