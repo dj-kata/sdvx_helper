@@ -8,7 +8,8 @@
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
         <style>
             body { 
-            background-color: rgba(0, 0, 0, 0);
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
             margin: 10px;
             padding: 10px;
             overflow: hidden;
@@ -22,8 +23,13 @@
                          -2px -2px 0 #000;
             }
             div#all{
-                /*height:2000px;*/
-                background-color: rgba(0, 0, 0, 0);
+                border: 16px solid #000077;
+                -moz-box-sizing:border-box;
+                box-sizing: border-box;
+                position: absolute;
+                top:0;
+                bottom:0;
+                background-color: rgba(0, 0, 0, 0.95);
             }
             table#title {
                 color: #aaddff;
@@ -57,34 +63,27 @@
             	white-space:nowrap;
             }
             table#result td:nth-child(1) {
-            	width:22%;
+            	width:35%;
             }
             table#result td:nth-child(2) {
-            	width:5%;
-            	margin-right:1%;
+            	width:30%;
+            	padding-right:5%;
+                text-align: right;
             }
             table#result td:nth-child(3) {
-            	width:12%;
-                text-align:right;
-            }
-            table#result td:nth-child(4) {
-            	width:22%;
-                text-align:center;
-            }
-            table#result td:nth-child(5) {
-            	max-width:10px;
-            	overflow:hidden;
-            	text-overflow:ellipsis;
+            	margin-left:3%;
+                text-align:left;
             }
             table#best {
                 font-size: 80px;
             	width:100%;
+                background-color: rgba(255, 255, 255, 0.35);
             }
             table#best td {
             	white-space:nowrap;
             }
             table#best td:nth-child(1) {
-                color:#ffccff;
+                color:#35f174;
                 width:20%;
             }
             table#best td:nth-child(2) {
@@ -250,8 +249,8 @@
                     best_lamp = ''
                 }
                 var best_html = "";
-                    best_html += "<tr><td>best(score)</td><td>"+best_score.toLocaleString()+"</td></tr>";
-                    best_html += "<tr><td>best(lamp)</td><td>"+best_lamp+"</td></tr>";
+                    best_html += "<tr><td>best score</td><td>"+best_score.toLocaleString()+"</td></tr>";
+                    best_html += "<tr><td>best lamp</td><td>"+best_lamp+"</td></tr>";
                     best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
                 $('#title tbody').html(title_html);
                 $('#best tbody').html(best_html);
