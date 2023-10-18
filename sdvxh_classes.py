@@ -50,6 +50,11 @@ class OnePlayData:
 
         return (self.title == other.title) and (self.difficulty == other.difficulty) and (self.cur_score == other.cur_score) and (self.pre_score == other.pre_score) and (self.lamp == other.lamp) and (self.date == other.date)
     
+    def __lt__(self, other):
+        if not isinstance(other, OnePlayData):
+            return NotImplemented
+        return self.date < other.date
+
     def disp(self): # debug
         print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
