@@ -226,7 +226,7 @@ class Reporter:
         ]
         layout_db = [
             [
-                sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_diff_db', font=(None,16), enable_events=True)
+                sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], default_value='exh', key='combo_diff_db', font=(None,16), enable_events=True)
                 ,sg.Button('外部pklのマージ', key='merge')
                 ,sg.Text('0', key='num_hash'), sg.Text('曲')
             ],
@@ -270,6 +270,7 @@ class Reporter:
         self.window['musics'].update(self.get_musiclist())
         filelist, bgcs = self.get_filelist()
         self.window['files'].update(filelist, row_colors=bgcs)
+        self.get_dblist()
 
     # bemaniwikiから取得した曲一覧を返す
     def get_musiclist(self):
@@ -284,6 +285,22 @@ class Reporter:
                 ret.append(s)
         self.musiclist_gui = ret # 現在GUIに表示している曲一覧を記憶しておく
         return ret
+    
+    def get_dblist(self):
+        dat = []
+        if self.window['combo_diff_db'].get() != '':
+            titles = [k for k in self.musiclist['jacket'][self.window['combo_diff_db'].get()].keys()]
+            titles = sorted(titles, key=str.lower)
+            for s in titles:
+                to_push = True
+                if self.window['filter'].get().strip() != '':
+                    for search_word in self.window['filter'].get().strip().split(' '):
+                        if (search_word.lower() not in s.lower()):
+                            to_push = False
+                if to_push: # 表示するデータを追加
+                    dat.append([s,self.musiclist['jacket'][self.window['combo_diff_db'].get()][s]])
+        self.window['num_hash'].update(len(dat))
+        self.window['db'].update(dat)
 
     def get_filelist(self):
         ret = []
@@ -388,22 +405,11 @@ class Reporter:
                     self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])
             elif ev == 'filter':
                 self.window['musics'].update(self.get_musiclist())
-                if val['combo_diff_db'] != '':
-                    titles = [k for k in self.musiclist['jacket'][val['combo_diff_db']].keys()]
-                    titles = sorted(titles, key=str.lower)
-                    dat = []
-                    for s in titles:
-                        to_push = True
-                        if self.window['filter'].get().strip() != '':
-                            for search_word in self.window['filter'].get().strip().split(' '):
-                                if (search_word.lower() not in s.lower()):
-                                    to_push = False
-                        if to_push: # 表示するデータを追加
-                            dat.append([s,self.musiclist['jacket'][val['combo_diff_db']][s]])
-                    self.window['db'].update(dat)
+                self.get_dblist()
             elif ev == 'clear':
                 self.window['filter'].update('')
                 self.window['musics'].update(self.get_musiclist())
+                self.get_dblist()
             elif ev == 'coloring':
                 self.th_coloring = threading.Thread(target=self.do_coloring, daemon=True)
                 self.th_coloring.start()
@@ -449,12 +455,7 @@ class Reporter:
                     else:
                         print('難易度が取得できません')
             elif ev == 'combo_diff_db': # hash値リスト側の難易度設定を変えた時に入る
-                if val[ev] != '':
-                    titles = [k for k in self.musiclist['jacket'][val[ev]].keys()]
-                    titles = sorted(titles, key=str.lower)
-                    dat = [ (k, self.musiclist['jacket'][val[ev]][k]) for k in titles ]
-                    self.window['db'].update(dat)
-                    self.window['num_hash'].update(len(titles))
+                self.get_dblist()
             elif ev == 'merge': # pklのマージボタン
                 self.merge_musiclist()
 
