@@ -388,6 +388,19 @@ class Reporter:
                     self.window['txt_title'].update(self.get_musiclist()[val['musics'][0]][0])
             elif ev == 'filter':
                 self.window['musics'].update(self.get_musiclist())
+                if val['combo_diff_db'] != '':
+                    titles = [k for k in self.musiclist['jacket'][val['combo_diff_db']].keys()]
+                    titles = sorted(titles, key=str.lower)
+                    dat = []
+                    for s in titles:
+                        to_push = True
+                        if self.window['filter'].get().strip() != '':
+                            for search_word in self.window['filter'].get().strip().split(' '):
+                                if (search_word.lower() not in s.lower()):
+                                    to_push = False
+                        if to_push: # 表示するデータを追加
+                            dat.append([s,self.musiclist['jacket'][val['combo_diff_db']][s]])
+                    self.window['db'].update(dat)
             elif ev == 'clear':
                 self.window['filter'].update('')
                 self.window['musics'].update(self.get_musiclist())
