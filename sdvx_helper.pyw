@@ -64,7 +64,6 @@ class SDVXHelper:
         self.window = False
         self.obs = False
         self.plays = 0
-        self.imgpath = os.getcwd()+'/out/capture.png'
         keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
@@ -131,12 +130,11 @@ class SDVXHelper:
             json.dump(self.settings, f, indent=2)
 
     def save_screenshot_general(self):
-        ts = os.path.getmtime(self.imgpath)
-        now = datetime.datetime.fromtimestamp(ts)
+        now = datetime.datetime.now()
         self.last_autosave_time = now
         fmtnow = format(now, "%Y%m%d_%H%M%S")
         dst = f"{self.settings['autosave_dir']}/sdvx_{fmtnow}.png"
-        tmp = self.get_capture_after_rotate(self.imgpath)
+        tmp = self.get_capture_after_rotate()
         self.gen_summary.cut_result_parts(tmp)
         cur,pre = self.gen_summary.get_score(tmp)
         res_ocr = self.gen_summary.ocr(notify=True)
@@ -166,13 +164,10 @@ class SDVXHelper:
                 class_cur.save('out/class_pre.png')
                 self.gen_first_vf = True
 
-    def get_capture_after_rotate(self, target=None):
+    def get_capture_after_rotate(self):
         while True:
             try:
-                if target==None:
-                    img = Image.open(self.imgpath)
-                else:
-                    img = Image.open(target)
+                img = self.obs.get_screenshot()
                 if self.settings['top_is_right']:
                     ret = img.rotate(90, expand=True)
                 else:
@@ -344,7 +339,7 @@ class SDVXHelper:
             self.obs.close()
             self.obs = False
         try:
-            self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], self.imgpath)
+            self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], '')
             if self.gui_mode == gui_mode.main:
                 self.window['txt_obswarning'].update('')
                 print('OBSに接続しました')
@@ -501,7 +496,6 @@ class SDVXHelper:
         logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
-            self.obs.save_screenshot()
             self.get_capture_after_rotate()
             pre_mode = self.detect_mode
             # 全モード共通の処理
@@ -527,14 +521,12 @@ class SDVXHelper:
                     if self.is_ondetect():
                         print(f"曲決定画面を検出")
                         time.sleep(self.settings['detect_wait'])
-                        self.obs.save_screenshot()
                         self.get_capture_after_rotate()
                         self.update_musicinfo()
                         done_thissong = True
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                 if self.is_onplay():
-                    ts = os.path.getmtime(self.imgpath)
-                    now = datetime.datetime.fromtimestamp(ts)
+                    now = datetime.datetime.now()
                     diff = (now - self.last_play0_time).total_seconds()
                     logger.debug(f'diff = {diff}s')
                     if diff > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
@@ -552,8 +544,7 @@ class SDVXHelper:
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
                     if self.settings['autosave_always']:
-                        ts = os.path.getmtime(self.imgpath)
-                        now = datetime.datetime.fromtimestamp(ts)
+                        now = datetime.datetime.now()
                         diff = (now - self.last_autosave_time).total_seconds()
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
