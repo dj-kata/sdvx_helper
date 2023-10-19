@@ -455,6 +455,9 @@ class Reporter:
                         self.window['txt_title'].update('')
                     else:
                         print('難易度が取得できません')
+                        self.window['state'].update('難易度が取得できません', text_color='#000000')
+                else:
+                    self.window['state'].update('曲名が入力されていません', text_color='#000000')
             elif ev == 'combo_diff_db': # hash値リスト側の難易度設定を変えた時に入る
                 self.get_dblist()
             elif ev == 'merge': # pklのマージボタン
