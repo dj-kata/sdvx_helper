@@ -230,6 +230,7 @@ class Reporter:
                 sg.Text('difficulty:'), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], default_value='exh', key='combo_diff_db', font=(None,16), enable_events=True)
                 ,sg.Button('外部pklのマージ', key='merge')
                 ,sg.Text('0', key='num_hash'), sg.Text('曲')
+                ,sg.Button('pklを送信', key='send_pkl')
             ],
             [
                 sg.Table(
@@ -462,6 +463,9 @@ class Reporter:
                 self.get_dblist()
             elif ev == 'merge': # pklのマージボタン
                 self.merge_musiclist()
+            elif ev == 'send_pkl':
+                self.save()
+                self.send_pkl()
 
 if __name__ == '__main__':
     a = Reporter(chk_update = False)
