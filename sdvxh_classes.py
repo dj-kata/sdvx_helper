@@ -121,6 +121,7 @@ class MusicInfo:
 class SDVXLogger:
     def __init__(self):
         self.gen_summary = GenSummary(datetime.datetime.now())
+        self.best_allfumen = []
         self.load_settings()
         self.load_alllog()
         self.read_bemaniwiki()
@@ -306,3 +307,4 @@ class SDVXLogger:
 if __name__ == '__main__':
     a = SDVXLogger()
     a.get_best_allfumen()
+    a.get_total_vf()
