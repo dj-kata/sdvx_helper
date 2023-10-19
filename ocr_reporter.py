@@ -40,10 +40,11 @@ hdl.setFormatter(hdl_formatter)
 logger.addHandler(hdl)
 
 class Reporter:
-    def __init__(self):
+    def __init__(self, chk_update:bool=True):
         start = datetime.datetime.now()
         self.load_settings()
-        self.update_musiclist()
+        if chk_update:
+            self.update_musiclist()
         self.gen_summary = GenSummary(start)
         self.load_musiclist()
         self.read_bemaniwiki()
@@ -253,12 +254,12 @@ class Reporter:
                 sg.Text('title:', font=(None,16)), sg.Input('', key='txt_title', font=(None,16), size=(50,1))
             ],
             [
-                sg.Text('hash_jacket:'), sg.Input('', key='hash_jacket', size=(20,1)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
+                sg.Text('hash_jacket:', font=(None,16)), sg.Input('', key='hash_jacket', size=(20,1), font=(None,16)), sg.Text('hash_info:'), sg.Input('', key='hash_info', size=(20,1))
                 ,sg.Text('難易度:', font=(None,16)), sg.Combo(['', 'nov', 'adv', 'exh', 'APPEND'], key='combo_difficulty', font=(None,16))
             ],
             [sg.Button('曲登録', key='register'), sg.Button('ファイル一覧に色付け(重いです)', key='coloring')],
             [sg.Column(layout_tables, key='column_table'), sg.Column(layout_db, key='column_db')],
-            [sg.Text('', text_color="#ff0000", key='state')],
+            [sg.Text('', text_color="#ff0000", key='state', font=(None,16))],
             [sg.Image(None, size=(100,100), key='jacket'), sg.Column(layout_info)]
         ]
         self.window = sg.Window(f"SDVX helper - OCR未検出曲報告ツール", layout, resizable=True, grab_anywhere=True,return_keyboard_events=True,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']), size=(900,780))
@@ -460,4 +461,4 @@ class Reporter:
                 self.merge_musiclist()
 
 if __name__ == '__main__':
-    a = Reporter()
+    a = Reporter(chk_update = False)
