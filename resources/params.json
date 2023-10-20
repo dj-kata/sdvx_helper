@@ -237,6 +237,11 @@
     "result_bestscore_7_w":14,
     "result_bestscore_7_h":14,
 
+    "select_jacket_sx":94,
+    "select_jacket_sy":242,
+    "select_jacket_w":352,
+    "select_jacket_h":352,
+
     "url_webhook_unknown":"https://discord.com/api/webhooks/1162578799746089021/2uqItkhPmFOeqCb6F91UlguYX2qNFdbAMrTxVGavHq4YJcl5ZBliN4q72h5ag3oe522s",
     "url_webhook_reg":"https://discord.com/api/webhooks/1162746823295893545/TVj0Mpsao8_vJBQTIOWNHZPd6qr5FyneqWTsRYVpWSm9bbvhjfsjvP9meoy20TXWFKoc",
     "url_musiclist":"https://github.com/dj-kata/sdvx_helper/raw/main/resources/musiclist.pkl",
