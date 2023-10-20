@@ -6,9 +6,9 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
-        <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
         <style>
             body { 
+            width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.95);
             margin: 10px;
@@ -30,6 +30,8 @@
                 position: absolute;
                 top:0;
                 bottom:0;
+                left:0;
+                right:0;
                 background-color: rgba(0, 0, 0, 0.95);
             }
             table#title {
@@ -61,64 +63,43 @@
             	width:100%;
             }
             table#result td {
-                vertical-align: middle;
             	white-space:nowrap;
             }
             table#result tr:nth-child(1) {
+                font-size:40px;
                 background-color: #000;
+                text-align: center;
             }
             table#result td:nth-child(1) {
-                font-size: 80px;
-            	width:35%;
+                color: #ffffcc;
+                text-align: center;
+            	width:17%;
             }
             table#result td:nth-child(2) {
-                font-size: 80px;
-            	width:20%;
+                max-width: 100px;
+            	overflow:hidden;
+            	text-overflow:ellipsis;
             }
             table#result td:nth-child(3) {
-            	width:20%;
-            	padding-right:5%;
-                text-align: right;
-            }
-            table#result td:nth-child(4) {
-                font-size: 80px;
-            	margin-left:3%;
+            	width:7%;
+            	margin-right:3%;
                 text-align:left;
             }
-            table#result td:nth-child(5) {
-            	width:20%;
-            	margin-left:3%;
-                text-align:center;
-            }
-            table#best {
-                font-size: 80px;
-            	width:100%;
-                background-color: rgba(255, 255, 255, 0.35);
-            }
-            table#best td {
-            	white-space:nowrap;
-            }
-            table#best td:nth-child(1) {
-                color:#35f174;
-                width:20%;
-            }
-            table#best td:nth-child(2) {
-                color:#ffffff;
-                width:15%;
-                padding-right:3%;
+            table#result td:nth-child(4) {
+            	width:17%;
+            	margin-right:3%;
                 text-align:right;
             }
-            table#best td:nth-child(3) {
-                color:#cccccc;
-                width:20%;
-                padding-right:3%;
+            table#result td:nth-child(5) {
+            	width:10%;
+            	margin-right:3%;
                 text-align:center;
             }
-            table#best td:nth-child(4) {
-                max-width:10px;
-                overflow:hidden;
-                text-overflow:ellipsis;
-                color:#77bb77;
+            table#result td:nth-child(6) {
+                color: #ccffcc;
+            	width:10%;
+            	margin-left:3%;
+                text-align:left;
             }
             .MAX{
                 animation-name: flashmax;
@@ -166,9 +147,6 @@
             .E{
                 color:#7777ff;
             }
-            .F{
-                color:#7777ff;
-            }
             .fc{
                 animation-name: flashfc;
                 animation-duration: 0.2s;
@@ -201,7 +179,7 @@
         <script>
         function loadXml() {
             var getxml = $.ajax({
-                url: './history_cursong.xml',
+                url: './vf_onselect.xml',
                 type: 'GET',
                 dataType: 'xml',
                 cache: false
@@ -209,60 +187,28 @@
             getxml.done(function(xml){
                 // xmlデータからほしいデータをfindで探し処理
                 var out = "";
-                    out += '<tr><td height="50"><font size="40"><center>date</center></font></td>';
-                    out += '<td></td>';
-                    out += '    <td colspan="2" height="40"><font size="40"><center>score</center></font></td>';
-                    out += '    <td height="50"><font size="40"><center>lamp</center></font></td>';
+                    out += '<tr><td><center>Lv</center></td>';
+                    out += '    <td colspan="2"><center>title</center></td>';
+                    out += '    <td><center>score</center></td>';
+                    out += '    <td><center>lamp</center></td>';
+                    out += '    <td><center>vf</center></td>';
                     out += '</tr>'
-                var title = $(xml).find('Items title').text();
-                var lv = $(xml).find('Items lv').text();
-                var difficulty = $(xml).find('Items difficulty').text();
-                if (difficulty == "APPEND"){
-                    difficulty = '';
-                }else{
-                    difficulty = '('+difficulty+')';
-                }
                 var best_score = Number($(xml).find('Items best_score').text());
                     best_score=Math.floor(best_score)
                 var best_lamp = $(xml).find('Items best_lamp').text();
-                var vf = $(xml).find('Items vf').text();
-                $(xml).find("Items Result").each(function(index, item){
-                    var date = $(item).find('date').text();
-                    var lamp = $(item).find('lamp').text();
-                    var score = Number($(item).find('score').text());
+                $(xml).find("Items fumen").each(function(index, item){
+                    var title = $(item).find('title').text();
+                    var lv = $(item).find('lv').text();
+                    var vf = $(item).find('vf').text();
+                    var difficulty = $(item).find('difficulty').text();
+                    if (difficulty == "APPEND"){
+                        difficulty = '';
+                    }else{
+                        difficulty = '('+difficulty+')';
+                    }
+                    var lamp = $(item).find('best_lamp').text();
+                    var score = Number($(item).find('best_score').text());
                     score=Math.floor(score / 10000)
-                    var rank = "";
-                    if (score >= 990){
-                        rank = '<span class="S">S</span>';
-                    }
-                    else if (score >= 980){
-                        rank = '<span class="AAAplus">AAA+</span>';
-                    }
-                    else if (score >= 970){
-                        rank = '<span class="AAA">AAA</span>';
-                    }
-                    else if (score >= 950){
-                        rank = '<span class="AAplus">AA+</span>';
-                    }
-                    else if (score >= 930){
-                        rank = '<span class="AA">AA</span>';
-                    }
-                    else if (score >= 900){
-                        rank = '<span class="Aplus">A+</span>';
-                    }
-                    else if (score >= 870){
-                        rank = '<span class="A">A</span>';
-                    }
-                    else if (score >= 750){
-                        rank = '<span class="B">B</span>';
-                    }
-                    else if (score >= 650){
-                        rank = '<span class="C">C</span>';
-                    }
-                    else{
-                        rank = '<span class="D">D</span>';
-                    }
-
                     if (lamp == "failed"){
                         lamp = '<img src="../resources/log_lamp_failed.png" height="80">'
                         //lamp = '<span class="failed">FAILED</span>'
@@ -287,47 +233,18 @@
                         lamp = ''
                     }
                     // テーブルに追加
-                    out += '<tr><td><font color="#ffffaa">'+date+'</font></td>';
-                    out += '    <td></td>';
+                    out += '<tr><td>'+lv+'</td>';
+                    out += '    <td>'+title+'</td>';
+                    out += '    <td>'+difficulty+'</td>';
                     out += '    <td>'+score+'</td>';
-                    out += '    <td>'+rank+'</td>';
                     out += '    <td>'+lamp+'</td>';
+                    out += '    <td>'+vf+'</td>';
                     out += '</tr>'
                     if (index == 19){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。
                         return false;
                     }
                 });
-                var title_html = "<tr>";
-                    title_html += "<td>"+title+"</td>";
-                    title_html += "</tr>";
-                if (best_lamp == "failed"){
-                    best_lamp = '<span class="failed">FAILED</span>'
-                }
-                else if (best_lamp == "clear"){
-                    best_lamp = '<span class="clear">COMP</span>'
-                }
-                else if (best_lamp == "hard"){
-                    best_lamp = '<span class="hard">EXC</span>'
-                }
-                else if (best_lamp == "uc"){
-                    best_lamp = '<span class="uc">UC</span>'
-                }
-                else if (best_lamp == "puc"){
-                    best_lamp = '<span class="puc">PUC</span>'
-                }
-                else{ // Failed, No playは何も表示しない
-                    best_lamp = ''
-                }
-                var best_html = "";
-                if (difficulty != ""){
-                    best_html += "<tr><td>difficulty</td><td>"+difficulty+"</td></tr>";
-                }
-                    best_html += "<tr><td>Lv</td><td>"+lv+"</td></tr>";
-                    best_html += "<tr><td>best score</td><td>"+best_score.toLocaleString()+"</td></tr>";
-                    best_html += "<tr><td>best lamp</td><td>"+best_lamp+"</td></tr>";
-                    best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
-                $('#title tbody').html(title_html);
-                $('#best tbody').html(best_html);
+                //$('#title tbody').html(title_html);
                 $('#result tbody').html(out);
             });
             getxml.fail(function(err) {
@@ -345,12 +262,9 @@
 <body>
   <div id="all">
     <table id="title">
-      <tbody>
-      </tbody>
-    </table>
-    <table id="best">
-      <tbody>
-      </tbody>
+        <tr>
+            <td>VOLFORCE information</td>
+        </tr>
     </table>
     <table id="result">
       <tbody>
