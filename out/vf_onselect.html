@@ -37,7 +37,7 @@
             table#title {
                 color: #aaddff;
                 background-color: rgba(0, 0, 100, 0.95);
-                font-size: 110px;
+                font-size: 60px;
                 line-height: 140%;
                 width:100%;
             }
@@ -59,7 +59,7 @@
                 width:10%;
             }
             table#result {
-                font-size: 96px;
+                font-size: 80px;
             	width:100%;
             }
             table#result td {
@@ -67,11 +67,11 @@
             }
             table#result tr:nth-child(1) {
                 font-size:40px;
+                color: #fff;
                 background-color: #000;
                 text-align: center;
             }
             table#result td:nth-child(1) {
-                color: #ffffcc;
                 text-align: center;
             	width:17%;
             }
@@ -233,10 +233,10 @@
                         lamp = ''
                     }
                     // テーブルに追加
-                    out += '<tr><td>'+lv+'</td>';
+                    out += '<tr><td><font color="#ffffcc">'+lv+'</font></td>';
                     out += '    <td>'+title+'</td>';
                     out += '    <td>'+difficulty+'</td>';
-                    out += '    <td>'+score+'</td>';
+                    out += '    <td><font color="#ffccff">'+score+'</font></td>';
                     out += '    <td>'+lamp+'</td>';
                     out += '    <td>'+vf+'</td>';
                     out += '</tr>'
