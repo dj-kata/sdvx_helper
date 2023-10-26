@@ -122,9 +122,11 @@ class SDVXLogger:
     def __init__(self):
         self.gen_summary = GenSummary(datetime.datetime.now())
         self.best_allfumen = []
+        self.pre_onselect_title = ''
         self.load_settings()
         self.load_alllog()
         self.read_bemaniwiki()
+        self.get_best_allfumen()
 
     def load_settings(self):
         ret = {}
@@ -166,8 +168,12 @@ class SDVXLogger:
         if tmp not in self.alllog:
             self.alllog.append(tmp)
 
+        # 全譜面のbestを更新
+        self.get_best_allfumen()
         # ここでHTML表示用XMLを作成
         self.gen_history_cursong(title, cur_score, lamp, difficulty)
+        # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
+        self.pre_onselect_title = ''
 
     # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, cur_score:int, lamp:str, difficulty:str):
@@ -197,6 +203,34 @@ class SDVXLogger:
             else:
                 pass # invalid的なデータを書き込みたい
             f.write("</Items>\n")
+
+    # 曲名に対するVF情報をXML出力
+    # 選曲画面からの利用を想定
+    def gen_vf_onselect(self, title):
+        if title != self.pre_onselect_title: # 違う曲になったときだけ実行
+            dat = []
+            # 指定の曲名と同じ譜面情報を全て出力
+            for d in self.best_allfumen:
+                if d.title == title:
+                    #d.disp()
+                    dat.append(d)
+
+            with open('out/vf_onselect.xml', 'w', encoding='utf-8') as f:
+                f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+                f.write("<Items>\n")
+                for d in dat:
+                    f.write("    <fumen>\n")
+                    f.write(f"        <title>{d.title}</title>\n")
+                    f.write(f"        <difficulty>{d.difficulty.upper()}</difficulty>\n")
+                    f.write(f"        <lv>{d.lv}</lv>\n")
+                    f.write(f"        <best_score>{d.best_score}</best_score>\n")
+                    f.write(f"        <best_lamp>{d.best_lamp}</best_lamp>\n")
+                    vf_12 = int(d.vf/10)
+                    vf_3 = d.vf % 10
+                    f.write(f"        <vf>{vf_12}.{vf_3}</vf>\n")
+                    f.write("    </fumen>\n")
+                f.write("</Items>\n")
+        self.pre_onselect_title = title
 
     # ある譜面のログと曲情報を取得。自己べを取得する関係で1つにまとめている。
     def get_fumen_data(self, title:str, difficulty:str):
