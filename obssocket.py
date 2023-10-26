@@ -92,7 +92,7 @@ class OBSSocket():
 
     # 設定されたソースを取得し、PIL.Image形式で返す
     def get_screenshot(self):
-        b = self.ws.get_source_screenshot(self.inf_source, 'png', 1920, 1080, 100).image_data
+        b = self.ws.get_source_screenshot(self.inf_source, 'jpeg', 1920, 1080, 100).image_data
         b = b.split(',')[1]
         c = base64.b64decode(b) # バイナリ形式のはず？
         tmp = io.BytesIO(c)
@@ -144,6 +144,7 @@ if __name__ == "__main__":
     #a.save_screenshot('メインモニタ', 'png', 'C:\\Users\\katao\\OneDrive\\デスクトップ\\hoge.png')
     #tmp = a.get_screenshot('メインモニタ', 'png')
     print(a.search_itemid('2. DP_NEW', 'history_cursong'))
-    #img = a.get_screenshot()# image_data # base64文字列
-    #img.save('tmp.png')
+    for i in range(100):
+        img = a.get_screenshot()# image_data # base64文字列
+    img.save('tmp.png')
 

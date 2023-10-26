@@ -155,7 +155,7 @@ class SDVXHelper:
 
     def save_playerinfo(self):
         vf_cur = self.img_rot.crop(self.get_detect_points('vf'))
-        if np.array(vf_cur).sum() > 1400000:
+        if np.array(vf_cur).sum() > 700000:
             vf_cur.save('out/vf_cur.png')
             class_cur = self.img_rot.crop(self.get_detect_points('class'))
             class_cur.save('out/class_cur.png')
@@ -514,6 +514,9 @@ class SDVXHelper:
                 if self.is_onresult():
                     self.save_playerinfo()
             if self.detect_mode == detect_mode.select:
+                title, diff_hash = self.gen_summary.ocr_only_jacket(self.img_rot.crop(self.get_detect_points('select_jacket')))
+                if diff_hash < 13:
+                    self.sdvx_logger.gen_vf_onselect(title)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:
