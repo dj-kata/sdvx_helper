@@ -20,6 +20,12 @@ hdl_formatter = logging.Formatter('%(asctime)s %(filename)s:%(lineno)5d %(funcNa
 hdl.setFormatter(hdl_formatter)
 logger.addHandler(hdl)
 
+try:
+    with open('version.txt', 'r') as f:
+        SWVER = f.readline().strip()
+except Exception:
+    SWVER = "v?.?.?"
+
 class GenSummary:
     def __init__(self, now):
         self.start = now
@@ -180,7 +186,7 @@ class GenSummary:
                 img_bytes = io.BytesIO()
                 self.result_parts['difficulty'].save(img_bytes, format='PNG')
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'difficulty.png')
-                msg += f"(difficulty: **{self.difficulty.upper()}**)"
+                msg += f"(difficulty: **{self.difficulty.upper()}**, sdvx_helper:{SWVER})"
 
                 webhook.content=msg
 
