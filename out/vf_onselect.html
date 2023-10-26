@@ -10,7 +10,7 @@
             body { 
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.95);
+            background-color: rgba(0, 0, 0, 0);
             margin: 10px;
             padding: 10px;
             overflow: hidden;
@@ -24,7 +24,7 @@
                          -2px -2px 0 #000;
             }
             div#all{
-                border: 16px solid #000077;
+                border: 16px solid #000000;
                 -moz-box-sizing:border-box;
                 box-sizing: border-box;
                 position: absolute;
@@ -35,11 +35,19 @@
                 background-color: rgba(0, 0, 0, 0.95);
             }
             table#title {
-                color: #aaddff;
-                background-color: rgba(0, 0, 100, 0.95);
                 font-size: 60px;
                 line-height: 140%;
                 width:100%;
+
+
+                color: #fff;
+                font-size: 60px;
+                background-color: #222;
+                background: linear-gradient(
+                    180deg
+                    ,rgba(0,0,60,0.9)
+                    ,rgba(35,85,155,0.9)
+                ); 
             }
             table#title td{
             	white-space:nowrap;
