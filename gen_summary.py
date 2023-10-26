@@ -315,53 +315,69 @@ class GenSummary:
             except Exception as e:
                 logger.error(traceback.format_exc())
             return True
-        
-    def ocr(self, notify:bool=False):
-        diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
-        hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
-        hash_adv = imagehash.average_hash(Image.open('resources/difficulty_adv.png'))
-        hash_exh = imagehash.average_hash(Image.open('resources/difficulty_exh.png'))
-        hash_cur = imagehash.average_hash(diff)
+    
+    # ジャケット画像を与えた時のOCR結果を返す(選曲画面からの利用を想定)
+    # 返り値: 曲名, hash差分の最小値
+    def ocr_only_jacket(self, img):
+        hash_jacket = imagehash.average_hash(img)
+        title = False
+        minval = 99999
+        for difficulty in ('APPEND', 'exh', 'adv', 'nov'):
+            for h in self.musiclist_hash['jacket'][difficulty].keys():
+                h = imagehash.hex_to_hash(h)
+                if abs(h - hash_jacket) < minval:
+                    minval = abs(h - hash_jacket)
+                    title = self.musiclist_hash['jacket'][difficulty][str(h)]
+        return title, minval
 
-        hash_jacket = imagehash.average_hash(self.result_parts['jacket_org'])
-        hash_info   = imagehash.average_hash(self.result_parts['info'])
-        detected = False
+    def ocr(self, notify:bool=False):
         ret = False
         difficulty = False
-        rsum = np.array(diff)[:,:,0].sum()
-        gsum = np.array(diff)[:,:,1].sum()
-        bsum = np.array(diff)[:,:,2].sum()
-        if (rsum<190000) and (gsum<180000) and (bsum>300000):
-            difficulty = 'nov'
-        elif (rsum>300000) and (gsum>260000) and (bsum<180000):
-            difficulty = 'adv'
-        elif (rsum>300000) and (gsum<180000) and (bsum<180000):
-            difficulty = 'exh'
-        else:
-            difficulty = 'APPEND'
-        self.difficulty = difficulty
-        for h in self.musiclist_hash['jacket'][difficulty].keys():
-            h = imagehash.hex_to_hash(h)
-            if abs(h - hash_jacket) < 5:
-                detected = True
-                ret = self.musiclist_hash['jacket'][difficulty][str(h)]
-                logger.debug(f"OCR pass: {abs(h - hash_jacket)<5}, h:{str(h)}, cur:{str(hash_jacket)}, diff:{abs(h - hash_jacket)<5}")
-                break
-        if not detected:
-            if notify and self.settings['send_webhook']:
-                self.send_webhook()
-            # 曲名エリアからの認識だと精度が悪いので放置
-            #for h in self.musiclist_hash['info'][difficulty].keys():
-            #    h = imagehash.hex_to_hash(h)
-            #    if abs(h - hash_info) < 5:
-            #        ret = self.musiclist_hash['info'][difficulty][str(h)]
-            #        #break
-        else:
-            tmp = Image.open('resources/no_jacket.png')
-            hash_no_jacket = imagehash.average_hash(tmp)
-            if abs(hash_jacket - hash_no_jacket) < 5:
-                print('ジャケット削除済みの曲なので判定結果をクリアします。')
-                ret = False
+        detected = False
+        try:
+            diff = self.result_parts['difficulty_org'].crop((0,0,70,30))
+            hash_nov = imagehash.average_hash(Image.open('resources/difficulty_nov.png'))
+            hash_adv = imagehash.average_hash(Image.open('resources/difficulty_adv.png'))
+            hash_exh = imagehash.average_hash(Image.open('resources/difficulty_exh.png'))
+            hash_cur = imagehash.average_hash(diff)
+
+            hash_jacket = imagehash.average_hash(self.result_parts['jacket_org'])
+            hash_info   = imagehash.average_hash(self.result_parts['info'])
+            rsum = np.array(diff)[:,:,0].sum()
+            gsum = np.array(diff)[:,:,1].sum()
+            bsum = np.array(diff)[:,:,2].sum()
+            if (rsum<190000) and (gsum<180000) and (bsum>300000):
+                difficulty = 'nov'
+            elif (rsum>300000) and (gsum>260000) and (bsum<180000):
+                difficulty = 'adv'
+            elif (rsum>300000) and (gsum<180000) and (bsum<180000):
+                difficulty = 'exh'
+            else:
+                difficulty = 'APPEND'
+            self.difficulty = difficulty
+            for h in self.musiclist_hash['jacket'][difficulty].keys():
+                h = imagehash.hex_to_hash(h)
+                if abs(h - hash_jacket) < 5:
+                    detected = True
+                    ret = self.musiclist_hash['jacket'][difficulty][str(h)]
+                    logger.debug(f"OCR pass: {abs(h - hash_jacket)<5}, h:{str(h)}, cur:{str(hash_jacket)}, diff:{abs(h - hash_jacket)<5}")
+                    break
+            if not detected:
+                if notify and self.settings['send_webhook']:
+                    self.send_webhook()
+                # 曲名エリアからの認識だと精度が悪いので放置
+                #for h in self.musiclist_hash['info'][difficulty].keys():
+                #    h = imagehash.hex_to_hash(h)
+                #    if abs(h - hash_info) < 5:
+                #        ret = self.musiclist_hash['info'][difficulty][str(h)]
+                #        #break
+            else:
+                tmp = Image.open('resources/no_jacket.png')
+                hash_no_jacket = imagehash.average_hash(tmp)
+                if abs(hash_jacket - hash_no_jacket) < 5:
+                    print('ジャケット削除済みの曲なので判定結果をクリアします。')
+        except Exception:
+            logger.debug(traceback.format_exc())
         return ret
     
     # OCRの動作確認用。未検出のものを見つけて報告するために使う。
