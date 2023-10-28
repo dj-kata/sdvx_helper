@@ -246,6 +246,7 @@ class SDVXLogger:
                     p.lamp = 'clear'
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
                 best_score = p.cur_score if p.cur_score > best_score else best_score
+                best_score = p.pre_score if p.pre_score > best_score else best_score
                 if p.cur_score > 7000000: # 最低スコアを設定 TODO
                     logs.append(p)
         try:
