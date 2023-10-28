@@ -106,27 +106,25 @@
             table#best td {
             	white-space:nowrap;
             }
-            table#best td:nth-child(1) {
-                color:#35f174;
+            table#best tr:nth-child(1) {
+                color:#fff;
+                background-color: #000;
+                font-size:40px;
                 width:20%;
+                text-align: center;
             }
-            table#best td:nth-child(2) {
+            table#best tr:nth-child(2) {
                 color:#ffffff;
-                width:15%;
-                padding-right:3%;
-                text-align:right;
+                text-align: center;
             }
-            table#best td:nth-child(3) {
-                color:#cccccc;
-                width:20%;
-                padding-right:3%;
-                text-align:center;
+            table#best tr:nth-child(2) td:nth-child(2){
+                color:#ffffcc;
             }
-            table#best td:nth-child(4) {
-                max-width:10px;
-                overflow:hidden;
-                text-overflow:ellipsis;
-                color:#77bb77;
+            table#best tr:nth-child(2) td:nth-child(3){
+                color:#ffccff;
+            }
+            table#best tr:nth-child(2) td:nth-child(5){
+                color:#ccffcc;
             }
             .MAX{
                 animation-name: flashmax;
@@ -330,10 +328,19 @@
                 if (difficulty != ""){
                     best_html += "<tr><td>difficulty</td><td>"+difficulty+"</td></tr>";
                 }
-                    best_html += "<tr><td>Lv</td><td>"+lv+"</td></tr>";
-                    best_html += "<tr><td>best score</td><td>"+best_score.toLocaleString()+"</td></tr>";
-                    best_html += "<tr><td>best lamp</td><td>"+best_lamp+"</td></tr>";
-                    best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
+                best_html += "<tr><td>Lv</td><td>"+lv+"</td></tr>";
+                best_html += "<tr><td>best score</td><td>"+best_score.toLocaleString()+"</td></tr>";
+                best_html += "<tr><td>best lamp</td><td>"+best_lamp+"</td></tr>";
+                best_html += "<tr><td>VOLFORCE</td><td>"+vf+"</td></tr>";
+
+                best_html = '<tr><font size="40"><td height="50">diff</td> <td>Lv</td> <td>best score</td> <td>best lamp</td> <td>VF</td></font></tr>'
+                best_html += '<tr>'
+                best_html += '<td>'+difficulty+'</td>'
+                best_html += '<td>'+lv+'</td>'
+                best_html += '<td>'+best_score.toLocaleString()+'</td>'
+                best_html += '<td>'+best_lamp+'</td>'
+                best_html += '<td>'+vf+'</td>'
+                best_html += '</tr>'
                 $('#title tbody').html(title_html);
                 $('#best tbody').html(best_html);
                 $('#result tbody').html(out);
