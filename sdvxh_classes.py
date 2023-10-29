@@ -318,6 +318,8 @@ class SDVXLogger:
         self.gen_history_cursong(title, cur_score, lamp, difficulty)
         # 統計情報も更新
         self.update_stats()
+        # VF情報更新
+        self.update_total_vf()
         # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
         self.pre_onselect_title = ''
 
@@ -470,7 +472,7 @@ class SDVXLogger:
                 f.write("    </lvs>\n")
             f.write("</stats>\n")
     
-    def get_total_vf(self):
+    def update_total_vf(self):
         """
             全曲VFを計算して返す。self.total_vfにも書き込む。
 
@@ -553,7 +555,7 @@ class SDVXLogger:
 if __name__ == '__main__':
     a = SDVXLogger()
     a.update_best_allfumen()
-    a.get_total_vf()
+    a.update_total_vf()
     a.update_stats()
 
     #for i in range(15,20):
