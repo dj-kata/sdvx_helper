@@ -1,0 +1,314 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>hoge</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+        <style>
+            body { 
+            height: 100%;
+            width:100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            margin: 0px;
+            padding: 0px;
+            overflow: hidden;
+            font-family:"RocknRoll One";
+            color:#2196F3;   
+            font-size: 30px;
+            color: #fff;
+            text-shadow: 6px 6px 0 #000,
+                         -2px 2px 0 #000,
+                         2px -2px 0 #000,
+                         -2px -2px 0 #000;
+            }
+            .frame_left {
+                overflow: hidden;
+                height: 100%;
+                width: 50%;
+                padding-right:2%;
+            }
+            .frame_right {
+                overflow: hidden;
+                height: 100%;
+                width: 50%;
+                padding-left:2%;
+            }
+            div#all{
+                display:flex;
+                -moz-box-sizing:border-box;
+                box-sizing: border-box;
+                background-color: rgba(0, 0, 0, 0.99);
+            }
+            table {
+            	width:100%;
+                border: none;
+            }
+            table td {
+                border: none;
+                vertical-align: middle;
+            	white-space:nowrap;
+            }
+            table tr:nth-child(1) {
+                background-color: #000;
+            }
+            table td:nth-child(1) {
+                color:rgb(156, 156, 156);
+                text-align:right;
+                padding-left: 15px;
+                padding-right: 30px;
+            	width:40px;
+                font-size: 22px;
+            }
+            table td:nth-child(2) {
+                color:#ffffee;
+            	margin-left:4%;
+                text-align:right;
+                padding-right: 30px;
+            	width:40px;
+            }
+            table td:nth-child(3) {
+                font-size: 36px;
+                max-width: 10px;
+            	overflow:hidden;
+            	text-overflow:ellipsis;
+            }
+            table td:nth-child(4) {
+                color:#eeeeee;
+                padding-left: 30px;
+                text-align:right;
+            	width:80px;
+            }
+            table td:nth-child(5) {
+            	width:40px;
+                padding-left: 15px;
+                text-align:center;
+            }
+            table td:nth-child(6) {
+            	width:80px;
+                color:#ccffcc;
+                padding-left: 15px;
+                padding-right: 15px;
+            }
+            img{
+                height: 25px;
+            }
+            .MAX{
+                animation-name: flashmax;
+                animation-duration: 0.4s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashmax {
+                0%   { color: #ff2828; }
+                20%  { color: #d5ff28; }
+                40%  { color: #28ff7e; }
+                60%  { color: #2872ff; }
+                80%  { color: #d528ff; }
+                100% { color: #ff2828; }
+            }
+            .lv16{color: #77ff77}
+            .lv17{color: #aabbff}
+            .lv18{color: #ffffcc}
+            .lv19{color: #ffaacc}
+            .lv20{color: #ab77ff}
+            .exh{color: #ffaaaa}
+            .adv{color: #ffffaa}
+            .nov{color: #aaaaff}
+            .APPEND{color: #ffccff;}
+            .S{
+                color:#ffff00;
+            }
+            .AAAplus{
+                color:#ffff28;
+            }
+            .AAA{
+                color:#ffff28;
+            }
+            .AAplus{
+                color:#c3c3c3;
+            }
+            .AA{
+                color:#c3c3c3;
+            }
+            .Aplus{
+                color:#2ddf71;
+            }
+            .A{
+                color:#2ddf71;
+            }
+            .B{
+                color:#7777ff;
+            }
+            .C{
+                color:#7777ff;
+            }
+            .D{
+                color:#7777ff;
+            }
+            .E{
+                color:#7777ff;
+            }
+            .F{
+                color:#7777ff;
+            }
+            .fc{
+                animation-name: flashfc;
+                animation-duration: 0.2s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfc {
+                0%   { background-color: #ff2828; }
+                20%  { background-color: #d5ff28; }
+                40%  { background-color: #28ff7e; }
+                60%  { background-color: #2872ff; }
+                80%  { background-color: #d528ff; }
+                100% { background-color: #ff2828; }
+            }
+            .failed{
+                animation-name: flashfailed;
+                animation-duration: 0.8s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfailed {
+                0%   { color: #ff2828; }
+                50%  { color: #282828; }
+                100% { color: #ff2828; }
+            }
+            .clear{color: #77ff77;}
+            .hard{color: #ffc115;}
+            .uc{color: #ff7777;}
+            .puc{color: #ffff99;}
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script>
+        function loadXml() {
+            var getxml = $.ajax({
+                url: './total_vf.xml',
+                type: 'GET',
+                dataType: 'xml',
+                cache: false
+            });
+            getxml.done(function(xml){
+                // xmlデータからほしいデータをfindで探し処理
+                var left = "";
+                var right = "";
+                $(xml).find("vfinfo music").each(function(index, item){
+                    var idx = Number($(item).find('idx').text());
+                    var lv = $(item).find('lv').text();
+                    lv = '<span class="lv'+lv+'">'+lv+"</span>";
+                    var title = $(item).find('title').text();
+                    var difficulty = $(item).find('difficulty').text();
+                    title = '<span class="'+difficulty+'">'+title+"</span>";
+                    var score = Number($(item).find('score').text());
+                    var lamp = $(item).find('lamp').text();
+                    var vf = Number($(item).find('vf').text());
+                    score=Math.floor(score / 10000)
+                    vf = vf/10;
+                    var rank = "";
+                    if (score >= 990){
+                        rank = '<span class="S">S</span>';
+                    }
+                    else if (score >= 980){
+                        rank = '<span class="AAAplus">AAA+</span>';
+                    }
+                    else if (score >= 970){
+                        rank = '<span class="AAA">AAA</span>';
+                    }
+                    else if (score >= 950){
+                        rank = '<span class="AAplus">AA+</span>';
+                    }
+                    else if (score >= 930){
+                        rank = '<span class="AA">AA</span>';
+                    }
+                    else if (score >= 900){
+                        rank = '<span class="Aplus">A+</span>';
+                    }
+                    else if (score >= 870){
+                        rank = '<span class="A">A</span>';
+                    }
+                    else if (score >= 750){
+                        rank = '<span class="B">B</span>';
+                    }
+                    else if (score >= 650){
+                        rank = '<span class="C">C</span>';
+                    }
+                    else{
+                        rank = '<span class="D">D</span>';
+                    }
+
+                    if (lamp == "failed"){
+                        lamp = '<img src="../resources/log_lamp_failed.png">'
+                        //lamp = '<span class="failed">FAILED</span>'
+                    }
+                    else if (lamp == "clear"){
+                        //lamp = '<span class="clear">COMP</span>'
+                        lamp = '<img src="../resources/log_lamp_clear.png">'
+                    }
+                    else if (lamp == "hard"){
+                        //lamp = '<span class="hard">EXC</span>'
+                        lamp = '<img src="../resources/log_lamp_hard.png">'
+                    }
+                    else if (lamp == "uc"){
+                        //lamp = '<span class="uc">UC</span>'
+                        lamp = '<img src="../resources/log_lamp_uc.png">'
+                    }
+                    else if (lamp == "puc"){
+                        //lamp = '<span class="puc">PUC</span>'
+                        lamp = '<img src="../resources/log_lamp_puc.png">'
+                    }
+                    else{ // Failed, No playは何も表示しない
+                        lamp = ''
+                    }
+                    // テーブルに追加
+                    if (index < 25){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。
+                        left += '<tr><td>'+idx+'</td>';
+                        left += '    <td>'+lv+'</td>';
+                        left += '    <td>'+title+'</td>';
+                        left += '    <td>'+score+'</td>';
+                        left += '    <td>'+lamp+'</td>';
+                        left += '    <td>'+vf.toPrecision(3)+'</td>';
+                        left += '</tr>'
+                    }else{
+                        right += '<tr><td>'+idx+'</td>';
+                        right += '    <td>'+lv+'</td>';
+                        right += '    <td>'+title+'</td>';
+                        right += '    <td>'+score+'</td>';
+                        right += '    <td>'+lamp+'</td>';
+                        right += '    <td>'+vf.toPrecision(3)+'</td>';
+                        right += '</tr>'
+                    }
+                });
+                $('#vf_left tbody').html(left);
+                $('#vf_right tbody').html(right);
+            });
+            getxml.fail(function(err) {
+                $(songtitle).text("ERROR!!!"+err);
+                //alert('failed');
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var roopTimer = setInterval(loadXml, 1000);
+        });
+
+</script>
+</head>
+<body>
+  <div id="all">
+    <div class="frame_left">
+        <table id="vf_left">
+          <tbody>
+          </tbody>
+        </table>
+    </div>
+    <div class="frame_right">
+        <table id="vf_right">
+          <tbody>
+          </tbody>
+        </table>
+    </div>
+  </div>
+</body>
+</html>
