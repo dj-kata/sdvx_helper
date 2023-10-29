@@ -28,13 +28,31 @@ class gui_mode(Enum):
     main = 1
     setting = 2
     obs_control = 3
+
 class detect_mode(Enum):
     init = 0
     select = 1
     play = 2
     result = 3
 
+class score_rank(Enum):
+    novalue = 0
+    s = 1
+    aaa_plus = 2
+    aaa = 3
+    aa_plus = 4
+    aa = 5
+    a_plus = 6
+    a = 7
+    b = 8
+    c = 9
+    d = 10
+
 class OnePlayData:
+    """
+    1つのプレーデータを表すクラス。
+    リストに入れてソートすると日付順になる。
+    """
     def __init__(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
         self.title = title
         self.cur_score = cur_score
@@ -58,7 +76,18 @@ class OnePlayData:
     def disp(self): # debug
         print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
+# 1曲分の情報。自己ベストも保持する。
+
 class MusicInfo:
+    """
+    1譜面分の情報を管理する。  
+
+    1エントリ=1曲のある1譜面。例えば冥のexhとinfは別々のインスタンスで表す。
+
+    自己ベストもここで定義する。
+
+    ソートはVF順に並ぶようにしている。
+    """
     def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str):
         self.title = title
         self.artist = artist
@@ -67,6 +96,7 @@ class MusicInfo:
         self.lv = lv
         self.best_score = best_score
         self.best_lamp = best_lamp
+        self.rank = score_rank.novalue
         self.vf = self.get_vf_single(best_score, best_lamp, lv) if (best_lamp!='') and (type(lv)==int) else 0
 
     def disp(self):
@@ -77,7 +107,19 @@ class MusicInfo:
 
     # 単曲のVFを計算
     # 例えば16PUCなら369を返す。36.9と表示するのは上位側でやる。
+    # ついでにここでスコアランクを入れておく
     def get_vf_single(self, score, lamp, lv):
+        """
+        Note: 
+            単曲VFを計算する。
+            例えば16PUCなら369のように整数を返す。36.9と表示するのは上位側でやる。
+            スコアランク(self.rank)もここで更新する。
+        Attributes
+            score: スコア
+            lamp: クリアランプ
+            lv: 譜面のレベル
+
+        """
         if lamp == 'puc':
             coef_lamp = 1.1
         elif lamp == 'uc':
@@ -90,24 +132,34 @@ class MusicInfo:
             coef_lamp = 0.5
 
         if score >= 9900000: # S
+            self.rank = score_rank.s
             coef_grade = 1.05
         elif score >= 9800000: # AAA+
+            self.rank = score_rank.aaa_plus
             coef_grade = 1.02
         elif score >= 9700000: # AAA
+            self.rank = score_rank.aaa
             coef_grade = 1
         elif score >= 9500000: # AA+
+            self.rank = score_rank.aa_plus
             coef_grade = 0.97
         elif score >= 9300000: # AA
+            self.rank = score_rank.aa
             coef_grade = 0.94
         elif score >= 9000000: # A+
+            self.rank = score_rank.a_plus
             coef_grade = 0.91
         elif score >= 8700000: # A
+            self.rank = score_rank.a
             coef_grade = 0.88
         elif score >= 7500000:
+            self.rank = score_rank.b
             coef_grade = 0.85
         elif score >= 6500000:
+            self.rank = score_rank.c
             coef_grade = 0.82
         else:
+            self.rank = score_rank.d
             coef_grade = 0.8
         ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
         return ret
@@ -118,15 +170,105 @@ class MusicInfo:
             return NotImplemented
         return self.vf < other.vf
 
+class OneLevelStat:
+    """
+    1つのレベルの統計情報を表すクラス。
+    """
+    def __init__(self, lv:int):
+        """コンストラクタ
+
+        Args:
+            lv (int): どのレベルか
+        """        
+        self.lv:int = lv # 1～20
+        self.reset()
+
+    def disp(self):
+        print(f"Lv{self.lv}")
+        print(f"ave: {self.get_average_score():.0f}")
+        print(f"rank: {self.rank}")
+        print(f"lamp: {self.lamp}\n")
+
+    def reset(self):
+        self.rank = {}
+        self.lamp = {}
+        self.rank['s'] = 0
+        self.rank['aaa_plus'] = 0
+        self.rank['aaa'] = 0
+        self.rank['aa_plus'] = 0
+        self.rank['aa'] = 0
+        self.rank['a_plus'] = 0
+        self.rank['a'] = 0
+        self.rank['b'] = 0
+        self.rank['c'] = 0
+        self.rank['d'] = 0
+        self.lamp['puc'] = 0
+        self.lamp['uc'] = 0
+        self.lamp['hard'] = 0
+        self.lamp['clear'] = 0
+        self.lamp['failed'] = 0
+        self.lamp['noplay'] = 0
+
+        self.scores = {} # key:曲名___譜面 val:スコア(平均値計算用)
+        self.average_score = 0
+
+    def read(self, minfo:MusicInfo):
+        self.rank[minfo.rank.name] += 1
+        self.lamp[minfo.best_lamp] += 1
+        self.scores[f"{minfo.title}___{minfo.difficulty}"] = minfo.best_score
+
+    def get_average_score(self):
+        """平均スコアを計算して返す
+
+        Returns:
+            float: そのレベルの平均スコア
+        """
+        tmp = 0
+        for sc in self.scores.values():
+            tmp += sc
+        if len(self.scores.values()) > 0:
+            self.average_score = tmp / len(self.scores.values())
+        else:
+            self.average_score = 0
+        return self.average_score
+
+class Stats:
+    """
+        全統計情報を保持するクラス
+
+        self.data[1-20]に各Lvの統計情報(OneLevelStat)を格納する。
+    """
+    def __init__(self):
+        self.data = [OneLevelStat(i) for i in range(1,21)]
+
+    def reset_all(self):
+        """全レベルの統計情報をクリアする。再計算時に利用。
+        """
+        for s in self.data:
+            s.reset()
+
+    def read_all(self, minfo:MusicInfo):
+        """1譜面のデータを受け取って統計情報を更新する
+
+        Args:
+            minfo (MusicInfo): ある譜面の自己べ情報
+        """        
+        if type(minfo.lv) == int:
+            idx = minfo.lv - 1
+            self.data[idx].read(minfo)
+
 class SDVXLogger:
     def __init__(self):
         self.gen_summary = GenSummary(datetime.datetime.now())
+        self.stats       = Stats()
         self.best_allfumen = []
         self.pre_onselect_title = ''
+        self.total_vf = 0
         self.load_settings()
         self.load_alllog()
         self.read_bemaniwiki()
-        self.get_best_allfumen()
+        self.update_best_allfumen()
+        self.update_stats()
 
     def load_settings(self):
         ret = {}
@@ -161,17 +303,21 @@ class SDVXLogger:
         with open(ALLLOG_FILE, 'wb') as f:
             pickle.dump(self.alllog, f)
 
-    # 新規データのpush
-    # その曲のプレーログ一覧を返す
     def push(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
+        """
+            新規データのpush
+            その曲のプレーログ一覧を返す
+        """
         tmp = OnePlayData(title=title, cur_score=cur_score, pre_score=pre_score, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
             self.alllog.append(tmp)
 
         # 全譜面のbestを更新
-        self.get_best_allfumen()
+        self.update_best_onesong(title, difficulty)
         # ここでHTML表示用XMLを作成
         self.gen_history_cursong(title, cur_score, lamp, difficulty)
+        # 統計情報も更新
+        self.update_stats()
         # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
         self.pre_onselect_title = ''
 
@@ -245,8 +391,9 @@ class SDVXLogger:
                 if p.lamp == 'class_clear': # TODO 段位抜けはノマゲ扱いにしておく
                     p.lamp = 'clear'
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
-                best_score = p.cur_score if p.cur_score > best_score else best_score
-                best_score = p.pre_score if p.pre_score > best_score else best_score
+                best_score = p.cur_score if (p.cur_score > best_score) and (p.cur_score <= 10000000) else best_score
+                # 以前のbest情報の読み取り精度が悪いため、現在のスコアからの登録のみ
+                #best_score = p.pre_score if (p.pre_score > best_score) and (p.pre_score <= 10000000) else best_score
                 if p.cur_score > 7000000: # 最低スコアを設定 TODO
                     logs.append(p)
         try:
@@ -262,31 +409,95 @@ class SDVXLogger:
         info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp)
         return logs, info
     
-    # alllogから全譜面のbest情報を作成
-    # alllogのエントリは同じ譜面を含む場合があるが、本関数は出力間で譜面を全て独立させる
-    def get_best_allfumen(self):
+    def update_best_onesong(self, title, diff):
+        """
+            単曲のbest情報を更新。リザルト画面で呼び出す想定。
+
+            毎回update_best_allfumenを呼ばないようにする。
+        """
+        _, info = self.get_fumen_data(title, diff)
+        for i,f in enumerate(self.best_allfumen):
+            if (f.title == title) and (f.difficulty == diff):
+                self.best_allfumen[i] = info
+                break
+    def update_best_allfumen(self):
+        """
+            self.alllogから全譜面のbest情報を作成
+
+            alllogのエントリは同じ譜面を含む場合があるが、本関数は出力間で譜面を全て独立させる
+        """
         fumenlist = []
         ret = []
+        # 譜面一覧を作成。ここで重複しないようにしている。
         for l in self.alllog:
             if [l.title, l.difficulty] not in fumenlist:
                 fumenlist.append([l.title, l.difficulty])
+        # 各譜面のbestを検索
         for title, diff in fumenlist:
             _, info = self.get_fumen_data(title, diff)
             if info != False:
                 ret.append(info)
+        # VF順にソート
         ret.sort(reverse=True)
         self.best_allfumen = ret
         return ret
     
+    # self.best_allfumenから各レベルの統計情報を更新
+    def update_stats(self):
+        """
+            最新のself.best_allfumenから統計情報を更新する。本関数の前にupdate_best_*を呼んでいること。
+
+            xml出力もやる。
+        """
+        self.stats.reset_all()
+        for f in self.best_allfumen:
+            if type(f.lv) == int:
+                self.stats.read_all(f)
+
+        with open('out/stats.xml', 'w', encoding='utf-8') as f:
+            f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+            f.write("<stats>\n")
+            for st in self.stats.data:
+                f.write("    <lvs>\n")
+                f.write(f"        <lv>{st.lv}</lv>\n")
+                f.write(f"        <average>{int(st.get_average_score())}</average>\n")
+                f.write("\n")
+                for k in st.lamp.keys():
+                    f.write(f"        <{k}>{st.lamp[k]}</{k}>\n")
+                f.write("\n")
+                for k in st.rank.keys():
+                    f.write(f"        <{k}>{st.rank[k]}</{k}>\n")
+                f.write("    </lvs>\n")
+            f.write("</stats>\n")
+    
     def get_total_vf(self):
+        """
+            全曲VFを計算して返す。self.total_vfにも書き込む。
+
+            out/total_vf.xmlにも出力する。
+        """
         ret = 0
-        for i,s in enumerate(self.best_allfumen):
-            s.disp()
-            if i >= 50:
-                break
-            ret += s.vf
-        print(f"VOLFORCE: {ret/1000}")
-        return ret / 1000
+        with open('out/total_vf.xml', 'w', encoding='utf-8') as f:
+            f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+            f.write("<vfinfo>\n")
+            for i,s in enumerate(self.best_allfumen):
+                if i >= 50:
+                    break
+                ret += s.vf
+                f.write(f"    <music>\n")
+                f.write(f"        <idx>{i+1}</idx>\n")
+                f.write(f"        <lv>{s.lv}</lv>\n")
+                f.write(f"        <title>{s.title}</title>\n")
+                f.write(f"        <difficulty>{s.difficulty}</difficulty>\n")
+                f.write(f"        <score>{s.best_score}</score>\n")
+                f.write(f"        <lamp>{s.best_lamp}</lamp>\n")
+                f.write(f"        <vf>{s.vf}</vf>\n")
+                f.write(f"    </music>\n")
+            self.total_vf = ret / 1000
+            f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
+            f.write("</vfinfo>\n")
+        print(f"VOLFORCE: {self.total_vf}")
+        return self.total_vf
 
     # bemaniwikiから曲、Lvの一覧を取得.将来的にはAPPENDの譜面名も取得したい(TODO)
     def read_bemaniwiki(self):
@@ -341,5 +552,13 @@ class SDVXLogger:
 
 if __name__ == '__main__':
     a = SDVXLogger()
-    a.get_best_allfumen()
+    a.update_best_allfumen()
     a.get_total_vf()
+    a.update_stats()
+
+    #for i in range(15,20):
+    #    a.stats.data[i].disp()
+
+    #for f in a.best_allfumen:
+    #    if f.lv == 19:
+    #        f.disp()
