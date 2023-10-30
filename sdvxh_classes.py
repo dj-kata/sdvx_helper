@@ -97,7 +97,7 @@ class MusicInfo:
         self.best_score = best_score
         self.best_lamp = best_lamp
         self.rank = score_rank.novalue
-        self.vf = self.get_vf_single(best_score, best_lamp, lv) if (best_lamp!='') and (type(lv)==int) else 0
+        self.get_vf_single()
 
     def disp(self):
         msg = f"{self.title}({self.difficulty}) Lv:{self.lv}"
@@ -108,18 +108,16 @@ class MusicInfo:
     # 単曲のVFを計算
     # 例えば16PUCなら369を返す。36.9と表示するのは上位側でやる。
     # ついでにここでスコアランクを入れておく
-    def get_vf_single(self, score, lamp, lv):
+    def get_vf_single(self):
         """
         Note: 
             単曲VFを計算する。
             例えば16PUCなら369のように整数を返す。36.9と表示するのは上位側でやる。
             スコアランク(self.rank)もここで更新する。
-        Attributes
-            score: スコア
-            lamp: クリアランプ
-            lv: 譜面のレベル
-
         """
+        score = self.best_score
+        lamp  = self.best_lamp
+        lv    = self.lv
         if lamp == 'puc':
             coef_lamp = 1.1
         elif lamp == 'uc':
@@ -161,7 +159,10 @@ class MusicInfo:
         else:
             self.rank = score_rank.d
             coef_grade = 0.8
-        ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
+        ret = 0
+        if type(lv) == int:
+            ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
+        self.vf = ret
         return ret
 
     # ソート用。VF順で並ぶようにする
