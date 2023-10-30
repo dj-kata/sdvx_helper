@@ -49,8 +49,13 @@ class OBSSocket():
             pass
 
     def get_scenes(self):
-        res = self.ws.get_scene_list()
-        return res.scenes
+        try:
+            res = self.ws.get_scene_list()
+            ret = res.scenes
+            return res.scenes
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return []
 
     def get_sources(self, scene):
         ret = []
@@ -144,7 +149,6 @@ if __name__ == "__main__":
     #a.save_screenshot('メインモニタ', 'png', 'C:\\Users\\katao\\OneDrive\\デスクトップ\\hoge.png')
     #tmp = a.get_screenshot('メインモニタ', 'png')
     print(a.search_itemid('2. DP_NEW', 'history_cursong'))
-    for i in range(100):
-        img = a.get_screenshot()# image_data # base64文字列
-    img.save('tmp.png')
-
+    #for i in range(100):
+    #    img = a.get_screenshot()# image_data # base64文字列
+    #img.save('tmp.png')
