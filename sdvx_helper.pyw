@@ -196,6 +196,7 @@ class SDVXHelper:
             self.settings['alert_blastermax'] = val['alert_blastermax']
             self.settings['logpic_bg_alpha'] = val['logpic_bg_alpha']
             self.settings['player_name'] = val['player_name']
+            self.sdvx_logger.player_name = val['player_name']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
