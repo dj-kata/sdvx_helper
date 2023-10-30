@@ -422,10 +422,14 @@ class SDVXLogger:
             毎回update_best_allfumenを呼ばないようにする。
         """
         _, info = self.get_fumen_data(title, diff)
+        is_found = False # best_allfumen内にあるかどうか、ない場合は追加
         for i,f in enumerate(self.best_allfumen):
             if (f.title == title) and (f.difficulty == diff):
                 self.best_allfumen[i] = info
+                is_found = True
                 break
+        if not is_found:
+            self.best_allfumen.append(info)
         self.best_allfumen.sort(reverse=True)
 
     def update_best_allfumen(self):
