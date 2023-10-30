@@ -243,6 +243,9 @@
     "select_jacket_h":352,
 
     "url_webhook_unknown":"https://discord.com/api/webhooks/1167151230527750225/WDMLqdsKOuW3DcxANLA9OKgRaHEiBD_7-filLwVaYYVKM74CqspSF8nPlB7ZLfP1WZ-i",
+    "url_webhook_unknown_exh":"https://discord.com/api/webhooks/1168479435339599882/tFeQHIqHhc6srZfB31ssA5N3-f17TNNElDDQVDNgmOyWJBSnY54OXcCltQ2p72ntOo09",
+    "url_webhook_unknown_adv":"https://discord.com/api/webhooks/1168479587261497366/rFaKRNx1aOC6TzNTn5XsQz_6Am0qiX0v_Ub1DHMAfb6SldeUkkduk-Cfv2CjL8PhU12A",
+    "url_webhook_unknown_nov":"https://discord.com/api/webhooks/1168479716211175494/NAGcvkprIOdAVmWBy1p9sGEl8YKZ5wleuqKz7ATlUy76YHWYmyUxxHBfHbZdU_tbKQIc",
     "url_webhook_reg":"https://discord.com/api/webhooks/1162746823295893545/TVj0Mpsao8_vJBQTIOWNHZPd6qr5FyneqWTsRYVpWSm9bbvhjfsjvP9meoy20TXWFKoc",
     "url_musiclist":"https://github.com/dj-kata/sdvx_helper/raw/main/resources/musiclist.pkl",
 

@@ -175,7 +175,14 @@ class GenSummary:
     def send_webhook(self):
         try:
             if (self.result_parts != False) and self.settings['send_webhook']:
-                webhook = DiscordWebhook(url=self.params['url_webhook_unknown'], username="unknown title info")
+                url = self.params['url_webhook_unknown']
+                if self.difficulty == 'exh':
+                    url = self.params['url_webhook_unknown_exh']
+                elif self.difficulty == 'adv':
+                    url = self.params['url_webhook_unknown_adv']
+                elif self.difficulty == 'nov':
+                    url = self.params['url_webhook_unknown_nov']
+                webhook = DiscordWebhook(url=url, username="unknown title info")
                 msg = ''
                 for i in ('jacket_org', 'info'):
                     msg += f"- **{imagehash.average_hash(self.result_parts[i])}**\n"
