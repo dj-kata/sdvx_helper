@@ -269,6 +269,7 @@ class SDVXLogger:
         self.read_bemaniwiki()
         self.update_best_allfumen()
         self.update_stats()
+        self.update_total_vf()
 
     def load_settings(self):
         ret = {}
@@ -422,6 +423,8 @@ class SDVXLogger:
             if (f.title == title) and (f.difficulty == diff):
                 self.best_allfumen[i] = info
                 break
+        self.best_allfumen.sort(reverse=True)
+
     def update_best_allfumen(self):
         """
             self.alllogから全譜面のbest情報を作成
@@ -530,6 +533,7 @@ class SDVXLogger:
 
     # リザルト画像置き場の画像からプレーログをインポート
     def import_from_resultimg(self):
+        print("リザルト画像をプレーログに反映します。")
         for f in self.gen_summary.get_result_files():
             img = Image.open(f)
             if self.gen_summary.is_result(img):
@@ -547,10 +551,12 @@ class SDVXLogger:
                     playdat = OnePlayData(ocr, cur, pre, lamp, diff, fmtnow)
                     if playdat not in self.alllog:
                         self.alllog.append(playdat)
-                        playdat.disp()
+                        logger.debug(f"added! -> {playdat.title}({playdat.difficulty}) {playdat.cur_score} {playdat.lamp}")
                 else:
+                    logger.debug(f"認識失敗！ {f}")
                     print(f"認識失敗！ {f}")
         self.alllog.sort()
+        print("リザルト画像の読み込みを完了しました。")
 
 if __name__ == '__main__':
     a = SDVXLogger()
