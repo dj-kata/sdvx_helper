@@ -68,7 +68,7 @@ class SDVXHelper:
 
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
-        self.sdvx_logger = SDVXLogger()
+        self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
         self.update_musiclist()
         self.connect_obs()
 
@@ -195,6 +195,7 @@ class SDVXHelper:
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
             self.settings['alert_blastermax'] = val['alert_blastermax']
             self.settings['logpic_bg_alpha'] = val['logpic_bg_alpha']
+            self.settings['player_name'] = val['player_name']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -289,6 +290,7 @@ class SDVXHelper:
             [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
             [par_text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
+            [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
@@ -606,6 +608,11 @@ class SDVXHelper:
                     self.gen_summary.generate_today_all(summary_filename)
                     self.sdvx_logger.save_alllog()
                     print(f"プレーログを保存しました。")
+                    vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_total_vf.png"
+                    try:
+                        self.obs.ws.save_source_screenshot('sdvx_stats.html', 'png', vf_filename, 3000, 2300, 100)
+                    except Exception:
+                        pass
                     break
                 else:
                     try:

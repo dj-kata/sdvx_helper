@@ -258,18 +258,20 @@ class Stats:
             self.data[idx].read(minfo)
 
 class SDVXLogger:
-    def __init__(self):
-        self.gen_summary = GenSummary(datetime.datetime.now())
+    def __init__(self, player_name:str=''):
+        self.date = datetime.datetime.now()
+        self.gen_summary = GenSummary(self.date)
         self.stats       = Stats()
         self.best_allfumen = []
         self.pre_onselect_title = ''
         self.total_vf = 0
+        self.player_name = player_name
         self.load_settings()
         self.load_alllog()
         self.read_bemaniwiki()
         self.update_best_allfumen()
-        self.update_stats()
         self.update_total_vf()
+        self.update_stats()
 
     def load_settings(self):
         ret = {}
@@ -317,10 +319,10 @@ class SDVXLogger:
         self.update_best_onesong(title, difficulty)
         # ここでHTML表示用XMLを作成
         self.gen_history_cursong(title, cur_score, lamp, difficulty)
-        # 統計情報も更新
-        self.update_stats()
         # VF情報更新
         self.update_total_vf()
+        # 統計情報も更新
+        self.update_stats()
         # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
         self.pre_onselect_title = ''
 
@@ -462,6 +464,9 @@ class SDVXLogger:
         with open('out/stats.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<stats>\n")
+            f.write(f"    <date>{self.date.strftime('%Y/%m/%d')}</date>\n")
+            f.write(f"    <player_name>{self.player_name}</player_name>\n")
+            f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
             for st in self.stats.data:
                 f.write("    <lvs>\n")
                 f.write(f"        <lv>{st.lv}</lv>\n")
