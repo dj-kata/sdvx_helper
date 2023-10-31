@@ -27,6 +27,7 @@ default_val = {
     'logpic_bg_alpha':255, # ログ画像について、背景の透明度(0-255, 0:完全に透過)
     'autoload_musiclist':True, # 曲リストを起動時にDLするかどうか。デバッグのためにオフにできるようにしている。
     'player_name':'', # 統計情報ビューに表示するプレイヤー名
+    'save_on_capture':True, # 画面取得方式。True:旧方式、False:新方式(jpeg)
 
     # debug
     'send_webhook':True, # OCR失敗時にwebhookで自動報告するかどうか

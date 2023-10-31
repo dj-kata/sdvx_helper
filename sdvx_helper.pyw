@@ -64,6 +64,7 @@ class SDVXHelper:
         self.window = False
         self.obs = False
         self.plays = 0
+        self.imgpath = os.getcwd()+'/out/capture.png'
         keyboard.add_hotkey('F6', self.save_screenshot_general)
 
         self.load_settings()
@@ -155,7 +156,8 @@ class SDVXHelper:
 
     def save_playerinfo(self):
         vf_cur = self.img_rot.crop(self.get_detect_points('vf'))
-        if np.array(vf_cur).sum() > 700000:
+        threshold = 1400000 if self.settings['save_on_capture'] else 700000
+        if np.array(vf_cur).sum() > threshold:
             vf_cur.save('out/vf_cur.png')
             class_cur = self.img_rot.crop(self.get_detect_points('class'))
             class_cur.save('out/class_cur.png')
@@ -167,7 +169,11 @@ class SDVXHelper:
     def get_capture_after_rotate(self):
         while True:
             try:
-                img = self.obs.get_screenshot()
+                if self.settings['save_on_capture']:
+                    self.obs.save_screenshot()
+                    img = Image.open(self.imgpath)
+                else:
+                    img = self.obs.get_screenshot()
                 if self.settings['top_is_right']:
                     ret = img.rotate(90, expand=True)
                 else:
@@ -197,6 +203,7 @@ class SDVXHelper:
             self.settings['logpic_bg_alpha'] = val['logpic_bg_alpha']
             self.settings['player_name'] = val['player_name']
             self.sdvx_logger.player_name = val['player_name']
+            self.settings['save_on_capture'] = val['save_on_capture']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -277,6 +284,7 @@ class SDVXHelper:
             [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
         ]
         layout_etc = [
+            [sg.Checkbox('画面取得時にファイル保存を行う', self.settings['save_on_capture'], key='save_on_capture', enable_events=True, tooltip='有効にした場合、out/capture.pngに保存されます(旧方式)。\n本ツールによってカクつきが発生する場合は有効にしてみてください。')],
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
@@ -342,7 +350,7 @@ class SDVXHelper:
             self.obs.close()
             self.obs = False
         try:
-            self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], '')
+            self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], self.imgpath)
             if self.gui_mode == gui_mode.main:
                 self.window['txt_obswarning'].update('')
                 print('OBSに接続しました')
