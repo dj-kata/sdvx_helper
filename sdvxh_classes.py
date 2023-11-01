@@ -1,7 +1,7 @@
 from enum import Enum
 from gen_summary import *
 from manage_settings import *
-import requests
+import requests, re
 from bs4 import BeautifulSoup
 import logging, logging.handlers
 
@@ -536,6 +536,56 @@ class SDVXLogger:
                         tmp.append(None)
                     songs.append(tmp)
                     titles[tds[0].text] = tmp
+
+        urls = [
+            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%B5%EC%B6%CA%A5%EA%A5%B9%A5%C8',
+            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%BF%B7%B6%CA%A5%EA%A5%B9%A5%C8'
+        ]
+        # AC版のwikiを読む
+        for url in urls:
+            req = requests.get(url)
+            soup = BeautifulSoup(req.text, 'html.parser')
+            # rowspanのカウンタ。日付分は正規表現で見るので不要
+            cnt_rowspan_artist = 0
+            cnt_rowspan_bpm    = 0
+            for tr in soup.find_all('tr'):
+                tds = tr.find_all('td')
+                numtd = len(tds)
+                rowspan_flg = 0
+                if re.search('\d{4}/\d{2}/\d{2}', tds[0].text):
+                    rowspan_flg = 1
+                if numtd in (7+rowspan_flg,8+rowspan_flg):
+                    if tds[3].text != 'BPM':
+                        print([tds[i].text for i in range(len(tds))])
+                        if 'rowspan' in tds[2].attrs.keys(): # rowspanありの行はずらさない
+                            cnt_rowspan_artist = int(tds[2].attrs['rowspan'])
+                        elif cnt_rowspan_artist > 0: # rowspanの次の行以降はカウンタが正なら1ずらす
+                            rowspan_flg -= 1
+                        if 'rowspan' in tds[3].attrs.keys():
+                            cnt_rowspan_bpm = int(tds[3].attrs['rowspan'])
+                        elif cnt_rowspan_bpm > 0:
+                            rowspan_flg -= 1
+                        # TODO アーティスト、pBPMどれもrowspan使われる可能性がある
+                        if 'ヒトガタ' in tds[0].text:
+                            print([tds[i].text for i in range(len(tds))])
+                        if tds[3+rowspan_flg].text != '-': # ごりらがいるんだ等、1つ上と曲違いのやつ
+                            tmp = [tds[rowspan_flg].text, tds[1+rowspan_flg].text, tds[2+rowspan_flg].text]
+                            tmp.append(int(re.findall('\d+', tds[3+rowspan_flg].text)[-1]))
+                            tmp.append(int(re.findall('\d+', tds[4+rowspan_flg].text)[-1]))
+                            tmp.append(int(re.findall('\d+', tds[5+rowspan_flg].text)[-1]))
+                            if tds[6+rowspan_flg].text not in ('', '-'):
+                                tmp.append(int(re.findall('\d+', tds[6+rowspan_flg].text)[-1]))
+                            else:
+                                tmp.append(None)
+                            if tds[rowspan_flg].text not in titles:
+                                songs.append(tmp)
+                                titles[tds[rowspan_flg].text] = tmp
+                        else:
+                            tmp[-1] = int(re.findall('\d+', tds[6+rowspan_flg].text)[-1])
+                            songs[-1] = tmp
+                            titles[tds[rowspan_flg].text] = tmp
+                cnt_rowspan_artist = max(0, cnt_rowspan_artist - 1)
+                cnt_rowspan_bpm    = max(0, cnt_rowspan_bpm - 1)
 
         self.songs = songs
         self.titles = titles
