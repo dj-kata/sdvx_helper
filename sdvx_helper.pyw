@@ -284,7 +284,7 @@ class SDVXHelper:
             [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
         ]
         layout_etc = [
-            [sg.Checkbox('画面取得時にファイル保存を行う', self.settings['save_on_capture'], key='save_on_capture', enable_events=True, tooltip='有効にした場合、out/capture.pngに保存されます(旧方式)。\n本ツールによってカクつきが発生する場合は有効にしてみてください。')],
+            [sg.Checkbox('画面取得時にファイル保存を行う(旧方式)', self.settings['save_on_capture'], key='save_on_capture', enable_events=True, tooltip='有効(旧方式): out/capture.pngに保存される\n無効(新方式): メモリ上で処理(ディスク負荷小)\n本ツールによってカクつきが発生する場合は有効にしてみてください。')],
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
