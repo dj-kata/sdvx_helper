@@ -19,6 +19,7 @@ import traceback
 import urllib
 import logging, logging.handlers
 from tkinter import filedialog
+import re
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
@@ -423,7 +424,8 @@ class Reporter:
                     hash_info = self.window['hash_info'].get()
                     difficulty = val['combo_difficulty']
                     print(difficulty, hash_jacket, hash_info)
-                    if (difficulty != '') and (hash_jacket != ''):
+                    pat = re.compile(r'[0-9a-f]{16}')
+                    if (difficulty != '') and bool(pat.search(hash_jacket)):
                         # TODO ジャケットなしの曲はinfoを登録する
                         self.send_webhook(music, difficulty, hash_jacket, hash_info)
                         if music not in self.musiclist['jacket'][difficulty].keys():
@@ -455,8 +457,8 @@ class Reporter:
                         self.window['hash_info'].update('')
                         self.window['txt_title'].update('')
                     else:
-                        print('難易度が取得できません')
-                        self.window['state'].update('難易度が取得できません', text_color='#000000')
+                        print('難易度 or ハッシュ値エラー')
+                        self.window['state'].update('難易度またはハッシュ値が取得できません', text_color='#000000')
                 else:
                     self.window['state'].update('曲名が入力されていません', text_color='#000000')
             elif ev == 'combo_diff_db': # hash値リスト側の難易度設定を変えた時に入る
