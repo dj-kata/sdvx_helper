@@ -335,17 +335,29 @@ class GenSummary:
     
     # ジャケット画像を与えた時のOCR結果を返す(選曲画面からの利用を想定)
     # 返り値: 曲名, hash差分の最小値
-    def ocr_only_jacket(self, img):
-        hash_jacket = imagehash.average_hash(img)
+    def ocr_only_jacket(self, jacket, nov, adv, exh, APPEND):
+        hash_jacket = imagehash.average_hash(jacket)
         title = False
         minval = 99999
-        for difficulty in ('APPEND', 'exh', 'adv', 'nov'):
-            for h in self.musiclist_hash['jacket'][difficulty].keys():
-                h = imagehash.hex_to_hash(h)
-                if abs(h - hash_jacket) < minval:
-                    minval = abs(h - hash_jacket)
-                    title = self.musiclist_hash['jacket'][difficulty][str(h)]
-        return title, minval
+        sum_nov = np.array(nov).sum()
+        sum_adv = np.array(adv).sum()
+        sum_exh = np.array(exh).sum()
+        sum_APPEND = np.array(APPEND).sum()
+        max_sum = max(sum_nov, sum_adv, sum_exh, sum_APPEND)
+        if max_sum == sum_nov:
+            difficulty = 'nov'
+        elif max_sum == sum_adv:
+            difficulty = 'adv'
+        elif max_sum == sum_exh:
+            difficulty = 'exh'
+        else:
+            difficulty = 'APPEND'
+        for h in self.musiclist_hash['jacket'][difficulty].keys():
+            h = imagehash.hex_to_hash(h)
+            if abs(h - hash_jacket) < minval:
+                minval = abs(h - hash_jacket)
+                title = self.musiclist_hash['jacket'][difficulty][str(h)]
+        return title, minval, difficulty
 
     def ocr(self, notify:bool=False):
         ret = False

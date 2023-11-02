@@ -530,9 +530,15 @@ class SDVXHelper:
                 if self.is_onresult():
                     self.save_playerinfo()
             if self.detect_mode == detect_mode.select:
-                title, diff_hash = self.gen_summary.ocr_only_jacket(self.img_rot.crop(self.get_detect_points('select_jacket')))
+                title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
+                    self.img_rot.crop(self.get_detect_points('select_jacket')),
+                    self.img_rot.crop(self.get_detect_points('select_nov')),
+                    self.img_rot.crop(self.get_detect_points('select_adv')),
+                    self.img_rot.crop(self.get_detect_points('select_exh')),
+                    self.img_rot.crop(self.get_detect_points('select_APPEND')),
+                )
                 if diff_hash < 13:
-                    self.sdvx_logger.gen_vf_onselect(title)
+                    self.sdvx_logger.gen_vf_onselect(title, diff)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:

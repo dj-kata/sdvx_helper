@@ -265,6 +265,7 @@ class SDVXLogger:
         self.stats       = Stats()
         self.best_allfumen = []
         self.pre_onselect_title = ''
+        self.pre_onselect_difficulty = ''
         self.total_vf = 0
         self.player_name = player_name
         self.load_settings()
@@ -274,6 +275,13 @@ class SDVXLogger:
         self.update_total_vf()
         self.update_stats()
 
+    def get_detect_points(self, name):
+        sx = self.params[f'{name}_sx']
+        sy = self.params[f'{name}_sy']
+        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
+        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
+        return (sx,sy,ex,ey)
+    
     def load_settings(self):
         ret = {}
         try:
@@ -326,6 +334,7 @@ class SDVXLogger:
         self.update_stats()
         # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
         self.pre_onselect_title = ''
+        self.pre_onselect_difficulty = ''
 
     # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, difficulty:str):
@@ -358,12 +367,13 @@ class SDVXLogger:
 
     # 曲名に対するVF情報をXML出力
     # 選曲画面からの利用を想定
-    def gen_vf_onselect(self, title):
-        if title != self.pre_onselect_title: # 違う曲になったときだけ実行
+    def gen_vf_onselect(self, title, difficulty):
+        if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
             dat = []
+
             # 指定の曲名と同じ譜面情報を全て出力
             for d in self.best_allfumen:
-                if d.title == title:
+                if (d.title == title) and (d.difficulty == difficulty):
                     #d.disp()
                     dat.append(d)
 
@@ -383,6 +393,7 @@ class SDVXLogger:
                     f.write("    </fumen>\n")
                 f.write("</Items>\n")
         self.pre_onselect_title = title
+        self.pre_onselect_difficulty = difficulty
 
     # ある譜面のログと曲情報を取得。自己べを取得する関係で1つにまとめている。
     def get_fumen_data(self, title:str, difficulty:str):
