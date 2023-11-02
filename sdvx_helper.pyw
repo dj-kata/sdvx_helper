@@ -624,6 +624,10 @@ class SDVXHelper:
                         self.obs.ws.save_source_screenshot('sdvx_stats.html', 'png', vf_filename, 3000, 2300, 100)
                     except Exception:
                         pass
+                    try:
+                        self.obs.ws.save_source_screenshot('sdvx_stats_v2.html', 'png', vf_filename, 3500, 2700, 100)
+                    except Exception:
+                        pass
                     break
                 else:
                     try:
