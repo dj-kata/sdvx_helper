@@ -377,7 +377,9 @@ class GenSummary:
                 if abs(h - hash_jacket) < 5:
                     self.hash_hit = h
                     if self.settings['save_jacketimg']:
-                        self.result_parts['jacket_org'].save(f"jackets/{str(h)}.png")
+                        tt = f"jackets/{str(h)}.png"
+                        if not os.path.exists(tt):
+                            self.result_parts['jacket_org'].save(tt)
                     detected = True
                     ret = self.musiclist_hash['jacket'][difficulty][str(h)]
                     logger.debug(f"OCR pass: {abs(h - hash_jacket)<5}, h:{str(h)}, cur:{str(hash_jacket)}, diff:{abs(h - hash_jacket)<5}")
