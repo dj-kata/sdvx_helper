@@ -500,9 +500,12 @@ class SDVXLogger:
                     break
                 ret += s.vf
                 f.write(f"    <music>\n")
+                if s.title in self.gen_summary.musiclist['jacket'][s.difficulty].keys():
+                    hash = self.gen_summary.musiclist['jacket'][s.difficulty][s.title]
                 f.write(f"        <idx>{i+1}</idx>\n")
                 f.write(f"        <lv>{s.lv}</lv>\n")
                 f.write(f"        <title>{s.title}</title>\n")
+                f.write(f"        <hash>{hash}</hash>\n")
                 f.write(f"        <difficulty>{s.difficulty}</difficulty>\n")
                 f.write(f"        <score>{s.best_score}</score>\n")
                 f.write(f"        <lamp>{s.best_lamp}</lamp>\n")
@@ -541,11 +544,25 @@ class SDVXLogger:
         self.alllog.sort()
         print("リザルト画像の読み込みを完了しました。")
 
+    # リザルト画像置き場の画像からVFビュー用ジャケット画像を生成
+    def gen_jacket_imgs(self):
+        print("リザルト画像からVFビュー用ジャケット画像を作成します。")
+        for f in self.gen_summary.get_result_files():
+            img = Image.open(f)
+            if self.gen_summary.is_result(img):
+                self.gen_summary.cut_result_parts(img)
+                ocr = self.gen_summary.ocr()
+                if ocr != False:
+                    hash = str(self.gen_summary.hash_hit)
+                    self.gen_summary.result_parts['jacket_org'].save(f'jackets/{hash}.png')
+
 if __name__ == '__main__':
     a = SDVXLogger()
     a.update_best_allfumen()
     a.update_total_vf()
     a.update_stats()
+
+    #a.gen_jacket_imgs()
 
     #for i in range(15,20):
     #    a.stats.data[i].disp()
