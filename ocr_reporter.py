@@ -96,6 +96,8 @@ class Reporter:
         try:
             with open('resources/musiclist.pkl', 'rb') as f:
                 self.musiclist = pickle.load(f)
+            print(f"認識用DB: {len(self.musiclist['jacket']['exh'])}")
+            print(f'曲情報(bemaniwikiベース): {len(self.musiclist["titles"].keys())}')
         except:
             logger.debug('musiclist読み込み時エラー。新規作成します。')
             self.musiclist = {}
