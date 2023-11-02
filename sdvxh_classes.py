@@ -367,11 +367,11 @@ class SDVXLogger:
 
     # 曲名に対するVF情報をXML出力
     # 選曲画面からの利用を想定
-    def gen_vf_onselect(self, title, difficulty):
+    def gen_vf_onselect(self, title:str, difficulty:str):
         if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
             dat = []
 
-            # 指定の曲名と同じ譜面情報を全て出力
+            # 指定の曲名と同じ譜面情報を出力
             for d in self.best_allfumen:
                 if (d.title == title) and (d.difficulty == difficulty):
                     #d.disp()

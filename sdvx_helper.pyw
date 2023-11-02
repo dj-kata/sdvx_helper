@@ -539,6 +539,7 @@ class SDVXHelper:
                 )
                 if diff_hash < 13:
                     self.sdvx_logger.gen_vf_onselect(title, diff)
+                    self.sdvx_logger.gen_history_cursong(title, diff)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:
