@@ -8,3 +8,4 @@ to_bin/*
 __pycache__/*
 sdvx_helper/*
 tmp/*
+jackets/*
