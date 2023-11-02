@@ -500,6 +500,7 @@ class SDVXLogger:
                     break
                 ret += s.vf
                 f.write(f"    <music>\n")
+                hash = ''
                 if s.title in self.gen_summary.musiclist['jacket'][s.difficulty].keys():
                     hash = self.gen_summary.musiclist['jacket'][s.difficulty][s.title]
                 f.write(f"        <idx>{i+1}</idx>\n")

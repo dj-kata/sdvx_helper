@@ -206,6 +206,7 @@ class SDVXHelper:
             self.settings['player_name'] = val['player_name']
             self.sdvx_logger.player_name = val['player_name']
             self.settings['save_on_capture'] = val['save_on_capture']
+            self.settings['save_jacketimg'] = val['save_jacketimg']
 
     def build_layout_one_scene(self, name, LR=None):
         if LR == None:
@@ -292,6 +293,8 @@ class SDVXHelper:
             [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
             [sg.Button('保存したリザルト画像をプレーログに反映(重いです)', key='read_from_result')],
+            [sg.Button('保存したリザルト画像からVFビュー用ジャケット画像を一括生成', key='gen_jacket_imgs')], 
+            [sg.Checkbox('リザルト画面でジャケット画像を自動保存(VF表示ビュー用)', self.settings['save_jacketimg'], key='save_jacketimg')],
             [sg.Text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
             [
                 #par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
@@ -299,7 +302,7 @@ class SDVXHelper:
                 sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
             ],
             [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
-            [par_text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
+            [sg.Text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
             [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
         ]
@@ -702,6 +705,8 @@ class SDVXHelper:
                 self.gui_setting()
             elif ev == 'read_from_result':
                 self.sdvx_logger.import_from_resultimg()
+            elif ev == 'gen_jacket_imgs':
+                self.sdvx_logger.gen_jacket_imgs()
 
 if __name__ == '__main__':
     a = SDVXHelper()

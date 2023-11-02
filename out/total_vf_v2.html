@@ -7,6 +7,7 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
         <style>
             body { 
             height: 100%;
@@ -18,7 +19,7 @@
             color:#2196F3;   
             font-size: 30px;
             color: #fff;
-            text-shadow: 6px 6px 0 #000,
+            text-shadow: 2px 2px 0 #000,
                          -2px 2px 0 #000,
                          2px -2px 0 #000,
                          -2px -2px 0 #000;
@@ -59,6 +60,7 @@
                 height: 60px;
             }
             table tr:nth-child(odd) td:nth-child(1) { /* 何番目かの数字 */
+                font-family:'Black Ops One';
                 color:rgb(255, 255, 153);
                 padding-left: 15px;
                 padding-right: 30px;
@@ -72,11 +74,17 @@
                 padding-right: 30px;
             	width:40px;
             }
-            table tr:nth-child(odd) td:nth-child(3) { /* 何番目かの数字 */
+            table tr:nth-child(odd) td:nth-child(3) { /* タイトル */
                 font-size: 42px;
                 max-width: 10px;
             	overflow:hidden;
             	text-overflow:ellipsis;
+            }
+            table tr:nth-child(even) td { /* 2行目 */
+                background-color: #444444;
+            }
+            table tr:nth-child(even) td:nth-child(2) { /* 2行目 */
+                text-align: right;
             }
             table td:nth-child(4) {
                 color:#eeeeee;

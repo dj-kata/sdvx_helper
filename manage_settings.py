@@ -28,7 +28,7 @@ default_val = {
     'autoload_musiclist':True, # 曲リストを起動時にDLするかどうか。デバッグのためにオフにできるようにしている。
     'player_name':'', # 統計情報ビューに表示するプレイヤー名
     'save_on_capture':True, # 画面取得方式。True:旧方式、False:新方式(jpeg)
-    'save_jacketimg':False, # OCR時にジャケット画像を保存する(保存先はjackets/内。VFビュー用。)
+    'save_jacketimg':True, # OCR時にジャケット画像を保存する(保存先はjackets/内。VFビュー用。)
 
     # debug
     'send_webhook':True, # OCR失敗時にwebhookで自動報告するかどうか
