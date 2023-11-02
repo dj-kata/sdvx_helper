@@ -319,7 +319,7 @@ class SDVXLogger:
         # 全譜面のbestを更新
         self.update_best_onesong(title, difficulty)
         # ここでHTML表示用XMLを作成
-        self.gen_history_cursong(title, cur_score, lamp, difficulty)
+        self.gen_history_cursong(title, difficulty)
         # VF情報更新
         self.update_total_vf()
         # 統計情報も更新
@@ -328,7 +328,7 @@ class SDVXLogger:
         self.pre_onselect_title = ''
 
     # その曲のプレー履歴情報のHTMLを作成
-    def gen_history_cursong(self, title:str, cur_score:int, lamp:str, difficulty:str):
+    def gen_history_cursong(self, title:str, difficulty:str):
         logs, info = self.get_fumen_data(title, difficulty)
         with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
