@@ -69,8 +69,8 @@ class SDVXHelper:
 
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
-        self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
         self.update_musiclist()
+        self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
         self.connect_obs()
 
         self.gen_summary = False
@@ -86,6 +86,8 @@ class SDVXHelper:
     
     # 曲リストを最新化
     def update_musiclist(self):
+        """曲リスト(musiclist.pkl)を最新化する
+        """
         try:
             if self.settings['autoload_musiclist']:
                 with urllib.request.urlopen(self.params['url_musiclist']) as wf:
