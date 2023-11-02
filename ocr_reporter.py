@@ -139,7 +139,6 @@ class Reporter:
         req = requests.get('https://bemaniwiki.com/index.php?%A5%B3%A5%CA%A5%B9%A5%C6/SOUND+VOLTEX+EXCEED+GEAR/%B3%DA%B6%CA%A5%EA%A5%B9%A5%C8')
 
         soup = BeautifulSoup(req.text, 'html.parser')
-        songs = []
         titles = {}
         for tr in soup.find_all('tr'):
             tds = tr.find_all('td')
@@ -154,10 +153,71 @@ class Reporter:
                         tmp.append(int(tds[6].text))
                     else:
                         tmp.append(None)
-                    songs.append(tmp)
                     titles[tds[0].text] = tmp
 
-        self.songs = songs
+        urls = [
+            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%B5%EC%B6%CA%A5%EA%A5%B9%A5%C8',
+            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%BF%B7%B6%CA%A5%EA%A5%B9%A5%C8'
+        ]
+        # AC版のwikiを読む
+        for url in urls:
+            req = requests.get(url)
+            soup = BeautifulSoup(req.text, 'html.parser')
+            # rowspanのカウンタ。日付分は正規表現で見るので不要
+            cnt_rowspan_artist = 0
+            cnt_rowspan_bpm    = 0
+            pre_artist = ''
+            pre_bpm    = ''
+            for tr in soup.find_all('tr'):
+                tds = tr.find_all('td')
+                numtd = len(tds)
+                title_flg = 0
+                rowspan_flg = 0
+                if re.search('\d{4}/\d{2}/\d{2}', tds[0].text):
+                    title_flg = 1 # タイトル行がどっちかのみ、これ以降ずらさない
+                    rowspan_flg = 1 # 難易度の先頭ポインタ
+                if numtd in (7+rowspan_flg,8+rowspan_flg):
+                    if tds[3].text != 'BPM':
+                        title  = tds[0+title_flg].text
+                        artist = tds[1+title_flg].text
+                        bpm    = tds[2+title_flg].text
+                        if re.search('\A\d{4}/\d{2}/\d{2}\Z', tds[0].text):
+                            title = tds[1].text
+                        #print(tds)
+                        if 'rowspan' in tds[1+title_flg].attrs.keys(): # rowspanありの行はずらさない
+                            cnt_rowspan_artist = int(tds[1+title_flg].attrs['rowspan'])
+                            pre_artist = tds[1+title_flg].text
+                        elif cnt_rowspan_artist > 0: # rowspanの次の行以降はカウンタが正なら1ずらす
+                            rowspan_flg -= 1
+                            artist = pre_artist
+                            bpm    = tds[1+title_flg].text
+                        if 'rowspan' in tds[2+title_flg].attrs.keys():
+                            cnt_rowspan_bpm = int(tds[2+title_flg].attrs['rowspan'])
+                            pre_bpm = tds[2+title_flg].text
+                        elif cnt_rowspan_bpm > 0:
+                            rowspan_flg -= 1
+                            bpm = pre_bpm
+                        if tds[3+rowspan_flg].text != '-': # ごりらがいるんだ等、1つ上と曲違いのやつ
+                            tmp = [title, artist, bpm]
+                            tmp.append(int(re.findall('\d+', tds[3+rowspan_flg].text)[-1]))
+                            tmp.append(int(re.findall('\d+', tds[4+rowspan_flg].text)[-1]))
+                            tmp.append(int(re.findall('\d+', tds[5+rowspan_flg].text)[-1]))
+                            if tds[6+rowspan_flg].text not in ('', '-'):
+                                tmp.append(int(re.findall('\d+', tds[6+rowspan_flg].text)[-1]))
+                            else:
+                                tmp.append(None)
+                            if title not in titles:
+                                titles[title] = tmp
+                        else:
+                            tmp[-1] = int(re.findall('\d+', tds[6+rowspan_flg].text)[-1])
+                            titles[title] = tmp
+                        #if ('Spear of Justice' in tds[0].text) or ('ASGORE' in tds[1].text):
+                        #    print([tds[i].text for i in range(len(tds))])
+                        #    print(f"tflg:{title_flg}, rflg:{rowspan_flg}, title:{title}, artist:{artist}(pre:{pre_artist}), bpm:{bpm}(pre:{pre_bpm})")
+                        #    print()
+                cnt_rowspan_artist = max(0, cnt_rowspan_artist - 1)
+                cnt_rowspan_bpm    = max(0, cnt_rowspan_bpm - 1)
+
         self.titles = titles
         print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
 
@@ -278,7 +338,7 @@ class Reporter:
     # bemaniwikiから取得した曲一覧を返す
     def get_musiclist(self):
         ret = []
-        for s in self.songs:
+        for s in self.titles.values():
             to_push = True
             if self.window['filter'].get().strip() != '':
                 for search_word in self.window['filter'].get().strip().split(' '):
