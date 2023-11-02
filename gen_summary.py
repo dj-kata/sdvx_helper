@@ -77,6 +77,10 @@ class GenSummary:
             self.musiclist['info']['adv'] = {}
             self.musiclist['info']['exh'] = {}
             self.musiclist['info']['APPEND'] = {}
+        
+        if not 'titles' in self.musiclist.keys():
+            print('各曲のレベル情報がないので新規作成します。')
+            self.musiclist['titles'] = {}
 
         # 譜面毎のハッシュ一覧を作っておく(検索用)
         # keyはハッシュ値、右辺は曲名

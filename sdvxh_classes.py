@@ -269,7 +269,7 @@ class SDVXLogger:
         self.player_name = player_name
         self.load_settings()
         self.load_alllog()
-        self.read_bemaniwiki()
+        self.titles = self.gen_summary.musiclist['titles']
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
@@ -513,83 +513,6 @@ class SDVXLogger:
             f.write("</vfinfo>\n")
         print(f"VOLFORCE: {self.total_vf}")
         return self.total_vf
-
-    # bemaniwikiから曲、Lvの一覧を取得.将来的にはAPPENDの譜面名も取得したい(TODO)
-    def read_bemaniwiki(self):
-        req = requests.get('https://bemaniwiki.com/index.php?%A5%B3%A5%CA%A5%B9%A5%C6/SOUND+VOLTEX+EXCEED+GEAR/%B3%DA%B6%CA%A5%EA%A5%B9%A5%C8')
-
-        soup = BeautifulSoup(req.text, 'html.parser')
-        songs = []
-        titles = {}
-        for tr in soup.find_all('tr'):
-            tds = tr.find_all('td')
-            numtd = len(tds)
-            if numtd in (7,8):
-                if tds[2].text != 'BPM':
-                    tmp = [tds[0].text, tds[1].text, tds[2].text]
-                    tmp.append(int(tds[3].text))
-                    tmp.append(int(tds[4].text))
-                    tmp.append(int(tds[5].text))
-                    if tds[6].text not in ('', '-'):
-                        tmp.append(int(tds[6].text))
-                    else:
-                        tmp.append(None)
-                    songs.append(tmp)
-                    titles[tds[0].text] = tmp
-
-        urls = [
-            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%B5%EC%B6%CA%A5%EA%A5%B9%A5%C8',
-            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%BF%B7%B6%CA%A5%EA%A5%B9%A5%C8'
-        ]
-        # AC版のwikiを読む
-        for url in urls:
-            req = requests.get(url)
-            soup = BeautifulSoup(req.text, 'html.parser')
-            # rowspanのカウンタ。日付分は正規表現で見るので不要
-            cnt_rowspan_artist = 0
-            cnt_rowspan_bpm    = 0
-            for tr in soup.find_all('tr'):
-                tds = tr.find_all('td')
-                numtd = len(tds)
-                rowspan_flg = 0
-                if re.search('\d{4}/\d{2}/\d{2}', tds[0].text):
-                    rowspan_flg = 1
-                if numtd in (7+rowspan_flg,8+rowspan_flg):
-                    if tds[3].text != 'BPM':
-                        print([tds[i].text for i in range(len(tds))])
-                        if 'rowspan' in tds[2].attrs.keys(): # rowspanありの行はずらさない
-                            cnt_rowspan_artist = int(tds[2].attrs['rowspan'])
-                        elif cnt_rowspan_artist > 0: # rowspanの次の行以降はカウンタが正なら1ずらす
-                            rowspan_flg -= 1
-                        if 'rowspan' in tds[3].attrs.keys():
-                            cnt_rowspan_bpm = int(tds[3].attrs['rowspan'])
-                        elif cnt_rowspan_bpm > 0:
-                            rowspan_flg -= 1
-                        # TODO アーティスト、pBPMどれもrowspan使われる可能性がある
-                        if 'ヒトガタ' in tds[0].text:
-                            print([tds[i].text for i in range(len(tds))])
-                        if tds[3+rowspan_flg].text != '-': # ごりらがいるんだ等、1つ上と曲違いのやつ
-                            tmp = [tds[rowspan_flg].text, tds[1+rowspan_flg].text, tds[2+rowspan_flg].text]
-                            tmp.append(int(re.findall('\d+', tds[3+rowspan_flg].text)[-1]))
-                            tmp.append(int(re.findall('\d+', tds[4+rowspan_flg].text)[-1]))
-                            tmp.append(int(re.findall('\d+', tds[5+rowspan_flg].text)[-1]))
-                            if tds[6+rowspan_flg].text not in ('', '-'):
-                                tmp.append(int(re.findall('\d+', tds[6+rowspan_flg].text)[-1]))
-                            else:
-                                tmp.append(None)
-                            if tds[rowspan_flg].text not in titles:
-                                songs.append(tmp)
-                                titles[tds[rowspan_flg].text] = tmp
-                        else:
-                            tmp[-1] = int(re.findall('\d+', tds[6+rowspan_flg].text)[-1])
-                            songs[-1] = tmp
-                            titles[tds[rowspan_flg].text] = tmp
-                cnt_rowspan_artist = max(0, cnt_rowspan_artist - 1)
-                cnt_rowspan_bpm    = max(0, cnt_rowspan_bpm - 1)
-
-        self.songs = songs
-        self.titles = titles
-        print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
 
     # リザルト画像置き場の画像からプレーログをインポート
     def import_from_resultimg(self):
