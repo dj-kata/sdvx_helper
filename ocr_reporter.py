@@ -48,7 +48,7 @@ class Reporter:
             self.update_musiclist()
         self.gen_summary = GenSummary(start)
         self.load_musiclist()
-        self.read_bemaniwiki()
+        #self.read_bemaniwiki()
         self.ico=self.ico_path('icon.ico')
         self.num_added_fumen = 0 # 登録した譜面数
         self.flg_registered = {} # key:ファイル名、値:登録済みならTrue.do_coloringの結果保存用。
@@ -109,6 +109,9 @@ class Reporter:
             self.musiclist['info']['adv'] = {}
             self.musiclist['info']['exh'] = {}
             self.musiclist['info']['APPEND'] = {}
+        if not 'titles' in self.musiclist.keys():
+            print('各曲のレベル情報がないので新規作成します。')
+            self.musiclist['titles'] = {}
 
     def merge_musiclist(self):
         filename = filedialog.askopenfilename()
@@ -219,6 +222,7 @@ class Reporter:
                 cnt_rowspan_bpm    = max(0, cnt_rowspan_bpm - 1)
 
         self.titles = titles
+        self.musiclist['titles'] = titles
         print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
 
     def send_webhook(self, title, difficulty, hash_jacket, hash_info):
@@ -338,7 +342,7 @@ class Reporter:
     # bemaniwikiから取得した曲一覧を返す
     def get_musiclist(self):
         ret = []
-        for s in self.titles.values():
+        for s in self.musiclist['titles'].values():
             to_push = True
             if self.window['filter'].get().strip() != '':
                 for search_word in self.window['filter'].get().strip().split(' '):
