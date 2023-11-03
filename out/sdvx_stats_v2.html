@@ -41,6 +41,7 @@
                 background-size: cover;
                 background-position: center;
                 background-blend-mode:overlay;
+                border: solid 2px white;
             }
             .info{
                 font-family: "Dela Gothic One";
@@ -51,6 +52,7 @@
             }
             .titlearea{
                 font-family:'Black Ops One';
+                border: solid 2px white;
                 background: linear-gradient(
                     150deg
                     ,rgba(0,0,60,0.9)
@@ -64,27 +66,43 @@
                              -2px 2px   0 #222299,
                              2px -2px   0 #222299,
                              -2px -2px  0 #222299;
+            }
+            table#title{
+                width:100%;
+                margin: 0px;
+            }
+            table#title td{
+                width:33%;
+                margin: 0px;
+            }
+            table#title td:nth-child(2){
                 font-size:40px;
             }
-            viewsubtitle{
+            table#title td:nth-child(3){
                 color:#aaffaa;
                 font-size:30px;
+                text-align: right;
+                padding-right: 60px;
             }
-            table{
-                width:60%;
+            table#info{
+                width:80%;
                 margin: auto;
             }
-            table tr:nth-child(1) {
+            table#title td{
+                width:25%;
+                margin: 0px;
+            }
+            table#info tr:nth-child(1) {
                 font-size:24px
             }
-            table tr:nth-child(2) {
+            table#info tr:nth-child(2) {
                 font-size:80px;
                 vertical-align: baseline;
             }
-            table tr:nth-child(2) td:nth-child(1){
+            table#info tr:nth-child(2) td:nth-child(1){
                 font-family:'Black Ops One';
             }
-            table tr:nth-child(2) td:nth-child(2){
+            table#info tr:nth-child(2) td:nth-child(2){
                 font-family:'Mochiy Pop P One';
             }
             img{
@@ -456,10 +474,13 @@
     <div class="all">
         <div class="info">
             <div class="titlearea">
-                SOUND VOLTEX (PC ver.) VOLFORCE Target Charts&nbsp;&nbsp;&nbsp;
-                <viewsubtitle>powered by sdvx_helper</viewsubtitle>
+            <table id="title">
+                <td></td>
+                <td>SOUND VOLTEX (PC ver.) VOLFORCE Target Charts</td>
+                <td>powered by sdvx_helper</td>
+            </table>
             </div>
-            <table>
+            <table id="info">
                 <tr>
                     <td>date</td>
                     <td>player name</td>
