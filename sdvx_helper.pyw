@@ -77,14 +77,21 @@ class SDVXHelper:
         logger.debug('created.')
         logger.debug(f'settings:{self.settings}')
 
-    def ico_path(self, relative_path):
+    def ico_path(self, relative_path:str):
+        """アイコン表示用
+
+        Args:
+            relative_path (str): アイコンファイル名
+
+        Returns:
+            str: アイコンファイルの絶対パス
+        """
         try:
             base_path = sys._MEIPASS
         except Exception:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
     
-    # 曲リストを最新化
     def update_musiclist(self):
         """曲リスト(musiclist.pkl)を最新化する
         """
@@ -98,6 +105,11 @@ class SDVXHelper:
             print(traceback.format_exc())
 
     def get_latest_version(self):
+        """GitHubから最新版のバージョンを取得する。
+
+        Returns:
+            str: バージョン番号
+        """
         ret = None
         url = 'https://github.com/dj-kata/sdvx_helper/tags'
         r = requests.get(url)
@@ -109,6 +121,11 @@ class SDVXHelper:
         return ret
     
     def load_settings(self):
+        """ユーザ設定(self.settings)をロードしてself.settingsにセットする。一応返り値にもする。
+
+        Returns:
+            dict: ユーザ設定
+        """
         ret = {}
         try:
             with open(SETTING_FILE) as f:
@@ -129,10 +146,14 @@ class SDVXHelper:
         return ret
 
     def save_settings(self):
+        """ユーザ設定(self.settings)を保存する。
+        """
         with open(SETTING_FILE, 'w') as f:
             json.dump(self.settings, f, indent=2)
 
     def save_screenshot_general(self):
+        """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
+        """
         now = datetime.datetime.now()
         self.last_autosave_time = now
         fmtnow = format(now, "%Y%m%d_%H%M%S")
@@ -157,6 +178,8 @@ class SDVXHelper:
         print(f"スクリーンショットを保存しました -> {dst}")
 
     def save_playerinfo(self):
+        """プレイヤー情報(VF,段位)を切り出して画像として保存する。
+        """
         vf_cur = self.img_rot.crop(self.get_detect_points('vf'))
         threshold = 1400000 if self.settings['save_on_capture'] else 700000
         if np.array(vf_cur).sum() > threshold:
@@ -169,6 +192,11 @@ class SDVXHelper:
                 self.gen_first_vf = True
 
     def get_capture_after_rotate(self):
+        """ゲーム画面のキャプチャを取得し、正しい向きに直す。self.img_rotにも格納する。
+
+        Returns:
+            PIL.Image: 取得したゲーム画面
+        """
         while True:
             try:
                 if self.settings['save_on_capture']:
@@ -187,6 +215,12 @@ class SDVXHelper:
         return ret
     
     def update_settings(self, ev, val):
+        """GUIから値を取得し、設定の更新を行う。
+
+        Args:
+            ev (str): sgのイベント
+            val (dict): sgの各GUIの値
+        """
         if self.gui_mode == gui_mode.main:
             self.settings['lx'] = self.window.current_location()[0]
             self.settings['ly'] = self.window.current_location()[1]
@@ -209,6 +243,15 @@ class SDVXHelper:
             self.settings['save_jacketimg'] = val['save_jacketimg']
 
     def build_layout_one_scene(self, name, LR=None):
+        """OBS制御設定画面におけるシーン1つ分のGUIを出力する。
+
+        Args:
+            name (str): シーン名
+            LR (bool, optional): 開始、終了があるシーンかどうかを指定。 Defaults to None.
+
+        Returns:
+            list: pysimpleguiで使うレイアウトを格納した配列。
+        """
         if LR == None:
             sc = [
                     sg.Column([[par_text('表示する')],[sg.Listbox(self.settings[f'obs_enable_{name}'], key=f'obs_enable_{name}', size=(20,4))], [par_btn('add', key=f'add_enable_{name}'),par_btn('del', key=f'del_enable_{name}')]]),
@@ -237,6 +280,8 @@ class SDVXHelper:
         return ret
 
     def gui_obs_control(self):
+        """OBS制御設定画面のGUIを起動する。
+        """
         self.gui_mode = gui_mode.obs_control
         if self.window:
             self.window.close()
@@ -275,6 +320,8 @@ class SDVXHelper:
         self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_setting(self):
+        """設定画面のGUIを起動する。
+        """
         self.gui_mode = gui_mode.setting
         if self.window:
             self.window.close()
@@ -314,6 +361,8 @@ class SDVXHelper:
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_main(self):
+        """メイン画面のGUIを起動する。
+        """
         self.gui_mode = gui_mode.main
         if self.window:
             self.window.close()
@@ -333,18 +382,27 @@ class SDVXHelper:
         if self.connect_obs():
             self.window['txt_obswarning'].update('')
 
-    def start(self):
+    def start_detect(self):
+        """認識スレッドを開始する。
+        """
         self.stop_thread = False
         self.th = threading.Thread(target=self.detect, daemon=True)
 
-    def stop(self):
+    def stop_detect(self):
+        """認識スレッドを停止する。
+        """
         if self.th != False:
             self.stop_thread = True
             self.th.join()
             self.stop_thread = False
             self.th = False
 
-    def play_wav(self, filename):
+    def play_wav(self, filename:str):
+        """指定した音声ファイルを再生する。
+
+        Args:
+            filename (str): 再生したいファイル名(フルパス)
+        """
         try:
             winsound.PlaySound(filename, winsound.SND_FILENAME)
         except:
@@ -369,9 +427,16 @@ class SDVXHelper:
                 print('Error!! OBSとの接続に失敗しました。')
             return False
 
-    # OBSソースの表示・非表示及びシーン切り替えを行う
-    # nameで適切なシーン名を指定する必要がある。
-    def control_obs_sources(self, name):
+    def control_obs_sources(self, name:str):
+        """OBSソースの表示・非表示及びシーン切り替えを行う。
+        nameで適切なシーン名を指定する必要がある。
+
+        Args:
+            name (str): シーン名(boot,exit,play{0,1},select{0,1},result{0,1})
+
+        Returns:
+            bool: 正常終了していればTrue
+        """
         self.window['txt_mode'].update(self.detect_mode.name)
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
@@ -396,8 +461,12 @@ class SDVXHelper:
             #print('enable', scene, s, tmps, tmpid)
         return True
     
-    # 現在の画面が選曲画面かどうか判定
     def is_onselect(self):
+        """現在の画面が選曲画面かどうか判定し、結果を返す
+
+        Returns:
+            bool: 選曲画面かどうか
+        """
         img = self.img_rot.crop(self.get_detect_points('onselect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onselect.png')
@@ -406,8 +475,12 @@ class SDVXHelper:
         #logger.debug(f'onselect diff:{abs(hash_target-tmp)}')
         return ret
 
-    # 現在の画面がリザルト画面かどうか判定
     def is_onresult(self):
+        """現在の画面がリザルト画面かどうか判定し、結果を返す
+
+        Returns:
+            bool: リザルト画面かどうか
+        """
         cr = self.img_rot.crop(self.get_detect_points('onresult_val0'))
         tmp = imagehash.average_hash(cr)
         img_j = Image.open('resources/onresult.png')
@@ -431,15 +504,12 @@ class SDVXHelper:
 
         return ret
 
-    def get_detect_points(self, name):
-        sx = self.params[f'{name}_sx']
-        sy = self.params[f'{name}_sy']
-        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
-        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
-        return (sx,sy,ex,ey)
-    
-    # 現在の画面がプレー中かどうか判定
     def is_onplay(self):
+        """現在の画面がプレー画面かどうか判定し、結果を返す
+
+        Returns:
+            bool: プレー画面かどうか
+        """
         img = self.img_rot.crop(self.get_detect_points('onplay_val1'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onplay1.png')
@@ -452,8 +522,12 @@ class SDVXHelper:
         ret2 = abs(hash_target - tmp) < 10
         return ret1&ret2
 
-    # 現在の画面が曲決定画面かどうか判定
     def is_ondetect(self):
+        """現在の画面が曲決定画面かどうか判定し、結果を返す
+
+        Returns:
+            bool: 曲決定画面かどうか
+        """
         img = self.img_rot.crop(self.get_detect_points('ondetect'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/ondetect.png')
@@ -461,8 +535,12 @@ class SDVXHelper:
         ret = abs(hash_target - tmp) < 10
         return ret
     
-    # result, playの後の遷移画面(ゲームタイトルロゴ)かどうかを判定
     def is_onlogo(self):
+        """現在の画面が遷移画面(ゲームタイトルロゴ)画面かどうか判定し、結果を返す
+
+        Returns:
+            bool: 遷移画面(ゲームタイトルロゴ)画面かどうか
+        """
         img = self.img_rot.crop(self.get_detect_points('onlogo'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/logo.png')
@@ -470,8 +548,27 @@ class SDVXHelper:
         ret = abs(hash_target - tmp) < 10
         return ret
     
-    # blaster gaugeが最大かどうかを検出
-    def chk_blastermax(self):
+    def get_detect_points(self, name:str):
+        """self.paramsのパラメータ名を受け取り、四隅の座標を算出して返す
+
+        Args:
+            name (str): パラメータ名。params.jsonのパラメータ名のうち、_sxなどを含まない部分を指定すること。
+
+        Returns:
+            (int,int,int,int): sx,sy,ex,eyの4座標
+        """
+        sx = self.params[f'{name}_sx']
+        sy = self.params[f'{name}_sy']
+        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
+        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
+        return (sx,sy,ex,ey)
+    
+    def chk_blastermax(self) -> bool:
+        """Blaster Gaugeが最大かどうかを検出する。
+
+        Returns:
+            bool: 最大ならTrue
+        """
         img = self.img_rot.crop(self.get_detect_points('blastermax'))
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/blastermax.png')
@@ -480,8 +577,9 @@ class SDVXHelper:
         self.is_blastermax = ret
         return ret
     
-    # 曲情報を切り出して保存
     def update_musicinfo(self):
+        """曲決定時に出る曲情報を切り出してファイルに保存する。
+        """
         jacket = self.img_rot.crop(self.get_detect_points('info_jacket'))
         jacket.save('out/select_jacket.png')
         title = self.img_rot.crop(self.get_detect_points('info_title'))
@@ -499,9 +597,12 @@ class SDVXHelper:
 
         self.img_rot.save('out/select_whole.png')
 
-    # メイン処理のループ
-    # 速度を重視するため、認識処理は回転する前に行っておく
     def detect(self):
+        """認識処理を行う。無限ループになっており、メインスレッドから別スレッドで起動される。
+
+        Returns:
+            bool: エラー時にFalse
+        """
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
@@ -598,6 +699,8 @@ class SDVXHelper:
         logger.debug(f'detect end!')
 
     def main(self):
+        """メイン処理。PySimpleGUIのイベント処理など。
+        """
         now = datetime.datetime.now()
         now_mod = now - datetime.timedelta(hours=self.settings['logpic_offset_time']) # 多少の猶予をつける。2時間前までは遡る
 
@@ -610,8 +713,7 @@ class SDVXHelper:
         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
         if self.obs != False:
             self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
-        th = threading.Thread(target=self.detect, daemon=True)
-        th.start()
+        self.start_detect()
 
         if self.settings['auto_update']:
             self.window.write_event_value('アップデートを確認', " ")
@@ -708,7 +810,7 @@ class SDVXHelper:
                     print(f'お使いのバージョンは最新です({SWVER})')
 
             elif ev in ('btn_setting', '設定'):
-                self.stop()
+                self.stop_detect()
                 self.gui_setting()
             elif ev == 'read_from_result':
                 self.sdvx_logger.import_from_resultimg()
