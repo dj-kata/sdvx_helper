@@ -173,7 +173,8 @@ class SDVXHelper:
             now = datetime.datetime.fromtimestamp(ts)
             fmtnow = format(now, "%Y%m%d_%H%M%S")
             tmp_playdata = self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
-            self.send_custom_webhook(tmp_playdata)
+            self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
+            self.th_webhook.start()
             
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
@@ -692,21 +693,21 @@ class SDVXHelper:
             playdata (OnePlayData): 送るリザルトのデータ
         """
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
-        lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
-        lamp_idx = lamp_table.index(playdata.lamp) - 1
+        lamp_table = ['puc', 'uc', 'exc', 'comp', 'failed', '']
+        lamp_idx = lamp_table.index(playdata.lamp)
         lv = '??'
         if playdata.title in self.sdvx_logger.titles.keys():
             lv     = self.sdvx_logger.titles[playdata.title][3+diff_table.index(playdata.difficulty)]
         img_bytes = io.BytesIO()
         self.img_rot.save(img_bytes, format='PNG')
-        for i in range(self.settings['webhook_names']):
+        for i in range(len(self.settings['webhook_names'])):
             # 送出判定
             sendflg = True
             ## lv
             if type(lv) == int: # レベル単位の送出フラグを見る
-                sendflg &= self.settings[f'webhook_enable_lvs'][lv-1]
+                sendflg &= self.settings[f'webhook_enable_lvs'][i][lv-1]
             ## ランプ
-            sendflg &= self.settings[f"webhook_enable_a.lamps"][lamp_idx]
+            sendflg &= self.settings[f"webhook_enable_lamps"][i][lamp_idx]
 
             if not sendflg: # 送出条件を満たしていなければ飛ばす
                 continue
@@ -716,8 +717,8 @@ class SDVXHelper:
             if self.settings['webhook_enable_pics'][i]:
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
             msg = f'{playdata.title} ({playdata.difficulty}, Lv{lv})\n'
-            msg += f' - {playdata.cur_score:,}\n'
-            msg += f' - {playdata.lamp}\n'
+            msg += f'- {playdata.cur_score:,}\n'
+            msg += f'- {playdata.lamp}\n'
             webhook.content=msg
             res = webhook.execute()
 

@@ -549,7 +549,6 @@ class SDVXLogger:
             self.total_vf = ret / 1000
             f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
             f.write("</vfinfo>\n")
-        print(f"VOLFORCE: {self.total_vf}")
         return self.total_vf
 
     def import_from_resultimg_core(self, f:str) -> OnePlayData:
