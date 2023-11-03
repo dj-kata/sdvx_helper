@@ -225,6 +225,8 @@ class SDVXHelper:
         if self.gui_mode == gui_mode.main:
             self.settings['lx'] = self.window.current_location()[0]
             self.settings['ly'] = self.window.current_location()[1]
+        elif self.gui_mode == gui_mode.webhook:
+            self.settings['player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.setting:
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
@@ -302,6 +304,7 @@ class SDVXHelper:
             ]
         ]
         layout = [
+            [sg.Text('プレーヤー名'), sg.Input(self.settings['player_name'], key='player_name2')],
             [sg.Listbox(self.settings['webhook_names'], size=(50, 5), key='list_webhook', enable_events=True), sg.Button('追加', key='webhook_add', tooltip='同じ名前の場合は上書きされます。'), sg.Button('削除', key='webhook_del')],
             [sg.Text('設定名'), sg.Input('', key='webhook_names', size=(63,1))],
             [sg.Text('Webhook URL(Discord)'), sg.Input('', key='webhook_urls', size=(50,1))],
@@ -420,6 +423,7 @@ class SDVXHelper:
         """
         self.stop_thread = False
         self.th = threading.Thread(target=self.detect, daemon=True)
+        self.th.start()
 
     def stop_detect(self):
         """認識スレッドを停止する。
@@ -706,8 +710,8 @@ class SDVXHelper:
 
             if not sendflg: # 送出条件を満たしていなければ飛ばす
                 continue
-
-            webhook = DiscordWebhook(url=self.settings['webhook_urls'][i], username="info")
+            
+            webhook = DiscordWebhook(url=self.settings['webhook_urls'][i], username=f"{self.settings['player_name']}")
             # 画像送信有効時のみ添付する
             if self.settings['webhook_enable_pics'][i]:
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
