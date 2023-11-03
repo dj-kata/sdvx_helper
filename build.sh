@@ -6,6 +6,7 @@ cp dist/*.exe $target/
 rm -rfv $target/ocr_reporter.exe
 cp resources -a to_bin/
 cp resources -a $target/
+rm -rf out/*.xml
 cp out -a to_bin/
 cp out -a $target/
 cp version.txt $target/
