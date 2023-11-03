@@ -4,6 +4,7 @@ from manage_settings import *
 import requests, re
 from bs4 import BeautifulSoup
 import logging, logging.handlers
+from functools import total_ordering
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -48,6 +49,7 @@ class score_rank(Enum):
     c = 9
     d = 10
 
+@total_ordering
 class OnePlayData:
     """
     1つのプレーデータを表すクラス。
@@ -530,31 +532,35 @@ class SDVXLogger:
         return self.total_vf
 
     # リザルト画像置き場の画像からプレーログをインポート
+    def import_from_resultimg_core(self, f):
+        img = Image.open(f)
+        if self.gen_summary.is_result(img):
+            self.gen_summary.cut_result_parts(img)
+            ocr = self.gen_summary.ocr()
+            if ocr != False:
+                ts = os.path.getmtime(f)
+                now = datetime.datetime.fromtimestamp(ts)
+                fmtnow = format(now, "%Y%m%d_%H%M%S")
+
+                cur,pre = self.gen_summary.get_score(img)
+                diff = self.gen_summary.difficulty
+                lamp = self.gen_summary.lamp
+
+                playdat = OnePlayData(ocr, cur, pre, lamp, diff, fmtnow)
+                if playdat not in self.alllog:
+                    self.alllog.append(playdat)
+                    logger.debug(f"added! -> {playdat.title}({playdat.difficulty}) {playdat.cur_score} {playdat.lamp}")
+            else:
+                logger.debug(f"認識失敗！ {f}")
+                print(f"認識失敗！ {f}")
+        self.alllog.sort()
+        print("リザルト画像の読み込みを完了しました。")
+        return playdat
+
     def import_from_resultimg(self):
         print("リザルト画像をプレーログに反映します。")
         for f in self.gen_summary.get_result_files():
-            img = Image.open(f)
-            if self.gen_summary.is_result(img):
-                self.gen_summary.cut_result_parts(img)
-                ocr = self.gen_summary.ocr()
-                if ocr != False:
-                    ts = os.path.getmtime(f)
-                    now = datetime.datetime.fromtimestamp(ts)
-                    fmtnow = format(now, "%Y%m%d_%H%M%S")
-
-                    cur,pre = self.gen_summary.get_score(img)
-                    diff = self.gen_summary.difficulty
-                    lamp = self.gen_summary.lamp
-
-                    playdat = OnePlayData(ocr, cur, pre, lamp, diff, fmtnow)
-                    if playdat not in self.alllog:
-                        self.alllog.append(playdat)
-                        logger.debug(f"added! -> {playdat.title}({playdat.difficulty}) {playdat.cur_score} {playdat.lamp}")
-                else:
-                    logger.debug(f"認識失敗！ {f}")
-                    print(f"認識失敗！ {f}")
-        self.alllog.sort()
-        print("リザルト画像の読み込みを完了しました。")
+            self.import_from_resultimg_core(f)
 
     # リザルト画像置き場の画像からVFビュー用ジャケット画像を生成
     def gen_jacket_imgs(self):
@@ -567,18 +573,3 @@ class SDVXLogger:
                 if ocr != False:
                     hash = str(self.gen_summary.hash_hit)
                     self.gen_summary.result_parts['jacket_org'].save(f'jackets/{hash}.png')
-
-if __name__ == '__main__':
-    a = SDVXLogger()
-    a.update_best_allfumen()
-    a.update_total_vf()
-    a.update_stats()
-
-    #a.gen_jacket_imgs()
-
-    #for i in range(15,20):
-    #    a.stats.data[i].disp()
-
-    #for f in a.best_allfumen:
-    #    if f.lv == 19:
-    #        f.disp()
