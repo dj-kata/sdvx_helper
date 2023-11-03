@@ -721,7 +721,11 @@ class SDVXHelper:
             msg += f'{playdata.cur_score:,},   '
             msg += f'{playdata.lamp},   '
             webhook.content=msg
-            res = webhook.execute()
+            try:
+                res = webhook.execute()
+            except Exception:
+                print('webhook送出エラー(URLがおかしい？)')
+                logger.debug(traceback.format_exc())
 
     def update_musicinfo(self):
         """曲決定時に出る曲情報を切り出してファイルに保存する。
