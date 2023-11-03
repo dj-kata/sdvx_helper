@@ -78,8 +78,6 @@ class OnePlayData:
     def disp(self): # debug
         print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
 
-# 1曲分の情報。自己ベストも保持する。
-
 class MusicInfo:
     """
     1譜面分の情報を管理する。  
@@ -107,9 +105,6 @@ class MusicInfo:
 
         print(msg)
 
-    # 単曲のVFを計算
-    # 例えば16PUCなら369を返す。36.9と表示するのは上位側でやる。
-    # ついでにここでスコアランクを入れておく
     def get_vf_single(self):
         """
         Note: 
@@ -277,14 +272,12 @@ class SDVXLogger:
         self.update_total_vf()
         self.update_stats()
 
-    def get_detect_points(self, name):
-        sx = self.params[f'{name}_sx']
-        sy = self.params[f'{name}_sy']
-        ex = self.params[f'{name}_sx']+self.params[f'{name}_w']-1
-        ey = self.params[f'{name}_sy']+self.params[f'{name}_h']-1
-        return (sx,sy,ex,ey)
-    
     def load_settings(self):
+        """ユーザ設定(self.settings)をロードしてself.settingsにセットする。一応返り値にもする。
+
+        Returns:
+            dict: ユーザ設定
+        """
         ret = {}
         try:
             with open(SETTING_FILE) as f:
@@ -305,6 +298,8 @@ class SDVXLogger:
         return ret
 
     def load_alllog(self):
+        """プレーログを読み込む。alllog.pklがない場合は新規作成する。
+        """
         try:
             with open(ALLLOG_FILE, 'rb') as f:
                 self.alllog = pickle.load(f)
@@ -314,6 +309,8 @@ class SDVXLogger:
             self.alllog = []
 
     def save_alllog(self):
+        """プレーログを保存する。
+        """
         with open(ALLLOG_FILE, 'wb') as f:
             pickle.dump(self.alllog, f)
 
@@ -338,8 +335,13 @@ class SDVXLogger:
         self.pre_onselect_title = ''
         self.pre_onselect_difficulty = ''
 
-    # その曲のプレー履歴情報のHTMLを作成
     def gen_history_cursong(self, title:str, difficulty:str):
+        """その曲のプレー履歴情報のXMLを作成
+
+        Args:
+            title (str): 曲名
+            difficulty (str): 譜面難易度
+        """
         logs, info = self.get_fumen_data(title, difficulty)
         with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
@@ -363,13 +365,22 @@ class SDVXLogger:
                     mod_date = f"{p.date[:4]}-{p.date[4:6]}-{p.date[6:8]}"
                     f.write(f"        <date>{mod_date}</date>\n")
                     f.write(f"    </Result>\n")
-            else:
-                pass # invalid的なデータを書き込みたい
+            else: # invalid
+                f.write(f"    <Result>\n")
+                f.write(f"        <score></score>\n")
+                f.write(f"        <lamp></lamp>\n")
+                f.write(f"        <date></date>\n")
+                f.write(f"    </Result>\n")
             f.write("</Items>\n")
 
-    # 曲名に対するVF情報をXML出力
-    # 選曲画面からの利用を想定
     def gen_vf_onselect(self, title:str, difficulty:str):
+        """曲名に対するVOLFORCE情報をXMLに出力する。
+        選曲画面での利用を想定している。
+
+        Args:
+            title (str): 曲名
+            difficulty (str): 譜面難易度
+        """
         if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
             dat = []
 
@@ -397,8 +408,17 @@ class SDVXLogger:
         self.pre_onselect_title = title
         self.pre_onselect_difficulty = difficulty
 
-    # ある譜面のログと曲情報を取得。自己べを取得する関係で1つにまとめている。
     def get_fumen_data(self, title:str, difficulty:str):
+        """ある譜面のプレーログと曲情報(自己べ等)を取得する。
+        自己ベストを取得する関係で1つにまとめている。
+
+        Args:
+            title (str): 曲名
+            difficulty (str): 曲難易度
+
+        Returns:
+            list(OnePlayData), MusicInfo: プレー履歴のList、その曲のbest等の情報
+        """
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
         lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
         logs = []
@@ -467,7 +487,6 @@ class SDVXLogger:
         self.best_allfumen = ret
         return ret
     
-    # self.best_allfumenから各レベルの統計情報を更新
     def update_stats(self):
         """
             最新のself.best_allfumenから統計情報を更新する。本関数の前にupdate_best_*を呼んでいること。
@@ -531,8 +550,15 @@ class SDVXLogger:
         print(f"VOLFORCE: {self.total_vf}")
         return self.total_vf
 
-    # リザルト画像置き場の画像からプレーログをインポート
-    def import_from_resultimg_core(self, f):
+    def import_from_resultimg_core(self, f:str) -> OnePlayData:
+        """リザルト画像置き場の画像からプレーログをインポートする。
+
+        Args:
+            f (str): ファイル名
+
+        Returns:
+            OnePlayData: 入力画像に対応するプレーデータ
+        """
         img = Image.open(f)
         if self.gen_summary.is_result(img):
             self.gen_summary.cut_result_parts(img)
@@ -558,12 +584,15 @@ class SDVXLogger:
         return playdat
 
     def import_from_resultimg(self):
+        """リザルト画像をプレーログに反映する。上位ループの処理。
+        """
         print("リザルト画像をプレーログに反映します。")
         for f in self.gen_summary.get_result_files():
             self.import_from_resultimg_core(f)
 
-    # リザルト画像置き場の画像からVFビュー用ジャケット画像を生成
     def gen_jacket_imgs(self):
+        """リザルト画像置き場の画像からVFビュー用ジャケット画像を生成
+        """
         print("リザルト画像からVFビュー用ジャケット画像を作成します。")
         for f in self.gen_summary.get_result_files():
             img = Image.open(f)
