@@ -29,6 +29,7 @@ class gui_mode(Enum):
     main = 1
     setting = 2
     obs_control = 3
+    webhook = 4
 
 class detect_mode(Enum):
     init = 0
@@ -334,6 +335,7 @@ class SDVXLogger:
         # 選曲画面のためにリザルトしておく。この関数はリザルト画面で呼ばれる。
         self.pre_onselect_title = ''
         self.pre_onselect_difficulty = ''
+        return tmp
 
     def gen_history_cursong(self, title:str, difficulty:str):
         """その曲のプレー履歴情報のXMLを作成

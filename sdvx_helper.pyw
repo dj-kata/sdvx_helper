@@ -172,7 +172,8 @@ class SDVXHelper:
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
             fmtnow = format(now, "%Y%m%d_%H%M%S")
-            self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+            tmp_playdata = self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+            self.send_custom_webhook(tmp_playdata)
             
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
@@ -279,6 +280,38 @@ class SDVXHelper:
         ]
         return ret
 
+    def gui_webhook(self):
+        """カスタムWebhook設定画面のGUIを起動する。
+        """
+        self.gui_mode = gui_mode.webhook
+        if self.window:
+            self.window.close()
+
+        layout_lvs = [
+            [sg.Checkbox('all', key='webhook_enable_alllv', enable_events=True)]+[sg.Checkbox(f'{lv}', key=f'webhook_enable_lv{lv}') for lv in range(1,11)],
+            [sg.Checkbox(f'{lv}', key=f'webhook_enable_lv{lv}') for lv in range(11,14)]+[sg.Checkbox(f'{lv}', key=f'webhook_enable_lv{lv}', default=True) for lv in range(14,21)]
+        ]
+        layout_lamps = [
+            [
+                sg.Checkbox('all', key='webhook_enable_alllamp', enable_events=True),
+                sg.Checkbox('PUC', key='webhook_enable_puc', default=True),
+                sg.Checkbox('UC', key='webhook_enable_uc',default=True),
+                sg.Checkbox('EXC', key='webhook_enable_hard', default=True),
+                sg.Checkbox('COMP', key='webhook_enable_clear', default=True),
+                sg.Checkbox('Failed', key='webhook_enable_failed'),
+            ]
+        ]
+        layout = [
+            [sg.Listbox(self.settings['webhook_names'], size=(50, 5), key='list_webhook', enable_events=True), sg.Button('追加', key='webhook_add', tooltip='同じ名前の場合は上書きされます。'), sg.Button('削除', key='webhook_del')],
+            [sg.Text('設定名'), sg.Input('', key='webhook_names', size=(63,1))],
+            [sg.Text('Webhook URL(Discord)'), sg.Input('', key='webhook_urls', size=(50,1))],
+            [sg.Checkbox('画像を送信する', key='webhook_enable_pics', default=True)],
+            [sg.Frame('送信対象Lv', layout=layout_lvs, title_color='#000044')],
+            [sg.Frame('送信対象ランプ', layout=layout_lamps, title_color='#000044')],
+        ]
+
+        self.window = sg.Window(f"SDVX helper - カスタムWebhook設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
+
     def gui_obs_control(self):
         """OBS制御設定画面のGUIを起動する。
         """
@@ -366,7 +399,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.main
         if self.window:
             self.window.close()
-        menuitems = [['ファイル',['設定','OBS制御設定', 'アップデートを確認']]]
+        menuitems = [['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']]]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
             [
@@ -577,6 +610,113 @@ class SDVXHelper:
         self.is_blastermax = ret
         return ret
     
+    def webhook_add(self, val:dict):
+        """カスタムwebhookを登録する
+
+        Args:
+            val (dict): pysimpleguiのwindow.read()で貰えるval
+        """
+        if self.window['webhook_names'] == '':
+            sg.popup_ok('設定名を入力してください。')
+        else:
+            if self.window['webhook_urls'] == '':
+                sg.popup_ok('WebhookのURLを入力してください。')
+            else: # 登録実行
+                if val['webhook_names'] in self.settings['webhook_names']: # 上書きの場合
+                    idx = self.settings['webhook_names'].index(val['webhook_names'])
+                    self.settings['webhook_names'][idx] = val['webhook_names']
+                    self.settings['webhook_urls'][idx] = val['webhook_urls']
+                    self.settings['webhook_enable_pics'][idx] = val['webhook_enable_pics']
+                    self.settings['webhook_enable_lvs'][idx] = [val[f'webhook_enable_lv{lv}'] for lv in range(1,21)]
+                    self.settings['webhook_enable_lamps'][idx] = [val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'hard', 'clear', 'failed')]
+                else:
+                    self.settings['webhook_names'].append(val['webhook_names'])
+                    self.settings['webhook_urls'].append(val['webhook_urls'])
+                    self.settings['webhook_enable_pics'].append(val['webhook_enable_pics'])
+                    self.settings['webhook_enable_lvs'].append([val[f'webhook_enable_lv{lv}'] for lv in range(1,21)])
+                    self.settings['webhook_enable_lamps'].append([val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'hard', 'clear', 'failed')])
+                self.set_webhook_ui_default()
+
+    def webhook_del(self, val:dict):
+        """登録されたカスタムwebhook情報を削除する。
+
+        Args:
+            val (dict): pysimpleguiのwindow.read()で貰えるval
+        """
+        if len(val['list_webhook']) > 0:
+            idx = self.settings['webhook_names'].index(val['list_webhook'][0])
+            self.settings['webhook_names'].pop(idx)
+            self.settings['webhook_urls'].pop(idx)
+            self.settings['webhook_enable_pics'].pop(idx)
+            self.settings['webhook_enable_lvs'].pop(idx)
+            self.settings['webhook_enable_lamps'].pop(idx)
+            self.set_webhook_ui_default()
+
+    def webhook_read(self, val:dict):
+        """登録済みのカスタムwebhook情報を読み出してGUIに反映する。
+
+        Args:
+            val (dict): pysimpleguiのwindow.read()で貰えるval
+        """
+        key = val['list_webhook'][0]
+        idx = self.settings['webhook_names'].index(key)
+        self.window['webhook_names'].update(key)
+        self.window['webhook_urls'].update(self.settings['webhook_urls'][idx])
+        self.window['webhook_enable_pics'].update(self.settings['webhook_enable_pics'][idx])
+        for i in range(1,21):
+            self.window[f'webhook_enable_lv{i}'].update(self.settings['webhook_enable_lvs'][idx][i-1])
+        for i,l in enumerate(('puc', 'uc', 'hard', 'clear', 'failed')):
+            self.window[f'webhook_enable_{l}'].update(self.settings['webhook_enable_lamps'][idx][i])
+
+    def set_webhook_ui_default(self):
+        self.window['list_webhook'].update(self.settings['webhook_names'])
+        self.window['webhook_names'].update('')
+        self.window['webhook_urls'].update('')
+        self.window['webhook_enable_pics'].update(True)
+        for i in range(1,14):
+            self.window[f'webhook_enable_lv{i}'].update(False)
+        for i in range(14,21):
+            self.window[f'webhook_enable_lv{i}'].update(True)
+        for l in ('puc', 'uc', 'hard', 'clear'):
+            self.window[f'webhook_enable_{l}'].update(True)
+        self.window[f'webhook_enable_failed'].update(False)
+
+    def send_custom_webhook(self, playdata:OnePlayData):
+        """カスタムWebhookへの送出を行う
+
+        Args:
+            playdata (OnePlayData): 送るリザルトのデータ
+        """
+        diff_table = ['nov', 'adv', 'exh', 'APPEND']
+        lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
+        lamp_idx = lamp_table.index(playdata.lamp) - 1
+        lv = '??'
+        if playdata.title in self.sdvx_logger.titles.keys():
+            lv     = self.sdvx_logger.titles[playdata.title][3+diff_table.index(playdata.difficulty)]
+        img_bytes = io.BytesIO()
+        self.img_rot.save(img_bytes, format='PNG')
+        for i in range(self.settings['webhook_names']):
+            # 送出判定
+            sendflg = True
+            ## lv
+            if type(lv) == int: # レベル単位の送出フラグを見る
+                sendflg &= self.settings[f'webhook_enable_lvs'][lv-1]
+            ## ランプ
+            sendflg &= self.settings[f"webhook_enable_a.lamps"][lamp_idx]
+
+            if not sendflg: # 送出条件を満たしていなければ飛ばす
+                continue
+
+            webhook = DiscordWebhook(url=self.settings['webhook_urls'][i], username="info")
+            # 画像送信有効時のみ添付する
+            if self.settings['webhook_enable_pics'][i]:
+                webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
+            msg = f'{playdata.title} ({playdata.difficulty}, Lv{lv})\n'
+            msg += f' - {playdata.cur_score:,}\n'
+            msg += f' - {playdata.lamp}\n'
+            webhook.content=msg
+            res = webhook.execute()
+
     def update_musicinfo(self):
         """曲決定時に出る曲情報を切り出してファイルに保存する。
         """
@@ -816,6 +956,22 @@ class SDVXHelper:
                 self.sdvx_logger.import_from_resultimg()
             elif ev == 'gen_jacket_imgs':
                 self.sdvx_logger.gen_jacket_imgs()
+
+            elif ev == 'カスタムWebhook設定':
+                self.gui_webhook()
+            elif ev == 'webhook_add':
+                self.webhook_add(val)
+            elif ev == 'webhook_del':
+                self.webhook_del(val)
+            elif ev == 'list_webhook':
+                self.webhook_read(val)
+            elif ev == 'webhook_enable_alllv':
+                for i in range(1,21):
+                    self.window[f"webhook_enable_lv{i}"].update(val[ev])
+            elif ev == 'webhook_enable_alllamp':
+                for l in ('puc', 'uc', 'hard', 'clear', 'failed'):
+                    self.window[f"webhook_enable_{l}"].update(val[ev])
+
 
 if __name__ == '__main__':
     a = SDVXHelper()

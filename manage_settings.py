@@ -20,6 +20,15 @@ default_val = {
     'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
     # ブラスターゲージMAX時のリマインド用
     'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
+
+    # カスタムwebhook用
+    # それぞれ1エントリが1つの設定に対応。(全ての配列が同じ長さになる)
+    'webhook_names':[], # 1entry: 説明文(str)
+    'webhook_urls':[], # 1entry: url(str)
+    'webhook_enable_pics':[], # 1entry:bool (画像を送信するかどうか)
+    'webhook_enable_lvs':[], # 1entry:[False,False,...True]のような長さ20の配列(lv1-20)
+    'webhook_enable_lamps':[], # 1entry:[True,True,False,False,False] puc,uc,hard,clear,failed
+
     # others
     'ignore_rankD':True, 'auto_update':True,
     'params_json':'resources/params.json',
