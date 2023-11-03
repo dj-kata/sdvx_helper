@@ -663,15 +663,16 @@ class SDVXHelper:
         Args:
             val (dict): pysimpleguiのwindow.read()で貰えるval
         """
-        key = val['list_webhook'][0]
-        idx = self.settings['webhook_names'].index(key)
-        self.window['webhook_names'].update(key)
-        self.window['webhook_urls'].update(self.settings['webhook_urls'][idx])
-        self.window['webhook_enable_pics'].update(self.settings['webhook_enable_pics'][idx])
-        for i in range(1,21):
-            self.window[f'webhook_enable_lv{i}'].update(self.settings['webhook_enable_lvs'][idx][i-1])
-        for i,l in enumerate(('puc', 'uc', 'hard', 'clear', 'failed')):
-            self.window[f'webhook_enable_{l}'].update(self.settings['webhook_enable_lamps'][idx][i])
+        if len(self.settings('webhook_names')) > 0:
+            key = val['list_webhook'][0]
+            idx = self.settings['webhook_names'].index(key)
+            self.window['webhook_names'].update(key)
+            self.window['webhook_urls'].update(self.settings['webhook_urls'][idx])
+            self.window['webhook_enable_pics'].update(self.settings['webhook_enable_pics'][idx])
+            for i in range(1,21):
+                self.window[f'webhook_enable_lv{i}'].update(self.settings['webhook_enable_lvs'][idx][i-1])
+            for i,l in enumerate(('puc', 'uc', 'hard', 'clear', 'failed')):
+                self.window[f'webhook_enable_{l}'].update(self.settings['webhook_enable_lamps'][idx][i])
 
     def set_webhook_ui_default(self):
         self.window['list_webhook'].update(self.settings['webhook_names'])
@@ -716,9 +717,9 @@ class SDVXHelper:
             # 画像送信有効時のみ添付する
             if self.settings['webhook_enable_pics'][i]:
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
-            msg = f'{playdata.title} ({playdata.difficulty}, Lv{lv})\n'
-            msg += f'- {playdata.cur_score:,}\n'
-            msg += f'- {playdata.lamp}\n'
+            msg = f'*{playdata.title}* ({playdata.difficulty}, Lv{lv}),   '
+            msg += f'{playdata.cur_score:,},   '
+            msg += f'{playdata.lamp},   '
             webhook.content=msg
             res = webhook.execute()
 
