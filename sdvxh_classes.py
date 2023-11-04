@@ -5,6 +5,7 @@ import requests, re
 from bs4 import BeautifulSoup
 import logging, logging.handlers
 from functools import total_ordering
+from collections import defaultdict
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -603,3 +604,67 @@ class SDVXLogger:
                 if ocr != False:
                     hash = str(self.gen_summary.hash_hit)
                     self.gen_summary.result_parts['jacket_org'].save(f'jackets/{hash}.png')
+
+    def analyze(self) -> str:
+        """VF内訳を分析してlistで出力
+
+        Returns:
+            str: ツイート用文字列
+        """
+        #list: 分析結果(1要素:1Lv分のlist)
+        #1要素は[num, puc, uc, hard, clear, failed, minscore, maxscore, avescore, min_vf, max_vf, ave_vf]
+        list_lamp = ['puc', 'uc', 'hard', 'clear', 'failed']
+        ret = [[0 for __ in range(12)] for _ in range(20)]
+        for i in range(20):
+            ret[i][6] = 10000000
+            ret[i][9] = 1000.0
+        for i,p in enumerate(self.best_allfumen):
+            p.disp()
+            idx = p.lv - 1
+            # 曲数
+            ret[idx][0] += 1
+            # ランプ
+            ret[idx][1+list_lamp.index(p.best_lamp)] += 1
+            # min
+            ret[idx][6] = min(ret[idx][6], p.best_score)
+            ret[idx][9] = min(ret[idx][9], p.vf)
+            # max
+            ret[idx][7] = max(ret[idx][7], p.best_score)
+            ret[idx][10] = max(ret[idx][10], p.vf)
+            # ave用加算
+            ret[idx][8] += p.best_score
+            ret[idx][11] += p.vf
+            if i >= 49:
+                break
+        # ave計算
+        for lv in range(20):
+            if ret[lv][0] > 0:
+                ret[lv][8] /= ret[lv][0]
+                ret[lv][11] /= ret[lv][0]
+        # ツイート用文字列作成
+        msg = f'VF: {self.total_vf:.3f}\n\n'
+        for i,st in enumerate(ret):
+            if st[0] > 0:
+                lv = i+1
+                msg += f"LV{lv} - "
+                msg += f'{int(st[6]/10000)}-{int(st[7]/10000)}(ave:{int(st[8]/10000)}), '
+                msg += f'{st[9]/10:.1f}-{st[10]/10:.1f}(ave:{st[11]/10:.1f}), '
+                #msg += f'ave:{int(st[8]/10000)} ({st[11]/10:.1f}),  '
+                #msg += f'ave:{int(st[8]/10000)} '
+                # lamp
+                if st[1] > 0:
+                    msg += f"PUC:{st[1]},"
+                if st[2] > 0:
+                    msg += f"UC:{st[2]},"
+                if st[3] > 0:
+                    msg += f"EXC:{st[3]},"
+                if st[4] > 0:
+                    msg += f"COMP:{st[4]},"
+                if st[5] > 0:
+                    msg += f"failed:{st[5]},"
+                msg += ' '
+                # score
+
+                msg += '\n'
+        msg += '#sdvx_helper'
+        return msg

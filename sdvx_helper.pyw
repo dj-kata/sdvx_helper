@@ -19,6 +19,7 @@ import requests
 from manage_settings import *
 from sdvxh_classes import *
 import urllib
+import webbrowser
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -403,7 +404,10 @@ class SDVXHelper:
         self.gui_mode = gui_mode.main
         if self.window:
             self.window.close()
-        menuitems = [['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']]]
+        menuitems = [
+            ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
+            ['ツイート',['VOLFORCE']]
+        ]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
             [
@@ -966,7 +970,7 @@ class SDVXHelper:
                 self.sdvx_logger.import_from_resultimg()
             elif ev == 'gen_jacket_imgs':
                 self.sdvx_logger.gen_jacket_imgs()
-
+            ### webhook関連
             elif ev == 'カスタムWebhook設定':
                 self.gui_webhook()
             elif ev == 'webhook_add':
@@ -982,6 +986,11 @@ class SDVXHelper:
                 for l in ('puc', 'uc', 'hard', 'clear', 'failed'):
                     self.window[f"webhook_enable_{l}"].update(val[ev])
 
+            ### ツイート機能
+            elif ev == 'VOLFORCE':
+                msg = self.sdvx_logger.analyze()
+                encoded_msg = urllib.parse.quote(f"{msg}")
+                webbrowser.open(f"https://twitter.com/intent/tweet?text={encoded_msg}")
 
 if __name__ == '__main__':
     a = SDVXHelper()

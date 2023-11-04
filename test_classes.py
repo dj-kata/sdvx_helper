@@ -13,6 +13,9 @@ for i,p in enumerate(a.alllog):
 
 a.alllog.sort()
 
+tmp = a.analyze()
+print(tmp, len(tmp))
+
 #a.gen_jacket_imgs()
 
 #for i in range(15,20):
