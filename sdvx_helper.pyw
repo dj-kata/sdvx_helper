@@ -169,13 +169,13 @@ class SDVXHelper:
                 title = title.replace(ch, '')
             dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
         tmp.save(dst)
+        tmp_playdata = OnePlayData(title='???', cur_score=cur, pre_score=pre, lamp=self.gen_summary.lamp, difficulty=self.gen_summary.difficulty, date=fmtnow)
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
-            fmtnow = format(now, "%Y%m%d_%H%M%S")
             tmp_playdata = self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
-            self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
-            self.th_webhook.start()
+        self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
+        self.th_webhook.start()
             
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
@@ -698,7 +698,7 @@ class SDVXHelper:
             playdata (OnePlayData): 送るリザルトのデータ
         """
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
-        lamp_table = ['puc', 'uc', 'exc', 'comp', 'failed', '']
+        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed', '']
         lamp_idx = lamp_table.index(playdata.lamp)
         lv = '??'
         if playdata.title in self.sdvx_logger.titles.keys():
@@ -721,7 +721,7 @@ class SDVXHelper:
             # 画像送信有効時のみ添付する
             if self.settings['webhook_enable_pics'][i]:
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
-            msg = f'*{playdata.title}* ({playdata.difficulty}, Lv{lv}),   '
+            msg = f'**{playdata.title}** ({playdata.difficulty}, Lv{lv}),   '
             msg += f'{playdata.cur_score:,},   '
             msg += f'{playdata.lamp},   '
             webhook.content=msg
