@@ -667,7 +667,7 @@ class SDVXHelper:
         Args:
             val (dict): pysimpleguiのwindow.read()で貰えるval
         """
-        if len(self.settings('webhook_names')) > 0:
+        if len(val['list_webhook']) > 0:
             key = val['list_webhook'][0]
             idx = self.settings['webhook_names'].index(key)
             self.window['webhook_names'].update(key)
