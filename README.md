@@ -181,6 +181,9 @@ OBS上で```sdvx_helper_playcount```という名前のテキストを作ると**
 
 ### リザルトをDiscordに自動投稿する(new)
 v.1.0.8からリザルトをDiscordに自動投稿できるようになりました。  
+自分のDiscordサーバに以下のようなプレーログを自動投稿することができます。  
+![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/afbf8025-fb9a-4362-a180-55d324c0bd42)
+
 メニューバーの```カスタムWebhook設定```から設定できます。
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/69a31c9b-f68d-433f-b03e-68138d6414c6)
 
