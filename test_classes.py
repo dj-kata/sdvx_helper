@@ -16,6 +16,8 @@ a.alllog.sort()
 tmp = a.analyze()
 print(tmp, len(tmp))
 
+a.gen_best_csv('test.csv')
+
 #a.gen_jacket_imgs()
 
 #for i in range(15,20):

@@ -605,14 +605,17 @@ class SDVXLogger:
                     self.gen_summary.result_parts['jacket_org'].save(f'jackets/{hash}.png')
 
     def gen_best_csv(self, filename):
-        with open(filename, 'w', encoding='shift_jis', errors='ignore') as f:
-        #with open(filename, 'w', encoding='shift_jis') as f:
-            writer = csv.writer(f)
-            writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce'])
-            for i,p in enumerate(self.best_allfumen):
-                diff = p.difficulty.replace('APPEND', '').upper()
-                lamp = p.best_lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
-                writer.writerow([p.title, diff, p.lv, p.best_score, lamp, p.vf])
+        try:
+            with open(filename, 'w', encoding='shift_jis', errors='ignore', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce'])
+                for i,p in enumerate(self.best_allfumen):
+                    diff = p.difficulty.replace('APPEND', '').upper()
+                    lamp = p.best_lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
+                    writer.writerow([p.title, diff, p.lv, p.best_score, lamp, p.vf])
+            return True
+        except Exception:
+            return False
 
     def analyze(self) -> str:
         """VF内訳を分析してlistで出力

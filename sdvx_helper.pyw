@@ -992,10 +992,13 @@ class SDVXHelper:
                 encoded_msg = urllib.parse.quote(f"{msg}")
                 webbrowser.open(f"https://twitter.com/intent/tweet?text={encoded_msg}")
             elif ev == '自己ベストをCSV出力':
-                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./')
+                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./', initialfile='sdvx_pc_log.csv')
                 if tmp != '':
-                    self.sdvx_logger.gen_best_csv(tmp)
-                    sg.popup_ok(f'CSV出力完了\n\n(-> {tmp})')
+                    ret = self.sdvx_logger.gen_best_csv(tmp)
+                    if ret:
+                        sg.popup_ok(f'CSV出力完了\n\n(-> {tmp})')
+                    else:
+                        sg.popup_error(f'CSV出力失敗')
 
 if __name__ == '__main__':
     a = SDVXHelper()
