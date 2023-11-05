@@ -72,7 +72,11 @@ class SDVXHelper:
         self.save_settings() # 値が追加された場合のために、一度保存
         self.update_musiclist()
         self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
+        self.vf_pre = self.sdvx_logger.total_vf # アプリ起動時のVF
+        self.vf_cur = self.sdvx_logger.total_vf # 最新のVF
         self.connect_obs()
+        vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
+        self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
 
         self.gen_summary = False
         logger.debug('created.')
@@ -174,6 +178,9 @@ class SDVXHelper:
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
             tmp_playdata = self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+            self.vf_cur = self.sdvx_logger.total_vf # アプリ起動時のVF
+            vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:.3f+}){self.settings['obs_txt_vf_footer']}"
+            self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
         self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
         self.th_webhook.start()
             

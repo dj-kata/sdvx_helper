@@ -18,6 +18,8 @@ default_val = {
     'obs_enable_quit':[],'obs_disable_quit':[],'obs_scene_quit':'',
     # プレイ回数設定関連
     'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
+    # VF表示用
+    'obs_txt_vf_with_diff':'sdvx_helper_vf_with_diff', 'obs_txt_vf_header':'VF: ', 'obs_txt_vf_footer':'',
     # ブラスターゲージMAX時のリマインド用
     'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
 
