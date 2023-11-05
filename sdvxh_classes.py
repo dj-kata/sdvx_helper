@@ -66,6 +66,68 @@ class OnePlayData:
         self.date = date
         self.diff = cur_score - pre_score
 
+    def get_vf_single(self, lv):
+        """
+        Note: 
+            単曲VFを計算する。
+
+        Args:
+            lv (int): 曲のレベル。OnePlayDataで保持していないため、外から与える必要がある。
+
+            '??'などの文字列だった場合は0を返す。
+
+        Returns:
+            int: 単曲VFの値。16PUCなら369のような整数なので注意。
+        """
+        score = self.cur_score
+        lamp  = self.lamp
+        if lamp == 'puc':
+            coef_lamp = 1.1
+        elif lamp == 'uc':
+            coef_lamp = 1.05
+        elif lamp == 'hard':
+            coef_lamp = 1.02
+        elif lamp == 'clear':
+            coef_lamp = 1
+        else:
+            coef_lamp = 0.5
+
+        if score >= 9900000: # S
+            self.rank = score_rank.s
+            coef_grade = 1.05
+        elif score >= 9800000: # AAA+
+            self.rank = score_rank.aaa_plus
+            coef_grade = 1.02
+        elif score >= 9700000: # AAA
+            self.rank = score_rank.aaa
+            coef_grade = 1
+        elif score >= 9500000: # AA+
+            self.rank = score_rank.aa_plus
+            coef_grade = 0.97
+        elif score >= 9300000: # AA
+            self.rank = score_rank.aa
+            coef_grade = 0.94
+        elif score >= 9000000: # A+
+            self.rank = score_rank.a_plus
+            coef_grade = 0.91
+        elif score >= 8700000: # A
+            self.rank = score_rank.a
+            coef_grade = 0.88
+        elif score >= 7500000:
+            self.rank = score_rank.b
+            coef_grade = 0.85
+        elif score >= 6500000:
+            self.rank = score_rank.c
+            coef_grade = 0.82
+        else:
+            self.rank = score_rank.d
+            coef_grade = 0.8
+        ret = 0
+        if type(lv) == int:
+            ret = int(lv*score*coef_grade*coef_lamp*20/10000000) # 42.0とかではなく420のように整数で出力
+        self.vf = ret
+        return ret
+
     def __eq__(self, other):
         if not isinstance(other, OnePlayData):
             return NotImplemented
@@ -615,6 +677,30 @@ class SDVXLogger:
                     writer.writerow([p.title, diff, p.lv, p.best_score, lamp, p.vf])
             return True
         except Exception:
+            logger.debug(traceback.format_exc())
+            return False
+
+    def gen_alllog_csv(self, filename):
+        try:
+            list_diff = ['nov', 'adv', 'exh', 'APPEND']
+            with open(filename, 'w', encoding='shift_jis', errors='ignore', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce', 'date'])
+                for i,p in enumerate(reversed(self.alllog)):
+                    lv = '??'
+                    if p.title in self.gen_summary.musiclist['titles'].keys():
+                        lv = self.gen_summary.musiclist['titles'][p.title][3+list_diff.index(p.difficulty)]
+                    vf = p.get_vf_single(lv)
+                    diff = p.difficulty.replace('APPEND', '').upper()
+                    lamp = p.lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
+                    date = f"{p.date[0:4]}/{p.date[4:6]}/{p.date[6:8]} {p.date[9:11]}:{p.date[11:13]}:{p.date[13:15]}"
+                    writer.writerow([p.title, diff, lv, p.cur_score, lamp, vf, date])
+                    #print(p.title, p.difficulty, lv, vf)
+            return True
+
+        except Exception:
+            print(traceback.format_exc())
+            logger.debug(traceback.format_exc())
             return False
 
     def analyze(self) -> str:

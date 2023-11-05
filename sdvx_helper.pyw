@@ -406,7 +406,7 @@ class SDVXHelper:
             self.window.close()
         menuitems = [
             ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
-            ['分析',['VF内訳をツイート', '自己ベストをCSV出力']]
+            ['分析',['VF内訳をツイート', '全プレーログをCSV出力', '自己ベストをCSV出力']]
         ]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
@@ -991,8 +991,16 @@ class SDVXHelper:
                 msg = self.sdvx_logger.analyze()
                 encoded_msg = urllib.parse.quote(f"{msg}")
                 webbrowser.open(f"https://twitter.com/intent/tweet?text={encoded_msg}")
+            elif ev == '全プレーログをCSV出力':
+                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./', initialfile='sdvx_helper_alllog.csv')
+                if tmp != '':
+                    ret = self.sdvx_logger.gen_alllog_csv(tmp)
+                    if ret:
+                        sg.popup_ok(f'CSV出力完了\n\n(-> {tmp})')
+                    else:
+                        sg.popup_error(f'CSV出力失敗')
             elif ev == '自己ベストをCSV出力':
-                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./', initialfile='sdvx_pc_log.csv')
+                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./', initialfile='sdvx_helper_best.csv')
                 if tmp != '':
                     ret = self.sdvx_logger.gen_best_csv(tmp)
                     if ret:
