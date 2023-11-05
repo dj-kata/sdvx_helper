@@ -1,7 +1,7 @@
 from enum import Enum
 from gen_summary import *
 from manage_settings import *
-import requests, re
+import requests, re, csv
 from bs4 import BeautifulSoup
 import logging, logging.handlers
 from functools import total_ordering
@@ -583,7 +583,6 @@ class SDVXLogger:
                 print(f"認識失敗！ {f}")
         self.alllog.sort()
         print("リザルト画像の読み込みを完了しました。")
-        return playdat
 
     def import_from_resultimg(self):
         """リザルト画像をプレーログに反映する。上位ループの処理。
@@ -604,6 +603,16 @@ class SDVXLogger:
                 if ocr != False:
                     hash = str(self.gen_summary.hash_hit)
                     self.gen_summary.result_parts['jacket_org'].save(f'jackets/{hash}.png')
+
+    def gen_best_csv(self, filename):
+        with open(filename, 'w', encoding='shift_jis', errors='ignore') as f:
+        #with open(filename, 'w', encoding='shift_jis') as f:
+            writer = csv.writer(f)
+            writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce'])
+            for i,p in enumerate(self.best_allfumen):
+                diff = p.difficulty.replace('APPEND', '').upper()
+                lamp = p.best_lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
+                writer.writerow([p.title, diff, p.lv, p.best_score, lamp, p.vf])
 
     def analyze(self) -> str:
         """VF内訳を分析してlistで出力

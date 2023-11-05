@@ -406,7 +406,7 @@ class SDVXHelper:
             self.window.close()
         menuitems = [
             ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
-            ['ツイート',['VOLFORCE']]
+            ['分析',['VF内訳をツイート', '自己ベストをCSV出力']]
         ]
         layout = [
             [sg.Menubar(menuitems, key='menu')],
@@ -987,10 +987,15 @@ class SDVXHelper:
                     self.window[f"webhook_enable_{l}"].update(val[ev])
 
             ### ツイート機能
-            elif ev == 'VOLFORCE':
+            elif ev == 'VF内訳をツイート':
                 msg = self.sdvx_logger.analyze()
                 encoded_msg = urllib.parse.quote(f"{msg}")
                 webbrowser.open(f"https://twitter.com/intent/tweet?text={encoded_msg}")
+            elif ev == '自己ベストをCSV出力':
+                tmp = filedialog.asksaveasfilename(defaultextension='csv', filetypes=[("csv file", "*.csv")], initialdir='./')
+                if tmp != '':
+                    self.sdvx_logger.gen_best_csv(tmp)
+                    sg.popup_ok(f'CSV出力完了\n\n(-> {tmp})')
 
 if __name__ == '__main__':
     a = SDVXHelper()
