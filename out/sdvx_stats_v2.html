@@ -410,6 +410,9 @@
                 border: 2px fff;
                 width: 100%;
             }
+            vfdiff{
+                color: #ccccff;
+            }
         </style>
     <body>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
@@ -428,8 +431,13 @@
                 var date = $(xml).find("stats date").text();
                 var player_name = $(xml).find("stats player_name").text();
                 var total_vf = $(xml).find("stats total_vf").text();
+                var total_vf_diff = parseFloat($(xml).find("stats total_vf_diff").text());
                 $('playdate').text(date);
-                $('total_vf').text(total_vf);
+                if (total_vf_diff > 0){
+                    $('total_vf').html(total_vf + ' (<vfdiff>+' + total_vf_diff + '</vfdiff>)');
+                }else{
+                    $('total_vf').text(total_vf);
+                }
                 $('player_name').text(player_name);
                 var vmax=0
                 var sum=0
