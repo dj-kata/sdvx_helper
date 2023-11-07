@@ -328,6 +328,7 @@ class SDVXLogger:
         self.pre_onselect_title = ''
         self.pre_onselect_difficulty = ''
         self.total_vf = 0
+        self.vf_pre = False
         self.player_name = player_name
         self.load_settings()
         self.load_alllog()
@@ -411,6 +412,7 @@ class SDVXLogger:
         with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<Items>\n")
+            title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
             f.write(f"    <title>{title}</title>\n")
             f.write(f"    <difficulty>{difficulty}</difficulty>\n")
 
@@ -460,7 +462,8 @@ class SDVXLogger:
                 f.write("<Items>\n")
                 for d in dat:
                     f.write("    <fumen>\n")
-                    f.write(f"        <title>{d.title}</title>\n")
+                    title = d.title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                    f.write(f"        <title>{title}</title>\n")
                     f.write(f"        <difficulty>{d.difficulty.upper()}</difficulty>\n")
                     f.write(f"        <lv>{d.lv}</lv>\n")
                     f.write(f"        <best_score>{d.best_score}</best_score>\n")
@@ -569,6 +572,8 @@ class SDVXLogger:
             f.write(f"    <date>{self.date.strftime('%Y/%m/%d')}</date>\n")
             f.write(f"    <player_name>{self.player_name}</player_name>\n")
             f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
+            f.write(f"    <total_vf_pre>{self.vf_pre:.3f}</total_vf_pre>\n")
+            f.write(f"    <total_vf_diff>{self.total_vf - self.vf_pre:.3f}</total_vf_diff>\n")
             for st in self.stats.data:
                 f.write("    <lvs>\n")
                 f.write(f"        <lv>{st.lv}</lv>\n")
@@ -602,7 +607,9 @@ class SDVXLogger:
                     hash = self.gen_summary.musiclist['jacket'][s.difficulty][s.title]
                 f.write(f"        <idx>{i+1}</idx>\n")
                 f.write(f"        <lv>{s.lv}</lv>\n")
-                f.write(f"        <title>{s.title}</title>\n")
+                title = s.title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+
+                f.write(f"        <title>{title}</title>\n")
                 f.write(f"        <hash>{hash}</hash>\n")
                 f.write(f"        <difficulty>{s.difficulty}</difficulty>\n")
                 f.write(f"        <score>{s.best_score}</score>\n")
@@ -610,7 +617,11 @@ class SDVXLogger:
                 f.write(f"        <vf>{s.vf}</vf>\n")
                 f.write(f"    </music>\n")
             self.total_vf = ret / 1000
+            if self.vf_pre == False:
+                self.vf_pre = self.total_vf
             f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
+            f.write(f"    <total_vf_pre>{self.vf_pre:.3f}</total_vf_pre>\n")
+            f.write(f"    <total_vf_diff>{self.total_vf - self.vf_pre:.3f}</total_vf_diff>\n")
             f.write("</vfinfo>\n")
         return self.total_vf
 

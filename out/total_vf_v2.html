@@ -28,20 +28,20 @@
                 overflow: hidden;
                 height: 100%;
                 width: 33%;
-                padding-right:2%;
+                padding-right:1%;
             }
             .frame_1 {
                 overflow: hidden;
                 height: 100%;
                 width: 33%;
-                padding-right:2%;
-                padding-left:2%;
+                padding-right:1%;
+                padding-left:1%;
             }
             .frame_2 {
                 overflow: hidden;
                 height: 100%;
                 width: 33%;
-                padding-left:2%;
+                padding-left:1%;
             }
             div#all{
                 display:flex;
@@ -81,7 +81,8 @@
             	text-overflow:ellipsis;
             }
             table tr:nth-child(even) td { /* 2行目 */
-                background-color: #444444;
+                background-color: rgba(55,55,55,0.85);
+                font-size: 38px;
             }
             table tr:nth-child(even) td:nth-child(2) { /* 2行目 */
                 text-align: right;
@@ -98,12 +99,16 @@
             }
             table td:nth-child(4) {
                 color:#ccffcc;
+                font-size: 40px;
             }
             img#jacket{
                 height: 120px;
             }
             img#lamp{
-                height: 25px;
+                height: 40px;
+                position: relative;
+                top: 5px;
+                left: 15px;
             }
             .MAX{
                 animation-name: flashmax;
@@ -120,7 +125,7 @@
             }
             .lv16{color: #77ff77}
             .lv17{color: #aabbff}
-            .lv18{color: #ffffcc}
+            .lv18{color: #f8f871}
             .lv19{color: #ffaacc}
             .lv20{color: #ab77ff}
             .exh{color: #ffaaaa}
@@ -216,7 +221,7 @@
                     var lamp = $(item).find('lamp').text();
                     var hash = $(item).find('hash').text();
                     var vf = Number($(item).find('vf').text());
-                    //score=Math.floor(score / 10000)
+                    score=Math.floor(score / 10000)
                     vf = vf/10;
                     var rank = "";
                     if (score >= 990){
