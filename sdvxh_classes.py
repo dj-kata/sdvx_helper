@@ -751,7 +751,8 @@ class SDVXLogger:
                 ret[lv][8] /= ret[lv][0]
                 ret[lv][11] /= ret[lv][0]
         # ツイート用文字列作成
-        msg = f'VF: {self.total_vf:.3f}\n\n'
+        vfdiff = f' (+{self.total_vf - self.vf_pre:.3f})' if self.total_vf > self.vf_pre else ''
+        msg = f'VF: {self.total_vf:.3f}{vfdiff}\n\n'
         for i,st in enumerate(ret):
             if st[0] > 0:
                 lv = i+1
