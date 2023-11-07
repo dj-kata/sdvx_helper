@@ -136,10 +136,11 @@
                 box-sizing: border-box;
                 margin: 0px;
                 padding: 0px;
-                padding-top: 40px;
+                padding-top: 25px;
+                padding-right: 20px;
                 margin-left: 40px;
                 margin-top: 47px;
-                width: 70%;
+                width: 75%;
                 height: 76.5%;
                 position: relative;
             }
@@ -157,10 +158,27 @@
                 padding-top: 20px;
                 margin-top: 47px;
                 margin-right: 40px;
-                width: 30%;
+                width: 25%;
                 height: 77%;
                 font-size: 32px;
                 position: relative;
+            }
+            .extra{
+                width:29%;
+                height: 16.5%;
+                position: absolute;
+                top: 81.5%;
+                left: 72.2%;
+                text-align: center;
+                /*border: solid 4px red;*/
+            }
+            img#slideshow{
+                height:100%;
+                vertical-align: bottom;
+            }
+            img#icon{
+                max-height:100%;
+                vertical-align: bottom;
             }
             .otherinfo td{
                 padding-left:20%;
@@ -353,6 +371,13 @@
                 margin-right: 2%;
                 border:4px solid #000000;
             }
+            lv14{color: #ffa6a6}
+            lv15{color: #ffc977}
+            lv16{color: #77ff77}
+            lv17{color: #aabbff}
+            lv18{color: #f8f871}
+            lv19{color: #ffaacc}
+            lv20{color: #ab77ff}
             .puc{
                 background-color: #ffff00;
                 border: 2px fff;
@@ -364,7 +389,7 @@
                 width: 0%;
             }
             .hard{
-                background-color: #ff77ff;
+                background-color: #c477ff;
                 border: 2px fff;
                 width: 0%;
             }
@@ -438,7 +463,7 @@
                 }else{
                     $('total_vf').text(total_vf);
                 }
-                $('player_name').text(player_name);
+                $('player_name').html(player_name+'<img src="player_icon.png" id="icon">');
                 var vmax=0
                 var sum=0
                 $(xml).find("stats lvs").each(function(index, item){
@@ -463,7 +488,7 @@
                     var total_lamp = puc+uc+hard+clear+failed+noplay;
                     var total_score = total_lamp;
                     var rank_under_aaa = total_score - rank_s - rank_aaa_plus - rank_aaa;
-    		        $('.lv'+lv).find('lv').text(lv);
+    		        $('.lv'+lv).find('lv').html("<lv"+lv+">"+lv+"</lv"+lv+">");
     		        $('.lv'+lv).find('average').text(average.toLocaleString());
     		        $('.lv'+lv).find('puc').text(puc);
     		        $('.lv'+lv).find('uc').text(uc);
@@ -531,15 +556,15 @@
         <div class="base-frame">
             <div class="left-frame">
                 <span class="titlelabel">VF bests</span>
-                <iframe src="total_vf_v2.html" width="100%" height="2280" id="right"></iframe>
+                <iframe src="total_vf_v2.html" width="100%" height="2310" id="right"></iframe>
             </div>
             <div class="right-frame">
                 <span class="titlelabel">Stats</span>
                 <div class="lv14">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average: <average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv14lamp">
                         <div class="puc"></div>
@@ -561,10 +586,10 @@
                 </div>
 
                 <div class="lv15">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv15lamp">
                         <div class="puc"></div>
@@ -586,10 +611,10 @@
                 </div>
 
                 <div class="lv16">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv16lamp">
                         <div class="puc"></div>
@@ -611,10 +636,10 @@
                 </div>
 
                 <div class="lv17">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv17lamp">
                         <div class="puc"></div>
@@ -636,10 +661,10 @@
                 </div>
 
                 <div class="lv18">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv18lamp">
                         <div class="puc"></div>
@@ -661,10 +686,10 @@
                 </div>
 
                 <div class="lv19">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv19lamp">
                         <div class="puc"></div>
@@ -686,10 +711,10 @@
                 </div>
 
                 <div class="lv20">
-                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;average:<average></average><br>
+                    Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#ff77ff">EXC:</font><hard></hard>,&nbsp; 
+                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
                     <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
                     <div class="lv20lamp">
                         <div class="puc"></div>
@@ -709,6 +734,10 @@
                         <div class="rank_under_aaa"></div>
                     </div>
                 </div>
+
+            </div>
+            <div class="extra">
+                <img src="sdvx_stats_bg.png" id="slideshow">
             </div>
         </div>
     </div>
