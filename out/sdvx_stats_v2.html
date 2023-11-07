@@ -35,8 +35,8 @@
                 margin: 0px;
                 padding: 0px;
                 overflow: hidden;
-                background-image: url("stat_bg.png");
-                background-color: rgba(0, 0, 30, 0.8);
+                background-image: url("sdvx_stats_bg.png");
+                background-color: rgba(0, 0, 0, 0.98);
                 background-repeat: no-repeat;
                 background-size: cover;
                 background-position: center;
@@ -463,7 +463,7 @@
                 }else{
                     $('total_vf').text(total_vf);
                 }
-                $('player_name').html(player_name+'<img src="player_icon.png" id="icon">');
+                $('player_name').html(player_name+'<img src="player_icon.png" id="icon" alt="">');
                 var vmax=0
                 var sum=0
                 $(xml).find("stats lvs").each(function(index, item){
@@ -737,7 +737,7 @@
 
             </div>
             <div class="extra">
-                <img src="sdvx_stats_bg.png" id="slideshow">
+                <img src="sdvx_stats_banner.png" id="slideshow" alt="">
             </div>
         </div>
     </div>
