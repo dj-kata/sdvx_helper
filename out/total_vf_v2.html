@@ -87,6 +87,9 @@
             table tr:nth-child(even) td:nth-child(2) { /* 2行目 */
                 text-align: right;
             }
+            tr#updated td{
+                background-color: #007777;
+            }
             table td:nth-child(4) {
                 color:#eeeeee;
                 padding-left: 30px;
@@ -221,6 +224,7 @@
                     var lamp = $(item).find('lamp').text();
                     var hash = $(item).find('hash').text();
                     var vf = Number($(item).find('vf').text());
+                    var updated = $(item).find('updated').text();
                     score=Math.floor(score / 10000)
                     vf = vf/10;
                     var rank = "";
@@ -281,19 +285,30 @@
                     // テーブルに追加
                     var tmp = "";
                         // 1行目
-                        tmp += '<tr>'
+                        if (updated != ''){
+                            tmp += '<tr id="updated">'
+                        }else{
+                            tmp += '<tr>'
+                        }
                         tmp += '    <td rowspan="2">'+idx+'</td>';
                         //tmp += '    <td rowspan="2">'+idx+'</td>';
                         tmp += '    <td rowspan="2"><img src="../jackets/'+hash+'.png" id="jacket"></td>';
                         tmp += '    <td colspan="4">'+title+'</td>';
                         tmp += '</tr>'
                         // 2行目
-                        tmp += '<tr>'
+                        if (updated != ''){
+                            tmp += '<tr id="updated">'
+                        }else{
+                            tmp += '<tr>'
+                        }
                         tmp += '    <td>Lv'+lv+'</td>';
                         tmp += '    <td>'+score.toLocaleString()+'</td>';
                         tmp += '    <td>'+lamp+'</td>';
                         tmp += '    <td>'+vf.toPrecision(3)+'</td>';
                         tmp += '</tr>'
+                        if (updated != ''){
+                            tmp += '</updated>'
+                        }
                     if (index < 17){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。A
                         left += tmp;
                     }else if(index < 34){
@@ -321,19 +336,19 @@
 <body>
   <div id="all">
     <div class="frame_0">
-        <table id="vf_0">
+        <table id="vf_0" Rules="None">
           <tbody>
           </tbody>
         </table>
     </div>
     <div class="frame_1">
-        <table id="vf_1">
+        <table id="vf_1" Rules="None">
           <tbody>
           </tbody>
         </table>
     </div>
     <div class="frame_2">
-        <table id="vf_2">
+        <table id="vf_2" Rules="None">
           <tbody>
           </tbody>
         </table>
