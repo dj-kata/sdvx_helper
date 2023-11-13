@@ -77,7 +77,8 @@ class SDVXHelper:
         self.vf_cur = self.sdvx_logger.total_vf # 最新のVF
         self.connect_obs()
         vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
-        self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
+        if self.obs != False:
+            self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
 
         self.gen_summary = False
         logger.debug('created.')
