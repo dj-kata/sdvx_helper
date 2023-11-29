@@ -895,11 +895,13 @@ class SDVXHelper:
                     self.sdvx_logger.save_alllog()
                     print(f"プレーログを保存しました。")
                     vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_total_vf.png"
+                    print(f"VF対象一覧を保存中 (OBSに設定していれば保存されます) ...\n==> {vf_filename}")
                     try:
                         tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'sdvx_stats.html')
                         self.obs.enable_source(tmps, tmpid)
                         time.sleep(2)
                         self.obs.ws.save_source_screenshot('sdvx_stats.html', 'png', vf_filename, 3000, 2300, 100)
+                        print(f"VF対象一覧を保存しました。")
                         self.obs.disable_source(tmps, tmpid)
                     except Exception:
                         pass
@@ -908,6 +910,7 @@ class SDVXHelper:
                         self.obs.enable_source(tmps, tmpid)
                         time.sleep(2)
                         self.obs.ws.save_source_screenshot('sdvx_stats_v2.html', 'png', vf_filename, 3500, 2700, 100)
+                        print(f"VF対象一覧を保存しました。")
                         self.obs.disable_source(tmps, tmpid)
                     except Exception:
                         pass
