@@ -179,7 +179,7 @@ class SDVXHelper:
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
-            tmp_playdata = self.sdvx_logger.push(title, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+            tmp_playdata = self.sdvx_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
             self.vf_cur = self.sdvx_logger.total_vf # アプリ起動時のVF
             vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
