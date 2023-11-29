@@ -778,3 +778,12 @@ class SDVXLogger:
                 msg += '\n'
         msg += '#sdvx_helper'
         return msg
+    
+if __name__ == '__main__':
+    a = SDVXLogger(player_name='kata')
+    for i,s in enumerate(a.best_allfumen):
+        if i<50:
+            s.disp()
+    for i,s in enumerate(a.best_allfumen):
+       if 'Gun Shooo' in s.title:
+            s.disp()
