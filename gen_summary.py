@@ -353,13 +353,10 @@ class GenSummary:
         else:
             difficulty = 'APPEND'
         for h in self.musiclist_hash['jacket'][difficulty].keys():
-            h = imagehash.hex_to_hash(h)
-            if abs(h - hash_jacket) < minval:
-                minval = abs(h - hash_jacket)
-                if str(h) in self.musiclist_hash['jacket'][difficulty].keys():
-                    title = self.musiclist_hash['jacket'][difficulty][str(h)]
-                else:
-                    logger.debug(f'error! difficulty={difficulty}, hash={str(h)}')
+            hash_cur = imagehash.hex_to_hash(h)
+            if abs(hash_cur - hash_jacket) < minval:
+                minval = abs(hash_cur - hash_jacket)
+                title = self.musiclist_hash['jacket'][difficulty][h]
         return title, minval, difficulty
 
     def ocr(self, notify:bool=False):
