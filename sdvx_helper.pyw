@@ -522,7 +522,7 @@ class SDVXHelper:
         tmp = imagehash.average_hash(img)
         img = Image.open('resources/onselect.png')
         hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 10
+        ret = abs(hash_target - tmp) < 5
         #logger.debug(f'onselect diff:{abs(hash_target-tmp)}')
         return ret
 
