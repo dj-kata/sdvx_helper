@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import logging, logging.handlers
 from functools import total_ordering
 from collections import defaultdict
+from scipy.stats import rankdata
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -537,34 +538,40 @@ class SDVXLogger:
         """
         if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
             infos = []
-            names = []
-            exist_myscore = False # 自分のスコアがあるかどうか。Trueなら先頭が自分のスコア
 
             # 指定の曲名と同じ譜面情報を出力
             for d in self.best_allfumen:
                 if (d.title == title) and (d.difficulty == difficulty):
+                    d.player_name = self.myname
+                    d.me = True
                     infos.append(d)
-                    names.append(self.myname)
             for tmp,name in zip(self.rival_score, self.rival_names): # tmp: 1人分
                 for s in tmp: # 1曲分
                     if (s.title == title) and (s.difficulty == difficulty):
+                        s.player_name = name
+                        s.me = False
                         infos.append(s)
-                        names.append(name)
+            
+            # 順位付け
+            infos_sorted = sorted(infos, key=lambda x:-x.best_score)
+            tmp = [infos[i].best_score for i in range(len(infos))] # ソート対象
+            rank = sorted(rankdata(-np.array(tmp)))
 
             with open('out/rival.xml', 'w', encoding='utf-8') as f:
                 f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
                 f.write("<Items>\n")
-                for i,info,name in enumerate(zip(infos, names)):
-                    f.write("    <info>\n")
-                    title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
-                    f.write(f"        <title>{title}</title>\n")
-                    f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
-                    f.write(f"        <lv>{d.lv}</lv>\n")
-                    f.write("    </info>\n")
+                f.write("    <info>\n")
+                title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                f.write(f"        <title>{title}</title>\n")
+                f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
+                f.write(f"        <lv>{d.lv}</lv>\n")
+                f.write("    </info>\n")
+                for i,(info,r) in enumerate(zip(infos_sorted, rank)):
                     f.write("    <rival>\n")
-                    f.write(f"        <name>{name}</name>\n")
-                    if i==0 and exist_myscore:
-                        f.write(f"        <me>1</me>\n")
+                    f.write(f"        <rank>{int(r)}</rank>\n")
+                    f.write(f"        <name>{info.player_name}</name>\n")
+                    if info.me:
+                        f.write("        <me>1</me>\n")
                     f.write(f"        <best_score>{info.best_score}</best_score>\n")
                     f.write(f"        <best_lamp>{info.best_lamp}</best_score>\n")
                     f.write(f"        <vf>{info.vf}</vf>\n")
