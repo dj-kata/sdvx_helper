@@ -127,6 +127,55 @@ class SDVXHelper:
                 break # 1番上が最新なので即break
         return ret
     
+    def get_rival_score(self):
+        ret = [] # MusicInfoの配列
+        for id in self.settings['rival_googledrive']:
+            URL = 'https://docs.google.com/uc?export=download'
+            id = self.settings['rival_googledrive'][0]
+            print(id)
+
+            session = requests.Session()
+            response = session.get(URL, params = { 'id' : id }, stream = True)
+
+            token = None
+            for key, value in response.cookies.items():
+                if key.startswith('download_warning'):
+                    token = value
+                    break
+
+            if token:
+                params = { 'id' : id, 'confirm' : token }
+                response = session.get(URL, params = params, stream = True)
+
+            CHUNK_SIZE = 32*1024
+            with open('out/rival_tmp.csv', 'wb') as f:
+                for chunk in response.iter_content(CHUNK_SIZE):
+                    if chunk:
+                        f.write(chunk)
+
+            tmp = []
+            with open('out/rival_tmp.csv') as f:
+                csvr = csv.reader(f)
+                for i,r in enumerate(csvr):
+                    if i==0:
+                        continue
+                    difficulty = r[1]
+                    if r[1] == '':
+                        difficulty = 'APPEND'
+                    if r[2] != '??':
+                        lv = int(r[2])
+                    else:
+                        lv = r[2]
+                    best_score = int(r[3])
+                    best_lamp = r[4]
+                    vf = int(r[5])
+                    info = MusicInfo(r[0], '', '', difficulty, lv, best_score, best_lamp)
+                    info.vf = vf
+                    tmp.append(info)
+            ret.append(tmp)
+        self.rival_score = ret
+        return ret
+
     def load_settings(self):
         """ユーザ設定(self.settings)をロードしてself.settingsにセットする。一応返り値にもする。
 
@@ -895,6 +944,7 @@ class SDVXHelper:
 
         self.gen_summary = GenSummary(now_mod)
         self.gen_summary.generate()
+        self.get_rival_score()
         self.starttime = now
         self.gui_main()
         self.th = False
