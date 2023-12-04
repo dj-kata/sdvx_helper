@@ -828,6 +828,7 @@ class SDVXHelper:
                     self.img_rot.crop(self.get_detect_points('select_APPEND')),
                 )
                 if diff_hash < 13:
+                    self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
                     self.sdvx_logger.gen_history_cursong(title, diff)
                 if not self.is_onselect():
@@ -895,7 +896,7 @@ class SDVXHelper:
 
         self.gen_summary = GenSummary(now_mod)
         self.gen_summary.generate()
-        self.sdvx_logger.get_rival_score(self.settings['rival_names'], self.settings['rival_googledrive'])
+        self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
         self.starttime = now
         self.gui_main()
         self.th = False

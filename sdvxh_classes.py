@@ -374,13 +374,14 @@ class SDVXLogger:
             print(f"プレーログファイル(alllog.pkl)がありません。新規作成します。")
             self.alllog = []
 
-    def get_rival_score(self, names, ids):
+    def get_rival_score(self, myname, names, ids):
+        self.myname = myname
         self.rival_names = names
         ret = [] # MusicInfoの配列
-        for id in ids:
+        for id,name in zip(ids, names):
             URL = 'https://docs.google.com/uc?export=download'
             id = self.settings['rival_googledrive'][0]
-            print(id)
+            print(f"ライバルのスコアを取得中:{name}")
 
             session = requests.Session()
             response = session.get(URL, params = { 'id' : id }, stream = True)
@@ -526,6 +527,49 @@ class SDVXLogger:
                 f.write("</Items>\n")
         self.pre_onselect_title = title
         self.pre_onselect_difficulty = difficulty
+
+    def update_rival_view(self, title:str, difficulty:str):
+        """曲名認識結果を受けてライバル欄を更新する
+
+        Args:
+            title (str): 曲名
+            difficulty (str): 難易度
+        """
+        if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
+            infos = []
+            names = []
+            exist_myscore = False # 自分のスコアがあるかどうか。Trueなら先頭が自分のスコア
+
+            # 指定の曲名と同じ譜面情報を出力
+            for d in self.best_allfumen:
+                if (d.title == title) and (d.difficulty == difficulty):
+                    infos.append(d)
+                    names.append(self.myname)
+            for tmp,name in zip(self.rival_score, self.rival_names): # tmp: 1人分
+                for s in tmp: # 1曲分
+                    if (s.title == title) and (s.difficulty == difficulty):
+                        infos.append(s)
+                        names.append(name)
+
+            with open('out/rival.xml', 'w', encoding='utf-8') as f:
+                f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+                f.write("<Items>\n")
+                for i,info,name in enumerate(zip(infos, names)):
+                    f.write("    <info>\n")
+                    title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                    f.write(f"        <title>{title}</title>\n")
+                    f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
+                    f.write(f"        <lv>{d.lv}</lv>\n")
+                    f.write("    </info>\n")
+                    f.write("    <rival>\n")
+                    f.write(f"        <name>{name}</name>\n")
+                    if i==0 and exist_myscore:
+                        f.write(f"        <me>1</me>\n")
+                    f.write(f"        <best_score>{info.best_score}</best_score>\n")
+                    f.write(f"        <best_lamp>{info.best_lamp}</best_score>\n")
+                    f.write(f"        <vf>{info.vf}</vf>\n")
+                    f.write("    </rival>\n")
+                f.write("</Items>\n")
 
     def get_fumen_data(self, title:str, difficulty:str):
         """ある譜面のプレーログと曲情報(自己べ等)を取得する。
