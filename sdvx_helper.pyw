@@ -238,6 +238,8 @@ class SDVXHelper:
             self.settings['ly'] = self.window.current_location()[1]
         elif self.gui_mode == gui_mode.webhook:
             self.settings['player_name'] = val['player_name2']
+        elif self.gui_mode == gui_mode.googledrive:
+            self.settings['player_name'] = val['player_name3']
         elif self.gui_mode == gui_mode.setting:
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
@@ -325,6 +327,30 @@ class SDVXHelper:
         ]
 
         self.window = sg.Window(f"SDVX helper - カスタムWebhook設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
+
+    def gui_googledrive(self):
+        """Googleドライブ連携設定用のGUIを起動する。
+        """
+        self.gui_mode = gui_mode.googledrive
+        if self.window:
+            self.window.close()
+        layout_list = [
+            [sg.Table([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))], key='rival_names', auto_size_columns=False, headings=['name', 'gdrive_id'], size=(30,7), col_widths=[15, 30], justification='left', enable_events=True)],
+        ]
+        layout_btn = [
+            [par_btn('追加', key='add_rival')],
+            [par_btn('削除', key='del_rival')],
+            #[par_btn('上書き', key='mod_rival')],
+        ]
+        layout = [
+            [sg.Text('自分のプレーヤー名'), sg.Input(self.settings['player_name'], key='player_name3')],
+            [par_text('自分のプレーデータ用自動保存先'), par_btn('変更', key='btn_my_googledrive')],
+            [par_text('', key='txt_my_googledrive')],
+            [par_text('ライバル名'), sg.Input('', key='rival_name', size=(30,1))],
+            [par_text('ライバル用URL'), sg.Input('', key='rival_googledrive')],
+            [sg.Column(layout_list), sg.Column(layout_btn)]
+        ]
+        self.window = sg.Window(f"SDVX helper - Googleドライブ設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_obs_control(self):
         """OBS制御設定画面のGUIを起動する。
@@ -414,7 +440,7 @@ class SDVXHelper:
         if self.window:
             self.window.close()
         menuitems = [
-            ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
+            ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'Googleドライブ設定(ライバル関連)', 'アップデートを確認']],
             ['分析',['VF内訳をツイート', '全プレーログをCSV出力', '自己ベストをCSV出力']]
         ]
         layout = [
@@ -965,6 +991,11 @@ class SDVXHelper:
                 if tmp != '':
                     self.settings['autosave_dir'] = tmp
                     self.window['txt_autosave_dir'].update(tmp)
+            elif ev == 'btn_my_googledrive':
+                tmp = filedialog.askdirectory()
+                if tmp != '':
+                    self.settings['my_googledrive'] = tmp
+                    self.window['txt_my_googledrive'].update(tmp)
 
             elif ev == 'アップデートを確認':
                 ver = self.get_latest_version()
@@ -993,6 +1024,8 @@ class SDVXHelper:
             ### webhook関連
             elif ev == 'カスタムWebhook設定':
                 self.gui_webhook()
+            elif ev == 'Googleドライブ設定(ライバル関連)':
+                self.gui_googledrive()
             elif ev == 'webhook_add':
                 self.webhook_add(val)
             elif ev == 'webhook_del':
@@ -1005,6 +1038,26 @@ class SDVXHelper:
             elif ev == 'webhook_enable_alllamp':
                 for l in ('puc', 'uc', 'hard', 'clear', 'failed'):
                     self.window[f"webhook_enable_{l}"].update(val[ev])
+
+            ### Googleドライブ関連
+            elif ev == 'add_rival':
+                name = val['rival_name']
+                url  = val['rival_googledrive']
+                url_split = url.split('/')
+                if (len(url_split) == 7) and (len(url_split[-2]) == 33) and (url_split[2]=='drive.google.com'):
+                    url = url_split[-2]
+                logger.debug(f"name={name}, url={url}")
+                if name != '' and url != '' and len(url) == 33:
+                    self.settings['rival_names'].append(name)
+                    self.settings['rival_googledrive'].append(url)
+                    self.window['rival_name'].update('')
+                    self.window['rival_googledrive'].update('')
+                self.window['rival_names'].update([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+            elif ev == 'del_rival':
+                for idx in val['rival_names']:
+                    self.settings['rival_names'].pop(idx)
+                    self.settings['rival_googledrive'].pop(idx)
+                self.window['rival_names'].update([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
 
             ### ツイート機能
             elif ev == 'VF内訳をツイート':

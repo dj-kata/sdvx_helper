@@ -31,6 +31,7 @@ class gui_mode(Enum):
     setting = 2
     obs_control = 3
     webhook = 4
+    googledrive = 5
 
 class detect_mode(Enum):
     init = 0

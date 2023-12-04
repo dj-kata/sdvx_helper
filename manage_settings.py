@@ -31,6 +31,11 @@ default_val = {
     'webhook_enable_lvs':[], # 1entry:[False,False,...True]のような長さ20の配列(lv1-20)
     'webhook_enable_lamps':[], # 1entry:[True,True,False,False,False] puc,uc,hard,clear,failed
 
+    # Googleドライブ連携用(自動保存及びライバル用)
+    'my_googledrive':'',
+    'rival_names':[],
+    'rival_googledrive':[],
+
     # others
     'ignore_rankD':True, 'auto_update':True,
     'params_json':'resources/params.json',
