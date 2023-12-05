@@ -386,6 +386,7 @@ class SDVXLogger:
 
             session = requests.Session()
             response = session.get(URL, params = { 'id' : id }, stream = True)
+            response.encoding = 'shift_jis'
 
             token = None
             for key, value in response.cookies.items():
@@ -404,7 +405,7 @@ class SDVXLogger:
                         f.write(chunk)
 
             tmp = []
-            with open('out/rival_tmp.csv') as f:
+            with open('out/rival_tmp.csv', encoding='shift_jis') as f:
                 csvr = csv.reader(f)
                 for i,r in enumerate(csvr):
                     if i==0:
@@ -419,9 +420,12 @@ class SDVXLogger:
                     best_score = int(r[3])
                     best_lamp = r[4]
                     vf = int(r[5])
-                    info = MusicInfo(r[0], '', '', difficulty, lv, best_score, best_lamp)
-                    info.vf = vf
-                    tmp.append(info)
+                    try:
+                        info = MusicInfo(r[0], '', '', difficulty, lv, best_score, best_lamp)
+                        info.vf = vf
+                        tmp.append(info)
+                    except Exception:
+                        logger.debug(f'rival data error! (title:{r[0]}, difficulty:{difficulty}, best_score:{best_score}, best_lamp:{best_lamp})')
             ret.append(tmp)
         self.rival_score = ret
         print(f"ライバルのスコアを取得完了しました。")
