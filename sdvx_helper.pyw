@@ -189,6 +189,9 @@ class SDVXHelper:
         self.gen_summary.generate() # ここでサマリも更新
         print(f"スクリーンショットを保存しました -> {dst}")
 
+        # ライバル欄更新
+        self.sdvx_logger.update_rival_view(title, self.gen_summary.difficulty.upper())
+
     def save_playerinfo(self):
         """プレイヤー情報(VF,段位)を切り出して画像として保存する。
         """
