@@ -560,12 +560,10 @@ class SDVXLogger:
             with open('out/rival.xml', 'w', encoding='utf-8') as f:
                 f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
                 f.write("<Items>\n")
-                f.write("    <info>\n")
                 title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
-                f.write(f"        <title>{title}</title>\n")
-                f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
-                f.write(f"        <lv>{d.lv}</lv>\n")
-                f.write("    </info>\n")
+                f.write(f"    <title>{title}</title>\n")
+                f.write(f"    <difficulty>{difficulty.upper()}</difficulty>\n")
+                f.write(f"    <lv>{d.lv}</lv>\n")
                 for i,(info,r) in enumerate(zip(infos_sorted, rank)):
                     f.write("    <rival>\n")
                     f.write(f"        <rank>{int(r)}</rank>\n")
@@ -573,7 +571,7 @@ class SDVXLogger:
                     if info.me:
                         f.write("        <me>1</me>\n")
                     f.write(f"        <best_score>{info.best_score}</best_score>\n")
-                    f.write(f"        <best_lamp>{info.best_lamp}</best_score>\n")
+                    f.write(f"        <best_lamp>{info.best_lamp}</best_lamp>\n")
                     f.write(f"        <vf>{info.vf}</vf>\n")
                     f.write("    </rival>\n")
                 f.write("</Items>\n")
