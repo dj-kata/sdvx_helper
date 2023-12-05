@@ -957,6 +957,7 @@ class SDVXHelper:
                         if self.obs != False:
                             self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                         self.gui_main()
+                        self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
                     except Exception as e:
                         print(traceback.format_exc())
             
@@ -1054,8 +1055,11 @@ class SDVXHelper:
                 name = val['rival_name']
                 url  = val['rival_googledrive']
                 url_split = url.split('/')
+                # https://drive.google.com/open?id=1VWSUs7DRBWBiKK2zmIyTknQiUugC6sVK&usp=drive_fs 
                 if (len(url_split) == 7) and (len(url_split[6]) == 33) and (url_split[2]=='drive.google.com'):
                     url = url_split[6]
+                elif (len(url_split) == 4): # エクスプローラでコピーした場合のURL
+                    url = url_split[-1].split('=')[1].split('&')[0]
                 logger.debug(f"name={name}, url={url}")
                 if name != '' and url != '' and len(url) == 33:
                     self.settings['rival_names'].append(name)
