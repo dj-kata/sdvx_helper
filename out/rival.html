@@ -165,7 +165,9 @@
                 100% { color: #ff2828; }
             }
             .clear{color: #77ff77;}
+            .comp{color: #77ff77;}
             .hard{color: #ffc115;}
+            .exc{color: #ffc115;}
             .uc{color: #ff7777;}
             .puc{color: #ffff99;}
         </style>
@@ -203,10 +205,10 @@
                     if (lamp == "failed"){
                         lamp = '<img src="../resources/log_lamp_failed.png" height="80">'
                     }
-                    else if (lamp == "clear"){
+                    else if ((lamp == "clear") | (lamp == "comp")){
                         lamp = '<img src="../resources/log_lamp_clear.png" height="80">'
                     }
-                    else if (lamp == "hard"){
+                    else if ((lamp == "hard") | (lamp == "exc")){
                         lamp = '<img src="../resources/log_lamp_hard.png" height="80">'
                     }
                     else if (lamp == "uc"){
