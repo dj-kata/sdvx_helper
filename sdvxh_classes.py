@@ -546,13 +546,13 @@ class SDVXLogger:
 
             # 指定の曲名と同じ譜面情報を出力
             for d in self.best_allfumen:
-                if (d.title == title) and (d.difficulty == difficulty):
+                if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
                     d.player_name = self.myname
                     d.me = True
                     infos.append(d)
             for tmp,name in zip(self.rival_score, self.rival_names): # tmp: 1人分
                 for s in tmp: # 1曲分
-                    if (s.title == title) and (s.difficulty == difficulty):
+                    if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
                         s.player_name = name
                         s.me = False
                         infos.append(s)
