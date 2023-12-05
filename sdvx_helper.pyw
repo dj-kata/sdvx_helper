@@ -1054,8 +1054,8 @@ class SDVXHelper:
                 name = val['rival_name']
                 url  = val['rival_googledrive']
                 url_split = url.split('/')
-                if (len(url_split) == 7) and (len(url_split[-2]) == 33) and (url_split[2]=='drive.google.com'):
-                    url = url_split[-2]
+                if (len(url_split) == 7) and (len(url_split[6]) == 33) and (url_split[2]=='drive.google.com'):
+                    url = url_split[6]
                 logger.debug(f"name={name}, url={url}")
                 if name != '' and url != '' and len(url) == 33:
                     self.settings['rival_names'].append(name)
