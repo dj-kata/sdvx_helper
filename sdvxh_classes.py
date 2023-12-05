@@ -424,6 +424,7 @@ class SDVXLogger:
                     tmp.append(info)
             ret.append(tmp)
         self.rival_score = ret
+        print(f"ライバルのスコアを取得完了しました。")
         return ret
 
     def save_alllog(self):
@@ -571,7 +572,7 @@ class SDVXLogger:
                     if info.me:
                         f.write("        <me>1</me>\n")
                     f.write(f"        <best_score>{info.best_score}</best_score>\n")
-                    f.write(f"        <best_lamp>{info.best_lamp}</best_lamp>\n")
+                    f.write(f"        <best_lamp>{info.best_lamp.lower()}</best_lamp>\n")
                     f.write(f"        <vf>{info.vf}</vf>\n")
                     f.write("    </rival>\n")
                 f.write("</Items>\n")
