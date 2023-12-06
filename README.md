@@ -196,7 +196,7 @@ OBS上で```sdvx_helper_playcount```という名前のテキストを作ると**
 - class_cur.png: 最新の段位
 - class_pre.png: アプリ起動時の段位
 
-### リザルトをDiscordに自動投稿する(new)
+### リザルトをDiscordに自動投稿する
 v.1.0.8からリザルトをDiscordに自動投稿できるようになりました。  
 自分のDiscordサーバに以下のようなプレーログを自動投稿することができます。  
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/afbf8025-fb9a-4362-a180-55d324c0bd42)
