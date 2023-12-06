@@ -386,7 +386,7 @@ class SDVXLogger:
 
             session = requests.Session()
             response = session.get(URL, params = { 'id' : id }, stream = True)
-            response.encoding = 'shift_jis'
+            response.encoding = 'utf-8'
 
             token = None
             for key, value in response.cookies.items():
@@ -405,7 +405,7 @@ class SDVXLogger:
                         f.write(chunk)
 
             tmp = []
-            with open('out/rival_tmp.csv', encoding='shift_jis') as f:
+            with open('out/rival_tmp.csv', encoding='utf-8') as f:
                 csvr = csv.reader(f)
                 for i,r in enumerate(csvr):
                     if i==0:
@@ -784,7 +784,7 @@ class SDVXLogger:
 
     def gen_best_csv(self, filename):
         try:
-            with open(filename, 'w', encoding='shift_jis', errors='ignore', newline='') as f:
+            with open(filename, 'w', encoding='utf-8', errors='ignore', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce'])
                 for i,p in enumerate(self.best_allfumen):
