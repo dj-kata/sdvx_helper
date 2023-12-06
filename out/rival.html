@@ -24,9 +24,10 @@
                          -2px -2px 0 #000;
             }
             div#all{
-                border: 16px solid #000077;
+                border: 16px solid #000011;
                 -moz-box-sizing:border-box;
                 box-sizing: border-box;
+                width:99%;
                 position: absolute;
                 top:0;
                 bottom:0;
@@ -188,7 +189,7 @@
                 if (difficulty == "APPEND"){
                     difficulty = '';
                 }else{
-                    difficulty = '('+difficulty+')';
+                    difficulty = ' ('+difficulty+')';
                 }
                 $(xml).find("Items rival").each(function(index, item){
                     var name = $(item).find('name').text();
@@ -233,7 +234,7 @@
                     out += '</tr>'
                 });
                 var title_html = "<tr>";
-                    title_html += "<td>"+title+"</td>";
+                    title_html += "<td>"+title+difficulty+"</td>";
                     title_html += "</tr>";
                 $('#title tbody').html(title_html);
                 $('#result tbody').html(out);
