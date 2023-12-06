@@ -1047,7 +1047,7 @@ class SDVXHelper:
                 try:
                     self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
                 except Exception:
-                    print('スコア取得時にエラーが発生しました。\nCSVファイルのURL設定を確認してください。')
+                    print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
             elif ev == 'webhook_add':
                 self.webhook_add(val)
             elif ev == 'webhook_del':
