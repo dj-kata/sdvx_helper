@@ -32,6 +32,7 @@ default_val = {
     'webhook_enable_lamps':[], # 1entry:[True,True,False,False,False] puc,uc,hard,clear,failed
 
     # Googleドライブ連携用(自動保存及びライバル用)
+    'get_rival_score':False,
     'my_googledrive':'',
     'rival_names':[],
     'rival_googledrive':[],

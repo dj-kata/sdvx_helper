@@ -242,6 +242,7 @@ class SDVXHelper:
         elif self.gui_mode == gui_mode.webhook:
             self.settings['player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
+            self.settings['get_rival_score'] = val['get_rival_score']
             self.settings['player_name'] = val['player_name3']
         elif self.gui_mode == gui_mode.setting:
             self.settings['host'] = val['input_host']
@@ -349,6 +350,7 @@ class SDVXHelper:
             [sg.Text('自分のプレーヤー名'), sg.Input(self.settings['player_name'], key='player_name3')],
             [par_text('自分のプレーデータ用自動保存先'), par_btn('変更', key='btn_my_googledrive')],
             [par_text('', key='txt_my_googledrive')],
+            [sg.Checkbox('起動時にライバルのスコアを取得する',self.settings['get_rival_score'],key='get_rival_score', enable_events=True)],
             [par_text('ライバル名'), sg.Input('', key='rival_name', size=(30,1))],
             [par_text('ライバル用URL'), sg.Input('', key='rival_googledrive')],
             [sg.Column(layout_list), sg.Column(layout_btn)]
@@ -443,7 +445,8 @@ class SDVXHelper:
         if self.window:
             self.window.close()
         menuitems = [
-            ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'Googleドライブ設定(ライバル関連)', 'アップデートを確認']],
+            ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
+            ['ライバル関連',['Googleドライブ設定(ライバル関連)', 'ライバルのスコアを取得']],
             ['分析',['VF内訳をツイート', '全プレーログをCSV出力', '自己ベストをCSV出力']]
         ]
         layout = [
@@ -899,8 +902,9 @@ class SDVXHelper:
 
         self.gen_summary = GenSummary(now_mod)
         self.gen_summary.generate()
-        self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
         self.starttime = now
+        if self.settings['get_rival_score']:
+            self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
         self.gui_main()
         self.th = False
         self.control_obs_sources('boot')
@@ -957,7 +961,6 @@ class SDVXHelper:
                         if self.obs != False:
                             self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                         self.gui_main()
-                        self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
                     except Exception as e:
                         print(traceback.format_exc())
             
@@ -1037,6 +1040,11 @@ class SDVXHelper:
                 self.gui_webhook()
             elif ev == 'Googleドライブ設定(ライバル関連)':
                 self.gui_googledrive()
+            elif ev == 'ライバルのスコアを取得':
+                try:
+                    self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
+                except Exception:
+                    print('スコア取得時にエラーが発生しました。\nCSVファイルのURL設定を確認してください。')
             elif ev == 'webhook_add':
                 self.webhook_add(val)
             elif ev == 'webhook_del':
