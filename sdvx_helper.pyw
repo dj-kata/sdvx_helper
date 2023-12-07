@@ -161,6 +161,7 @@ class SDVXHelper:
     def save_screenshot_general(self):
         """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
         """
+        title = False
         now = datetime.datetime.now()
         self.last_autosave_time = now
         fmtnow = format(now, "%Y%m%d_%H%M%S")
@@ -190,7 +191,8 @@ class SDVXHelper:
         print(f"スクリーンショットを保存しました -> {dst}")
 
         # ライバル欄更新
-        self.sdvx_logger.update_rival_view(title, self.gen_summary.difficulty.upper())
+        if type(title) == str:
+            self.sdvx_logger.update_rival_view(title, self.gen_summary.difficulty.upper())
 
     def save_playerinfo(self):
         """プレイヤー情報(VF,段位)を切り出して画像として保存する。
