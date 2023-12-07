@@ -329,6 +329,7 @@ class SDVXLogger:
         self.best_allfumen = []
         self.pre_onselect_title = ''
         self.pre_onselect_difficulty = ''
+        self.myname = ''
         self.total_vf = 0
         self.vf_pre = False
         self.player_name = player_name
@@ -541,7 +542,7 @@ class SDVXLogger:
             title (str): 曲名
             difficulty (str): 難易度
         """
-        if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
+        if ((title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty)) and (len(self.rival_names)>0): # 違う曲になったときだけ実行
             infos = []
 
             # 指定の曲名と同じ譜面情報を出力
