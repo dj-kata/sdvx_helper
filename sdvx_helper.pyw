@@ -909,6 +909,7 @@ class SDVXHelper:
             try:
                 self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
             except Exception: # 関数全体が落ちる=Googleドライブへのアクセスでコケたときの対策
+                logger.debug(traceback.format_exc())
                 print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
         self.gui_main()
         self.th = False
@@ -1049,6 +1050,7 @@ class SDVXHelper:
                 try:
                     self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
                 except Exception:
+                    logger.debug(traceback.format_exc())
                     print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
             elif ev == 'webhook_add':
                 self.webhook_add(val)
@@ -1069,6 +1071,7 @@ class SDVXHelper:
                 url  = val['rival_googledrive']
                 url_split = url.split('/')
                 # https://drive.google.com/open?id=1VWSUs7DRBWBiKK2zmIyTknQiUugC6sVK&usp=drive_fs 
+                # https://drive.google.com/file/d/10EeiBpPZCHBDTkeLfyZSB7rE_2ALIwBm/view
                 if (len(url_split) == 7) and (len(url_split[6]) == 33) and (url_split[2]=='drive.google.com'):
                     url = url_split[6]
                 elif (len(url_split) == 4): # エクスプローラでコピーした場合のURL

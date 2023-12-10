@@ -414,15 +414,11 @@ class SDVXLogger:
                     difficulty = r[1]
                     if r[1] == '':
                         difficulty = 'APPEND'
-                    if r[2] != '??':
-                        lv = int(r[2])
-                    else:
-                        lv = r[2]
                     best_score = int(r[3])
                     best_lamp = r[4]
                     vf = int(r[5])
                     try:
-                        info = MusicInfo(r[0], '', '', difficulty, lv, best_score, best_lamp)
+                        info = MusicInfo(r[0], '', '', difficulty, '??', best_score, best_lamp)
                         info.vf = vf
                         tmp.append(info)
                     except Exception:
@@ -546,10 +542,12 @@ class SDVXLogger:
             infos = []
 
             # 指定の曲名と同じ譜面情報を出力
+            lv = '??'
             for d in self.best_allfumen:
                 if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
                     d.player_name = self.myname
                     d.me = True
+                    lv = d.lv
                     infos.append(d)
             for tmp,name in zip(self.rival_score, self.rival_names): # tmp: 1人分
                 for s in tmp: # 1曲分
@@ -569,7 +567,7 @@ class SDVXLogger:
                 title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
                 f.write(f"    <title>{title}</title>\n")
                 f.write(f"    <difficulty>{difficulty.upper()}</difficulty>\n")
-                f.write(f"    <lv>{d.lv}</lv>\n")
+                f.write(f"    <lv>{lv}</lv>\n")
                 for i,(info,r) in enumerate(zip(infos_sorted, rank)):
                     f.write("    <rival>\n")
                     f.write(f"        <rank>{int(r)}</rank>\n")
