@@ -351,7 +351,7 @@ class SDVXHelper:
         layout = [
             [sg.Text('自分のプレーヤー名'), sg.Input(self.settings['player_name'], key='player_name3')],
             [par_text('自分のプレーデータ用自動保存先'), par_btn('変更', key='btn_my_googledrive')],
-            [par_text('', key='txt_my_googledrive')],
+            [par_text(self.settings['my_googledrive'], key='txt_my_googledrive')],
             [sg.Checkbox('起動時にライバルのスコアを取得する',self.settings['get_rival_score'],key='get_rival_score', enable_events=True)],
             [par_text('ライバル名'), sg.Input('', key='rival_name', size=(30,1))],
             [par_text('ライバル用URL'), sg.Input('', key='rival_googledrive')],
