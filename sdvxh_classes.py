@@ -383,7 +383,6 @@ class SDVXLogger:
         ret = [] # MusicInfoの配列
         for id,name in zip(ids, names):
             URL = 'https://docs.google.com/uc?export=download'
-            id = self.settings['rival_googledrive'][0]
             print(f"ライバルのスコアを取得中:{name}")
 
             session = requests.Session()
