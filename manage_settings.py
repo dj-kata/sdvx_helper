@@ -22,6 +22,8 @@ default_val = {
     'obs_txt_vf_with_diff':'sdvx_helper_vf_with_diff', 'obs_txt_vf_header':'VF: ', 'obs_txt_vf_footer':'',
     # ブラスターゲージMAX時のリマインド用
     'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
+    # sdvx_helperで使うシーンコレクション
+    'obs_scene_collection':'',
 
     # カスタムwebhook用
     # それぞれ1エントリが1つの設定に対応。(全ての配列が同じ長さになる)

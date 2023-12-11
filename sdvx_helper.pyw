@@ -378,6 +378,7 @@ class SDVXHelper:
         layout_boot = self.build_layout_one_scene('boot')
         layout_quit = self.build_layout_one_scene('quit')
         layout_obs2 = [
+            [par_text('シーンコレクション(起動時に切り替え):'), sg.Combo(self.obs.get_scene_collection_list(), key='scene_collection', size=(40,1), enable_events=True)],
             [par_text('シーン:'), sg.Combo(obs_scenes, key='combo_scene', size=(40,1), enable_events=True)],
             [par_text('ソース:'),sg.Combo(obs_sources, key='combo_source', size=(40,1))],
             [par_text('ゲーム画面:'), par_text(self.settings['obs_source'], size=(20,1), key='obs_source'), par_btn('set', key='set_obs_source')],
@@ -398,6 +399,8 @@ class SDVXHelper:
             [sg.Text('', key='info', font=(None,9))]
         ]
         self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
+        if self.settings['obs_scene_collection'] != '':
+            self.window['scene_collection'].update(value=self.settings['obs_scene_collection'])
 
     def gui_setting(self):
         """設定画面のGUIを起動する。
@@ -913,6 +916,7 @@ class SDVXHelper:
                 print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
         self.gui_main()
         self.th = False
+        self.obs.set_scene_collection(self.settings['obs_scene_collection'])
         self.control_obs_sources('boot')
         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
         if self.obs != False:
@@ -1006,6 +1010,17 @@ class SDVXHelper:
                         if tmp in self.settings[key]:
                             self.settings[key].pop(self.settings[key].index(tmp))
                             self.window[key].update(self.settings[key])
+            elif ev == 'scene_collection':
+                self.settings['obs_scene_collection'] = val[ev]
+                self.obs.set_scene_collection(val[ev])
+                time.sleep(3)
+                obs_scenes = []
+                tmp = self.obs.get_scenes()
+                tmp.reverse()
+                for s in tmp:
+                    obs_scenes.append(s['sceneName'])
+                self.window['combo_scene'].update(values=obs_scenes)
+                print(obs_scenes)
             elif ev == 'btn_autosave_dir':
                 tmp = filedialog.askdirectory()
                 if tmp != '':
