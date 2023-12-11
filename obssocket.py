@@ -143,6 +143,35 @@ class OBSSocket():
         except:
             pass
         return ret
+    
+    def get_scene_collection_list(self):
+        """OBSに設定されたシーンコレクションの一覧をListで返す
+
+        Returns:
+            list: シーンコレクション名の文字列
+            (エラー時はFalseを返す)
+        """
+        try:
+            return self.ws.get_scene_collection_list().scene_collections
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return False
+        
+    def set_scene_collection(self, scene_collection:str):
+        """シーンコレクションを引数で指定したものに変更する。
+
+        Args:
+            scene_collection (str): シーンコレクション名
+
+        Returns:
+            bool: 成功ならTrue,失敗したらFalse
+        """
+        try:
+            self.ws.set_current_scene_collection(scene_collection)
+            return True
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return False
 
 if __name__ == "__main__":
     a = OBSSocket('localhost', '4455', 'panipaninoakuma','たぬきお休み.png','tmp.png')
