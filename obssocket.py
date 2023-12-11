@@ -149,13 +149,12 @@ class OBSSocket():
 
         Returns:
             list: シーンコレクション名の文字列
-            (エラー時はFalseを返す)
         """
         try:
             return self.ws.get_scene_collection_list().scene_collections
         except Exception:
             logger.debug(traceback.format_exc())
-            return False
+            return []
         
     def set_scene_collection(self, scene_collection:str):
         """シーンコレクションを引数で指定したものに変更する。
