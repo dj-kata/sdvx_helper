@@ -1010,17 +1010,16 @@ class SDVXHelper:
                         if tmp in self.settings[key]:
                             self.settings[key].pop(self.settings[key].index(tmp))
                             self.window[key].update(self.settings[key])
-            elif ev == 'scene_collection':
+            elif ev == 'scene_collection': # シーンコレクションを選択
                 self.settings['obs_scene_collection'] = val[ev]
-                self.obs.set_scene_collection(val[ev])
+                self.obs.set_scene_collection(val[ev]) # そのシーンコレクションに切り替え
                 time.sleep(3)
                 obs_scenes = []
                 tmp = self.obs.get_scenes()
                 tmp.reverse()
                 for s in tmp:
                     obs_scenes.append(s['sceneName'])
-                self.window['combo_scene'].update(values=obs_scenes)
-                print(obs_scenes)
+                self.window['combo_scene'].update(values=obs_scenes) # シーン一覧を更新
             elif ev == 'btn_autosave_dir':
                 tmp = filedialog.askdirectory()
                 if tmp != '':
