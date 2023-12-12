@@ -76,7 +76,7 @@ class SDVXHelper:
         self.vf_pre = self.sdvx_logger.total_vf # アプリ起動時のVF
         self.vf_cur = self.sdvx_logger.total_vf # 最新のVF
         self.connect_obs()
-        vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
+        vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur:.3f} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
         if self.obs != False:
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
 
