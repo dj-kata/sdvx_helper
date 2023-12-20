@@ -467,13 +467,18 @@ class SDVXLogger:
         with open('out/history_cursong.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<Items>\n")
-            title = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
-            f.write(f"    <title>{title}</title>\n")
+            title_esc = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+            f.write(f"    <title>{title_esc}</title>\n")
             f.write(f"    <difficulty>{difficulty}</difficulty>\n")
 
             if (logs != False) and (info != False):
                 lv = info.lv
                 f.write(f"    <lv>{lv}</lv>\n")
+                if type(lv) == int:
+                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                        tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
+                        if tmp != None:
+                            f.write(f"    <gradeS_tier>{tmp}</gradeS_tier>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
                 vf_12 = int(info.vf/10)
@@ -504,6 +509,9 @@ class SDVXLogger:
             difficulty (str): 譜面難易度
         """
         if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
+            logs, info = self.get_fumen_data(title, difficulty)
+            lv = info.lv
+            info.disp()
             dat = []
 
             # 指定の曲名と同じ譜面情報を出力
@@ -515,18 +523,23 @@ class SDVXLogger:
             with open('out/vf_onselect.xml', 'w', encoding='utf-8') as f:
                 f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
                 f.write("<Items>\n")
+                f.write("    <fumen>\n")
+                title_esc = title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                f.write(f"        <title>{title_esc}</title>\n")
+                f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
+                f.write(f"        <lv>{lv}</lv>\n")
+                if type(lv) == int:
+                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                        tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
+                        if tmp != None:
+                            f.write(f"        <gradeS_tier>{tmp}</gradeS_tier>\n")
                 for d in dat:
-                    f.write("    <fumen>\n")
-                    title = d.title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
-                    f.write(f"        <title>{title}</title>\n")
-                    f.write(f"        <difficulty>{d.difficulty.upper()}</difficulty>\n")
-                    f.write(f"        <lv>{d.lv}</lv>\n")
                     f.write(f"        <best_score>{d.best_score}</best_score>\n")
                     f.write(f"        <best_lamp>{d.best_lamp}</best_lamp>\n")
                     vf_12 = int(d.vf/10)
                     vf_3 = d.vf % 10
                     f.write(f"        <vf>{vf_12}.{vf_3}</vf>\n")
-                    f.write("    </fumen>\n")
+                f.write("    </fumen>\n")
                 f.write("</Items>\n")
         self.pre_onselect_title = title
         self.pre_onselect_difficulty = difficulty

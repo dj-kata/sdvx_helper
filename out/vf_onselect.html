@@ -72,42 +72,43 @@
             }
             table#result td {
             	white-space:nowrap;
+                text-align: center;
             }
             table#result tr:nth-child(1) {
                 font-size:40px;
                 color: #fff;
                 background-color: #000;
-                text-align: center;
             }
-            table#result td:nth-child(1) {
-                text-align: center;
-            	width:17%;
+            table#result tr:nth-child(2) td:nth-child(1) {
+                width: 170px;
             }
-            table#result td:nth-child(2) {
-                max-width: 100px;
+            table#result tr:nth-child(2) td:nth-child(2) {
+                color: #ccccff;
+                width: 140px;
+            }
+            table#result tr:nth-child(2) td:nth-child(3) {
+                max-width: 20px;
             	overflow:hidden;
             	text-overflow:ellipsis;
             }
-            table#result td:nth-child(3) {
-            	width:7%;
-            	margin-right:3%;
-                text-align:left;
+            table#result tr:nth-child(2) td:nth-child(4) {
+                width: 220px;
+                font-size: 64px;
+                width: 0%;
+            	margin-right:1%;
             }
-            table#result td:nth-child(4) {
-            	width:17%;
+            table#result tr:nth-child(2) td:nth-child(5) {
+                width: 250px;
             	margin-right:3%;
-                text-align:right;
             }
-            table#result td:nth-child(5) {
-            	width:10%;
+            table#result tr:nth-child(2) td:nth-child(6) {
+                width: 170px;
             	margin-right:3%;
-                text-align:center;
             }
-            table#result td:nth-child(6) {
+            table#result tr:nth-child(2) td:nth-child(7) {
                 color: #ccffcc;
-            	width:10%;
+            	width:250px;
             	margin-left:3%;
-                text-align:left;
             }
             .MAX{
                 animation-name: flashmax;
@@ -196,6 +197,7 @@
                 // xmlデータからほしいデータをfindで探し処理
                 var out = "";
                     out += '<tr><td><center>Lv</center></td>';
+                    out += '    <td><center>Tier</center></td>';
                     out += '    <td colspan="2"><center>title</center></td>';
                     out += '    <td><center>score</center></td>';
                     out += '    <td><center>lamp</center></td>';
@@ -208,6 +210,7 @@
                     var title = $(item).find('title').text();
                     var lv = $(item).find('lv').text();
                     var vf = $(item).find('vf').text();
+                    var gradeS_tier = $(item).find('gradeS_tier').text();
                     var difficulty = $(item).find('difficulty').text();
                     if (difficulty == "APPEND"){
                         difficulty = '';
@@ -242,6 +245,7 @@
                     }
                     // テーブルに追加
                     out += '<tr><td><font color="#ffffcc">'+lv+'</font></td>';
+                    out += '    <td>'+gradeS_tier+'</td>';
                     out += '    <td>'+title+'</td>';
                     out += '    <td>'+difficulty+'</td>';
                     out += '    <td><font color="#ffccff">'+score+'</font></td>';

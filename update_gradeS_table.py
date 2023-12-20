@@ -19,13 +19,17 @@ for lv in [17,18,19]:
     tiers = soup.find_all('div', class_='tier_box')
     data[f"gradeS_lv{lv}"] = {}
     for t in tiers:
-        print("#####    Tier",t['data-tier'])
         songs = t.find_all('div', class_='song_info')
         key = f"tier{t['data-tier']}"
         data[f"gradeS_lv{lv}"][key] = []
         for s in songs:
-            data[f"gradeS_lv{lv}"][key].append(s['data-title'])
-            print(s['data-title'])
+            data[f"gradeS_lv{lv}"][s['data-title']] = t['data-tier']
+            if t['data-tier'] == '-1':
+                data[f"gradeS_lv{lv}"][s['data-title']] = '0+'
+            elif t['data-tier'] == '0':
+                data[f"gradeS_lv{lv}"][s['data-title']] = '0-'
+            elif t['data-tier'] == '999':
+                data[f"gradeS_lv{lv}"][s['data-title']] = 'N/A'
 
-#with open('resources/musiclist.pkl', 'wb') as f:
-#    pickle.dump(data, f)
+with open('resources/musiclist.pkl', 'wb') as f:
+    pickle.dump(data, f)

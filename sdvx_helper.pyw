@@ -182,7 +182,7 @@ class SDVXHelper:
             now = datetime.datetime.fromtimestamp(ts)
             tmp_playdata = self.sdvx_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
             self.vf_cur = self.sdvx_logger.total_vf # アプリ起動時のVF
-            vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
+            vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur:.3f} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
         self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
         self.th_webhook.start()
