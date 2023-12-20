@@ -511,7 +511,6 @@ class SDVXLogger:
         if (title != self.pre_onselect_title) or (difficulty != self.pre_onselect_difficulty): # 違う曲になったときだけ実行
             logs, info = self.get_fumen_data(title, difficulty)
             lv = info.lv
-            info.disp()
             dat = []
 
             # 指定の曲名と同じ譜面情報を出力
