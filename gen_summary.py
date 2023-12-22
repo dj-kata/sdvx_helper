@@ -283,14 +283,17 @@ class GenSummary:
                 return False
             
         parts = self.cut_result_parts(img)
-        rowsize = self.params['log_rowsize']
+        if parts != False:
+            rowsize = self.params['log_rowsize']
 
-        for i in self.params['log_parts']:
-            bg.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
+            for i in self.params['log_parts']:
+                bg.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
 
-        for i in self.params['log_small_parts']:
-            bg_small.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
-        return True
+            for i in self.params['log_small_parts']:
+                bg_small.paste(parts[i],     (self.params[f"log_pos_{i}_sx"], self.params[f"log_pos_{i}_sy"]+rowsize*idx))
+            return True
+        else:
+            return False
 
     def generate_today_all(self, dst:str):
         logger.debug(f'called! ignore_rankD={self.ignore_rankD}, savedir={self.savedir}')
