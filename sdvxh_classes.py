@@ -331,6 +331,7 @@ class SDVXLogger:
         self.pre_onselect_difficulty = ''
         self.myname = ''
         self.rival_names = []
+        self.rival_score = []
         self.total_vf = 0
         self.vf_pre = False
         self.player_name = player_name

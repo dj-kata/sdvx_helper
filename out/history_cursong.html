@@ -307,12 +307,14 @@
                         lamp = ''
                     }
                     // テーブルに追加
-                    out += '<tr><td><font color="#ffffaa">'+date+'</font></td>';
-                    out += '    <td></td>';
-                    out += '    <td>'+score+'</td>';
-                    out += '    <td>'+rank+'</td>';
-                    out += '    <td>'+lamp+'</td>';
-                    out += '</tr>'
+                    if (score<=1000){
+                        out += '<tr><td><font color="#ffffaa">'+date+'</font></td>';
+                        out += '    <td></td>';
+                        out += '    <td>'+score+'</td>';
+                        out += '    <td>'+rank+'</td>';
+                        out += '    <td>'+lamp+'</td>';
+                        out += '</tr>'
+                    }
                     if (index == 19){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。
                         return false;
                     }

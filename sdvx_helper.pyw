@@ -184,6 +184,8 @@ class SDVXHelper:
             self.vf_cur = self.sdvx_logger.total_vf # アプリ起動時のVF
             vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur:.3f} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
+        if self.settings['update_rival_on_result']:
+            self.update_mybest()
         self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
         self.th_webhook.start()
             
@@ -193,6 +195,60 @@ class SDVXHelper:
         # ライバル欄更新
         if type(title) == str:
             self.sdvx_logger.update_rival_view(title, self.gen_summary.difficulty.upper())
+
+    def update_mybest(self):
+        """自己べ情報をcsv出力する
+        """
+        try:
+            if self.settings['my_googledrive'] != '':
+                self.sdvx_logger.gen_best_csv(self.settings['my_googledrive']+'/sdvx_helper_best.csv')
+        except Exception:
+            logger.debug(traceback.format_exc())
+
+    def load_rivallog(self):
+        """前回起動時に保存していたライバルの自己べ情報を読み込む
+        """
+        try:
+            with open('out/rival_log.pkl', 'rb') as f:
+                self.rival_log = pickle.load(f)
+        except:
+            self.rival_log = {}
+            for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
+                self.rival_log[p] = self.sdvx_logger.rival_score[i]
+
+    def save_rivallog(self):
+        """ライバルの自己べ情報を保存する
+        """
+        with open('out/rival_log.pkl', 'wb') as f:
+            pickle.dump(self.rival_log, f)
+
+    def check_rival_update(self):
+        """ライバルの更新有無を確認
+        """
+        out = {}
+        for i,p in enumerate(self.sdvx_logger.rival_names):
+            if p in self.rival_log.keys():
+                out[p] = []
+
+                # 逆引き用dict作成
+                tmp = {}
+                for s in self.rival_log[p]:
+                    tmp[(s.title,s.difficulty)] = s
+
+                # 検索
+                for s in self.sdvx_logger.rival_score[i]:
+                    if (s.title, s.difficulty) in tmp.keys():
+                        if s.best_score > tmp[(s.title, s.difficulty)].best_score:
+                            out[p].append([s.title, s.difficulty, s.best_score, s.best_score-tmp[(s.title, s.difficulty)].best_score]) # title, diff, score, diffだけ保持
+                            s.disp()
+                    else:
+                        out[p].append([s.title, s.difficulty, s.best_score, s.best_score]) # title, diff, score, diffだけ保持
+                        s.disp()
+                if len(out[p]) == 0:
+                    print(f'player:{p}, no update')
+            self.rival_log[p] = self.sdvx_logger.rival_score[i]
+        return out
+
 
     def save_playerinfo(self):
         """プレイヤー情報(VF,段位)を切り出して画像として保存する。
@@ -245,6 +301,7 @@ class SDVXHelper:
             self.settings['player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
             self.settings['get_rival_score'] = val['get_rival_score']
+            self.settings['update_rival_on_result'] = val['update_rival_on_result']
             self.settings['player_name'] = val['player_name3']
         elif self.gui_mode == gui_mode.setting:
             self.settings['host'] = val['input_host']
@@ -353,6 +410,7 @@ class SDVXHelper:
             [par_text('自分のプレーデータ用自動保存先'), par_btn('変更', key='btn_my_googledrive')],
             [par_text(self.settings['my_googledrive'], key='txt_my_googledrive')],
             [sg.Checkbox('起動時にライバルのスコアを取得する',self.settings['get_rival_score'],key='get_rival_score', enable_events=True)],
+            [sg.Checkbox('リザルト画面の度にライバル関連データを更新する',self.settings['update_rival_on_result'],key='update_rival_on_result', enable_events=True)],
             [par_text('ライバル名'), sg.Input('', key='rival_name', size=(30,1))],
             [par_text('ライバル用URL'), sg.Input('', key='rival_googledrive')],
             [sg.Column(layout_list), sg.Column(layout_btn)]
@@ -915,8 +973,11 @@ class SDVXHelper:
                 logger.debug(traceback.format_exc())
                 print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
         self.gui_main()
+        self.load_rivallog()
+        self.check_rival_update()
         self.th = False
-        self.obs.set_scene_collection(self.settings['obs_scene_collection'])
+        if type(self.obs) == OBSSocket:
+            self.obs.set_scene_collection(self.settings['obs_scene_collection'])
         self.control_obs_sources('boot')
         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
         if self.obs != False:
@@ -938,11 +999,8 @@ class SDVXHelper:
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
                     self.sdvx_logger.save_alllog()
-                    try:
-                        if self.settings['my_googledrive'] != '':
-                            self.sdvx_logger.gen_best_csv(self.settings['my_googledrive']+'/sdvx_helper_best.csv')
-                    except Exception:
-                        logger.debug(traceback.format_exc())
+                    self.update_mybest()
+                    self.save_rivallog()
                     print(f"プレーログを保存しました。")
                     vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_total_vf.png"
                     print(f"VF対象一覧を保存中 (OBSに設定していれば保存されます) ...\n==> {vf_filename}")
