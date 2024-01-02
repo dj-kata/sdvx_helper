@@ -168,6 +168,10 @@ class ScoreViewer:
             lv = s.lv
             if type(s.lv) == str:
                 lv = 0
+                if not self.window[f'lv1'].get(): # レベル未設定(検索失敗)のやつは1フォルダで代用(TBD)
+                    continue
+            elif not self.window[f'lv{lv}'].get():
+                continue
             lamp = s.best_lamp.upper().replace('CLEAR', 'COMP').replace('HARD','EXC')
             difficulty = s.difficulty.upper().replace('APPEND', '')
             tmp = s.date.split('_')[0]
@@ -269,9 +273,11 @@ class ScoreViewer:
             elif ev == 'btn_clear':
                 self.window['txt_filter'].update('')
                 self.update_table()
-            elif ev.startswith('sort_'):
+            elif ev.startswith('sort_') or ev.startswith('order_') or ev.startswith('lv'):
                 self.update_table()
-            elif ev.startswith('order_'):
+            elif ev == 'alllv':
+                for i in range(1,21):
+                    self.window[f'lv{i}'].update(val['alllv'])
                 self.update_table()
     
 if __name__ == '__main__':
