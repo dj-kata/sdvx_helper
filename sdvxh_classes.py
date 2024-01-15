@@ -154,7 +154,7 @@ class MusicInfo:
 
     ソートはVF順に並ぶようにしている。
     """
-    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str):
+    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str=''):
         self.title = title
         self.artist = artist
         self.bpm = bpm
@@ -163,6 +163,7 @@ class MusicInfo:
         self.best_score = best_score
         self.best_lamp = best_lamp
         self.rank = score_rank.novalue
+        self.date = date
         self.get_vf_single()
 
     def disp(self):
@@ -609,8 +610,10 @@ class SDVXLogger:
         logs = []
         best_score = 0
         best_lamp = ''
+        last_played_date = '0000/00/00'
         for p in reversed(self.alllog):
             if (p.title == title) and (p.difficulty == difficulty):
+                last_played_date = p.date
                 #p.disp()
                 if p.lamp == 'class_clear': # TODO 段位抜けはノマゲ扱いにしておく
                     p.lamp = 'clear'
@@ -630,7 +633,7 @@ class SDVXLogger:
             artist = ''
             bpm = ''
             lv = '??'
-        info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp)
+        info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp, last_played_date)
         return logs, info
     
     def update_best_onesong(self, title, diff):
