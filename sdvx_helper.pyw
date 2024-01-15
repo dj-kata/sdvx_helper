@@ -1062,6 +1062,7 @@ class SDVXHelper:
                         pass
                     break
                 else:
+                    self.start_detect()
                     try:
                         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
                         if self.obs != False:
