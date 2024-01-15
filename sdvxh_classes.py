@@ -847,7 +847,6 @@ class SDVXLogger:
                     cnt[date] += 1
                 for k in cnt.keys():
                     writer.writerow([k, cnt[k]])
-                    print(k,cnt[k])
             return True
         except Exception:
             logger.debug(traceback.format_exc())
