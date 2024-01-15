@@ -171,7 +171,7 @@ class SDVXHelper:
         self.gen_summary.cut_result_parts(tmp)
         cur,pre = self.gen_summary.get_score(tmp)
         res_ocr = self.gen_summary.ocr(notify=True)
-        if res_ocr != False: # OCRで曲名認識に成功
+        if res_ocr != False and self.detect_mode == detect_mode.result: # OCRで曲名認識に成功
             title = res_ocr
             for ch in ('\\', '/', ':', '*', '?', '"', '<', '>', '|'):
                 title = title.replace(ch, '')
