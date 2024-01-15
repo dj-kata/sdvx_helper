@@ -833,6 +833,25 @@ class SDVXLogger:
             print(traceback.format_exc())
             logger.debug(traceback.format_exc())
             return False
+        
+    def gen_playcount_csv(self, filename):
+        try:
+            with open(filename, 'w', encoding='utf-8', errors='ignore', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['date', 'playcount'])
+                cnt = defaultdict(int)
+                #for i,p in enumerate(reversed(self.alllog)): # 最新が一番上
+                for i,p in enumerate(self.alllog):
+                    date = p.date.split('_')[0]
+                    date = f"{date[0:4]}/{date[4:6]}/{date[6:8]}"
+                    cnt[date] += 1
+                for k in cnt.keys():
+                    writer.writerow([k, cnt[k]])
+                    print(k,cnt[k])
+            return True
+        except Exception:
+            logger.debug(traceback.format_exc())
+            return False
 
     def analyze(self) -> str:
         """VF内訳を分析してlistで出力

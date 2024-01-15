@@ -208,8 +208,10 @@ class SDVXHelper:
         """自己べ情報をcsv出力する
         """
         try:
+            #self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv') # DEBUG,けしてね
             if self.settings['my_googledrive'] != '':
                 self.sdvx_logger.gen_best_csv(self.settings['my_googledrive']+'/sdvx_helper_best.csv')
+                self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv')
         except Exception:
             logger.debug(traceback.format_exc())
 
@@ -1033,7 +1035,7 @@ class SDVXHelper:
             #logger.debug(f"ev:{ev}")
             self.update_settings(ev, val)
             if ev in (sg.WIN_CLOSED, 'Escape:27', '-WINDOW CLOSE ATTEMPTED-', 'btn_close_info', 'btn_close_setting'):
-                if self.gui_mode == gui_mode.main:
+                if self.gui_mode == gui_mode.main: # メインウィンドウを閉じた場合
                     self.save_settings()
                     self.control_obs_sources('quit')
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
@@ -1065,7 +1067,7 @@ class SDVXHelper:
                     except Exception:
                         pass
                     break
-                else:
+                else: # メイン以外のGUIを閉じた場合
                     self.start_detect()
                     try:
                         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
