@@ -567,6 +567,7 @@ class SDVXHelper:
     def start_detect(self):
         """認識スレッドを開始する。
         """
+        logger.debug('starting detect thread')
         self.stop_thread = False
         self.th = threading.Thread(target=self.detect, daemon=True)
         self.th.start()
@@ -574,6 +575,7 @@ class SDVXHelper:
     def stop_detect(self):
         """認識スレッドを停止する。
         """
+        logger.debug('stopping detect thread')
         if self.th != False:
             self.stop_thread = True
             self.th.join()
@@ -905,7 +907,8 @@ class SDVXHelper:
             print("\nゲーム画面用ソースが設定されていません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
             self.window['txt_obswarning'].update('error! ゲーム画面未設定')
             return False
-        logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
+        if self.obs.ws.get_version() != None:
+            logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
             self.get_capture_after_rotate()
