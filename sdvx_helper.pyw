@@ -907,8 +907,9 @@ class SDVXHelper:
             print("\nゲーム画面用ソースが設定されていません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
             self.window['txt_obswarning'].update('error! ゲーム画面未設定')
             return False
-        if self.obs.ws.get_version() != None:
-            logger.debug(f'OBSver:{self.obs.ws.get_version().obs_version}, RPCver:{self.obs.ws.get_version().rpc_version}, OBSWSver:{self.obs.ws.get_version().obs_web_socket_version}')
+        obsv = self.obs.ws.get_version()
+        if obsv != None:
+            logger.debug(f'OBSver:{obsv.obs_version}, RPCver:{obsv.rpc_version}, OBSWSver:{obsv.obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         while True:
             self.get_capture_after_rotate()
@@ -1075,6 +1076,7 @@ class SDVXHelper:
                         print(traceback.format_exc())
             
             elif ev == 'OBS制御設定':
+                self.stop_detect()
                 if self.connect_obs():
                     self.gui_obs_control()
                 else:
@@ -1157,8 +1159,10 @@ class SDVXHelper:
                 self.sdvx_logger.gen_jacket_imgs()
             ### webhook関連
             elif ev == 'カスタムWebhook設定':
+                self.stop_detect()
                 self.gui_webhook()
             elif ev == 'Googleドライブ設定(ライバル関連)':
+                self.stop_detect()
                 self.gui_googledrive()
             elif ev == 'ライバルのスコアを取得':
                 self.update_rival()
