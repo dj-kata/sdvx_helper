@@ -177,7 +177,14 @@ class SDVXHelper:
                 title = title.replace(ch, '')
             dst = f"{self.settings['autosave_dir']}/sdvx_{title[:120]}_{self.gen_summary.difficulty.upper()}_{self.gen_summary.lamp}_{str(cur)[:-4]}_{fmtnow}.png"
         tmp.save(dst)
-        tmp_playdata = OnePlayData(title='???', cur_score=cur, pre_score=pre, lamp=self.gen_summary.lamp, difficulty=self.gen_summary.difficulty, date=fmtnow)
+        lamp = ''
+        difficulty = ''
+        try:
+            lamp = self.gen_summary.lamp
+            difficulty = self.gen_summary.difficulty
+        except:
+            pass
+        tmp_playdata = OnePlayData(title='???', cur_score=cur, pre_score=pre, lamp=lamp, difficulty=difficulty, date=fmtnow)
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
