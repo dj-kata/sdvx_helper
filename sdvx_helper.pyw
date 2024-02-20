@@ -208,10 +208,8 @@ class SDVXHelper:
         """自己べ情報をcsv出力する
         """
         try:
-            #self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv') # DEBUG,けしてね
             if self.settings['my_googledrive'] != '':
                 self.sdvx_logger.gen_best_csv(self.settings['my_googledrive']+'/sdvx_helper_best.csv')
-                self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv')
         except Exception:
             logger.debug(traceback.format_exc())
 
@@ -336,7 +334,7 @@ class SDVXHelper:
             self.settings['lx'] = self.window.current_location()[0]
             self.settings['ly'] = self.window.current_location()[1]
         elif self.gui_mode == gui_mode.webhook:
-            self.settings['player_name'] = val['player_name2']
+            self.settings['webhook_player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
             self.settings['get_rival_score'] = val['get_rival_score']
             self.settings['update_rival_on_result'] = val['update_rival_on_result']
@@ -418,7 +416,7 @@ class SDVXHelper:
             ]
         ]
         layout = [
-            [sg.Text('プレーヤー名'), sg.Input(self.settings['player_name'], key='player_name2')],
+            [sg.Text('プレーヤー名'), sg.Input(self.settings['webhook_player_name'], key='player_name2')],
             [sg.Listbox(self.settings['webhook_names'], size=(50, 5), key='list_webhook', enable_events=True), sg.Button('追加', key='webhook_add', tooltip='同じ名前の場合は上書きされます。'), sg.Button('削除', key='webhook_del')],
             [sg.Text('設定名'), sg.Input('', key='webhook_names', size=(63,1))],
             [sg.Text('Webhook URL(Discord)'), sg.Input('', key='webhook_urls', size=(50,1))],
@@ -862,7 +860,7 @@ class SDVXHelper:
             if not sendflg: # 送出条件を満たしていなければ飛ばす
                 continue
             
-            webhook = DiscordWebhook(url=self.settings['webhook_urls'][i], username=f"{self.settings['player_name']}")
+            webhook = DiscordWebhook(url=self.settings['webhook_urls'][i], username=f"{self.settings['webhook_player_name']}")
             # 画像送信有効時のみ添付する
             if self.settings['webhook_enable_pics'][i]:
                 webhook.add_file(file=img_bytes.getvalue(), filename=f'{playdata.date}.png')
@@ -1042,6 +1040,7 @@ class SDVXHelper:
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
                     self.sdvx_logger.save_alllog()
+                    self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv')
                     self.update_mybest()
                     if not self.settings['dbg_enable_output']:
                         self.save_rivallog()

@@ -27,6 +27,7 @@ default_val = {
 
     # カスタムwebhook用
     # それぞれ1エントリが1つの設定に対応。(全ての配列が同じ長さになる)
+    'webhook_player_name':'', # webhook送信時のプレーヤ名(元のplayer_nameと独立させるために追加)
     'webhook_names':[], # 1entry: 説明文(str)
     'webhook_urls':[], # 1entry: url(str)
     'webhook_enable_pics':[], # 1entry:bool (画像を送信するかどうか)
