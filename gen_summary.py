@@ -54,10 +54,12 @@ class GenSummary:
     # スコアの数字及び、曲名情報のハッシュを読む
     def load_hashes(self):
         self.score_hash_small = []
+        self.select_score_hash_small = []
         self.score_hash_large = []
         self.bestscore_hash   = []
         for i in range(10):
             self.score_hash_small.append(imagehash.average_hash(Image.open(f'resources/result_score_s{i}.png')))
+            self.select_score_hash_small.append(imagehash.average_hash(Image.open(f'resources/select_score_s{i}.png')))
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
 
@@ -170,6 +172,45 @@ class GenSummary:
         pre_score = int(''.join(map(str, out)))
 
         return cur_score, pre_score
+    
+    def get_score_on_select(self, img):
+        """選曲画面における自己べスコア、ランプの取得
+
+        Args:
+            img (PIL.Image): キャプチャ画像
+
+        Returns:
+            int: スコア
+        """
+        ret = 0
+        img_gray = img.convert('L')
+        tmp = []
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_large_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_large_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_large_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_large_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_small_4')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_small_5')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_small_6')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_score_small_7')))
+        out = []
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            minid = -1
+            minval = 999999
+            if j < 4:
+                for i,h in enumerate(self.score_hash_large):
+                    val = abs(h - hash)
+                    minid = i if val<minval else minid
+                    minval = val if val<minval else minval
+            else:
+                for i,h in enumerate(self.select_score_hash_small):
+                    val = abs(h - hash)
+                    minid = i if val<minval else minid
+                    minval = val if val<minval else minval
+            out.append(minid)
+        ret = int(''.join(map(str, out)))
+        return ret
 
     def comp_images(self, img1, img2, threshold=10):
         val1 = imagehash.average_hash(img1)
@@ -478,5 +519,9 @@ if __name__ == '__main__':
     start = datetime.datetime(year=2023,month=10,day=15,hour=0)
     a = GenSummary(start)
     a.generate()
+    import glob
+    for f in glob.glob('tmp/sel_*png'):
+        img = Image.open(f)
+        print(f, a.get_score_on_select(img))
     #a.generate_today_all('hoge.png')
     #a.chk_ocr(60)
