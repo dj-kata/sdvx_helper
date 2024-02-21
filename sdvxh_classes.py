@@ -458,6 +458,29 @@ class SDVXLogger:
         self.pre_onselect_difficulty = ''
         return tmp
 
+    def pop_illegal_logs(self, title:str, difficulty:str, score:int, lamp:str):
+        """1曲のログについて、指定されたスコア・ランプを超えるものを全て削除する
+
+        Args:
+            title (str): 曲名
+            difficulty (str): 難易度
+            score (int): 超えてはいけないスコア
+            lamp (str): 超えてはいけないランプ
+
+        Return:
+            int: 削除した曲数
+        """
+
+        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed']
+        target = []
+        for i,d in enumerate(self.alllog):
+            if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
+                if (d.cur_score > score) or (lamp_table.index(d.lamp) < lamp_table.index(lamp)):
+                    target.append(i)
+        for i in reversed(target): # 後ろからpopしていく
+            self.alllog.pop(i)
+        return len(target) # 削除した曲数
+
     def gen_history_cursong(self, title:str, difficulty:str):
         """その曲のプレー履歴情報のXMLを作成
 

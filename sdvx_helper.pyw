@@ -960,8 +960,8 @@ class SDVXHelper:
                         # 本ツール内のbestと合っていない場合(取り込み漏れorエラー動作)は選曲画面のスコアを登録
                         # TODO 自己べより高いものを消す
                         if (sc!=best_sc) or (lamp_table.index(lamp) != lamp_table.index(best_lamp)):
-                            print(sc,best_sc,lamp,best_lamp)
                             print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
+                            print(f"削除された不正なリザルトデータ数: {self.sdvx_logger.pop_illegal_logs(title, diff, sc, lamp)}")
                             self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
                 if diff_hash < 13:
                     self.sdvx_logger.update_rival_view(title, diff)
