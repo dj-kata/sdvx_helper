@@ -356,6 +356,8 @@ class SDVXHelper:
             self.sdvx_logger.player_name = val['player_name']
             self.settings['save_on_capture'] = val['save_on_capture']
             self.settings['save_jacketimg'] = val['save_jacketimg']
+            self.settings['import_from_select'] = val['import_from_select']
+            self.settings['import_arcade_score'] = val['import_arcade_score']
 
     def build_layout_one_scene(self, name, LR=None):
         """OBS制御設定画面におけるシーン1つ分のGUIを出力する。
@@ -529,6 +531,7 @@ class SDVXHelper:
             [sg.Text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
             [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
+            [sg.Checkbox('選曲画面からスコアを取り込む',self.settings['import_from_select'],key='import_from_select', enable_events=True),sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
@@ -937,6 +940,29 @@ class SDVXHelper:
                     self.img_rot.crop(self.get_detect_points('select_exh')),
                     self.img_rot.crop(self.get_detect_points('select_APPEND')),
                 )
+                # 選曲画面から自己べを取り込む
+                if self.settings['import_from_select']:
+                    sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
+                    import_ok = True
+                    if is_arcade and (not self.settings['import_arcade_score']):
+                        import_ok = False
+                    if import_ok:
+                        now = datetime.datetime.now()
+                        self.last_autosave_time = now
+                        fmtnow = format(now, "%Y%m%d_%H%M%S")
+                        best_sc = 0
+                        best_lamp = 'failed'
+                        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed']
+                        for d in self.sdvx_logger.best_allfumen:
+                            if (d.title == title) and (d.difficulty.lower() == diff.lower()):
+                                best_sc = d.best_score
+                                best_lamp = d.best_lamp
+                        # 本ツール内のbestと合っていない場合(取り込み漏れorエラー動作)は選曲画面のスコアを登録
+                        # TODO 自己べより高いものを消す
+                        if (sc!=best_sc) or (lamp_table.index(lamp) != lamp_table.index(best_lamp)):
+                            print(sc,best_sc,lamp,best_lamp)
+                            print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
+                            self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
                 if diff_hash < 13:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
@@ -954,9 +980,9 @@ class SDVXHelper:
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                 if self.is_onplay():
                     now = datetime.datetime.now()
-                    diff = (now - self.last_play0_time).total_seconds()
+                    time_delta = (now - self.last_play0_time).total_seconds()
                     #logger.debug(f'diff = {diff}s')
-                    if diff > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
+                    if time_delta > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
                         self.detect_mode = detect_mode.play
 
             # 状態遷移判定

@@ -55,6 +55,7 @@ class GenSummary:
     def load_hashes(self):
         self.score_hash_small = []
         self.select_score_hash_small = []
+        self.select_lamp_hash = {}
         self.score_hash_large = []
         self.bestscore_hash   = []
         for i in range(10):
@@ -62,6 +63,8 @@ class GenSummary:
             self.select_score_hash_small.append(imagehash.average_hash(Image.open(f'resources/select_score_s{i}.png')))
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
+        for k in ['puc', 'uc']:
+            self.select_lamp_hash[k] = imagehash.average_hash(Image.open(f'resources/select_lamp_{k}.png'))
 
         try:
             with open('resources/musiclist.pkl', 'rb') as f:
@@ -182,7 +185,8 @@ class GenSummary:
         Returns:
             int: スコア
         """
-        ret = 0
+        score = 0
+        lamp = False
         img_gray = img.convert('L')
         tmp = []
         tmp.append(img_gray.crop(self.get_detect_points('select_score_large_0')))
@@ -209,8 +213,28 @@ class GenSummary:
                     minid = i if val<minval else minid
                     minval = val if val<minval else minval
             out.append(minid)
-        ret = int(''.join(map(str, out)))
-        return ret
+        score = int(''.join(map(str, out)))
+        # ランプ処理
+        img_lamp = img.crop(self.get_detect_points('select_lamp'))
+        hash = imagehash.average_hash(img_lamp)
+        for k in self.select_lamp_hash.keys():
+            if abs(hash - self.select_lamp_hash[k]) < 4:
+                lamp = k
+        if not lamp: # puc, uc以外はimagehashを使わずに判定
+            a = np.array(img_lamp)
+            if a.sum() > 650000:
+                lamp = 'hard'
+            elif a.sum() < 400000:
+                lamp = 'failed'
+            else:
+                lamp = 'clear'
+
+        # アーケード版かどうかの判定
+        is_arcade = True
+        img_arcade = img.crop(self.get_detect_points('select_arcade'))
+        is_arcade = np.array(img_arcade).sum() > 100000
+
+        return score, lamp, is_arcade
 
     def comp_images(self, img1, img2, threshold=10):
         val1 = imagehash.average_hash(img1)
