@@ -477,6 +477,7 @@ class SDVXLogger:
             if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
                 if (d.cur_score > score) or (lamp_table.index(d.lamp) < lamp_table.index(lamp)):
                     target.append(i)
+                    print(f'不正データ?: {d.cur_score:,}, {d.lamp}, ({d.date})')
         for i in reversed(target): # 後ろからpopしていく
             self.alllog.pop(i)
         return len(target) # 削除した曲数

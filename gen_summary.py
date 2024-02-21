@@ -221,7 +221,7 @@ class GenSummary:
             if abs(hash - self.select_lamp_hash[k]) < 4:
                 lamp = k
         if not lamp: # puc, uc以外はimagehashを使わずに判定
-            a = np.array(img_lamp)
+            a = np.array(img_lamp)[:,:,:3]
             if a.sum() > 650000:
                 lamp = 'hard'
             elif a.sum() < 400000:
