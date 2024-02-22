@@ -959,9 +959,10 @@ class SDVXHelper:
                                 best_lamp = d.best_lamp
                         # 本ツール内のbestと合っていない場合(取り込み漏れorエラー動作)は選曲画面のスコアを登録
                         #if (sc!=best_sc) or (lamp_table.index(lamp) != lamp_table.index(best_lamp)):
-                        if (sc>best_sc) or (lamp_table.index(lamp) < lamp_table.index(best_lamp)):
-                            print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
-                            self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
+                        if sc <= 10000000:
+                            if (sc>best_sc) or (lamp_table.index(lamp) < lamp_table.index(best_lamp)):
+                                print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
+                                self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
                 if diff_hash < 13:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
