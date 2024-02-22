@@ -4,6 +4,7 @@ $pyin $target.pyw --clean --noconsole --onefile --icon=icon.ico --add-data "icon
 cp dist/*.exe to_bin/
 cp dist/*.exe $target/
 rm -rfv $target/ocr_reporter.exe
+rm -rfv $target/manage_score.exe
 cp resources -a to_bin/
 cp resources -a $target/
 rm -rf out/*.xml
