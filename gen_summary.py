@@ -6,6 +6,7 @@ import datetime, json
 import logging, logging.handlers, traceback
 import numpy as np
 from discord_webhook import DiscordWebhook
+from params_secret import *
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -222,7 +223,7 @@ class GenSummary:
                 lamp = k
         if not lamp: # puc, uc以外はimagehashを使わずに判定
             a = np.array(img_lamp)[:,:,:3]
-            if a.sum() > 650000:
+            if a.sum() > 620000:
                 lamp = 'hard'
             elif a.sum() < 400000:
                 lamp = 'failed'
@@ -244,13 +245,13 @@ class GenSummary:
     def send_webhook(self):
         try:
             if (self.result_parts != False) and self.settings['send_webhook']:
-                url = self.params['url_webhook_unknown']
+                url = url_webhook_unknown
                 if self.difficulty == 'exh':
-                    url = self.params['url_webhook_unknown_exh']
+                    url = url_webhook_unknown_exh
                 elif self.difficulty == 'adv':
-                    url = self.params['url_webhook_unknown_adv']
+                    url = url_webhook_unknown_adv
                 elif self.difficulty == 'nov':
-                    url = self.params['url_webhook_unknown_nov']
+                    url = url_webhook_unknown_nov
                 webhook = DiscordWebhook(url=url, username="unknown title info")
                 msg = ''
                 for i in ('jacket_org', 'info'):
