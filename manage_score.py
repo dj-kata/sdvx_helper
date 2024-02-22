@@ -170,7 +170,7 @@ class ScoreViewer:
                     if tmp != None:
                         s_diff = tmp
             lv = s.lv
-            if type(s.lv) == str:
+            if (type(s.lv) == str) or (s.lv == None):
                 lv = 0
                 if not self.window[f'lv1'].get(): # レベル未設定(検索失敗)のやつは1フォルダで代用(TBD)
                     continue
