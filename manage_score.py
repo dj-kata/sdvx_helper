@@ -1,18 +1,14 @@
 import sys, os
-from PIL import Image
-import pyautogui as pgui
 import PySimpleGUI as sg
 import numpy as np
 import logging, logging.handlers
 import traceback
-import urllib, requests
-from bs4 import BeautifulSoup
 import pickle, json
 from gen_summary import *
 from manage_settings import *
 from sdvxh_classes import *
 from functools import partial
-import datetime
+import urllib
 
 os.makedirs('log', exist_ok=True)
 os.makedirs('out', exist_ok=True)
@@ -52,6 +48,8 @@ class ScoreViewer:
         self.load_musiclist()
         self.sdvx_logger = SDVXLogger()
         self.window = None
+        self.modflg = False # 内部データを弄ったかどうか覚えておく
+        self.num_del = 0 # 削除したデータ数
 
     def load_musiclist(self):
         try:
@@ -131,9 +129,14 @@ class ScoreViewer:
                 sg.Radio('最終プレー日', group_id='sort_key', enable_events=True, key='sort_date'),
             ]
         ]
+        layout_edit = [
+            [sg.Text('', key='edit_title')],
+            [sg.Listbox([], size=(80,4), key='edit_list', enable_events=True)],
+            [sg.Button('削除', key='edit_delete', enable_events=True),],
+        ]
         header = ['lv', 'Tier', 'title', 'diff', 'score', 'lamp', 'VF', 'last played']
         layout = [
-            [sg.Frame(title='filter', layout=layout_filter), sg.Frame(title='sort', layout=layout_sort)],
+            [sg.Frame(title='filter', layout=layout_filter), sg.Frame(title='sort', layout=layout_sort), sg.Frame(title='edit', layout=layout_edit)],
             [
                 sg.Table(
                     []
@@ -147,6 +150,7 @@ class ScoreViewer:
                     ,select_mode = sg.TABLE_SELECT_MODE_BROWSE
                     ,col_widths=[4,4,40,10,10,5,5,14]
                     ,background_color='#ffffff'
+                    ,enable_events=True
                 )
             ]
         ]
@@ -256,17 +260,37 @@ class ScoreViewer:
             row_colors.append([len(row_colors), '#000000', bgc])
             if out[i][0] == '0':
                 out[i][0] = ''
-
+        self.data = out
         self.window['table'].update(out)
         self.window['table'].update(row_colors=row_colors)
+
+    def update_edit_list(self, val):
+        try:
+            tmp = self.data[val['table'][0]]
+            title = tmp[2]
+            diff  = 'APPEND' if tmp[3] == '' else tmp[3]
+            logs  = []
+            for i,d in enumerate(self.sdvx_logger.alllog):
+                if (d.title == title) and (d.difficulty.lower() == diff.lower()):
+                    logs.append(f"{i} - {d.cur_score:,}, {d.lamp}, ({d.date})")
+            logs = list(reversed(logs))
+            self.window['edit_list'].update(values=logs)
+            self.window['edit_title'].update(f"{title} ({diff})")
+            self.logs = logs
+        except Exception: # 切り替わり時など、雑に回避しておく
+            pass
 
     def main(self):
         self.gui()
 
         while True:
             ev, val = self.window.read()
-            # prinv(ev, val)
             if ev in (sg.WIN_CLOSED, 'Escape:27', '-WINDOW CLOSE ATTEMPTED-'): # 終了処理
+                if self.modflg: # 削除されている
+                    ans = sg.popup_yes_no(f'プレーデータが{self.num_del}件削除されています。\nプレーデータを保存しますか？', icon=self.ico_path('icon.ico'))
+                    if ans == 'Yes':
+                        with open('alllog.pkl', 'wb') as f:
+                            pickle.dump(self.sdvx_logger.alllog, f)
                 break
             if ev == 'txt_filter':
                 self.update_table()
@@ -279,6 +303,20 @@ class ScoreViewer:
                 for i in range(1,21):
                     self.window[f'lv{i}'].update(val['alllv'])
                 self.update_table()
+            elif ev == 'table': # 曲を選択した際にedit欄を更新
+                self.update_edit_list(val)
+            elif ev == 'edit_delete':
+                try:
+                    idx_in_editlist = self.window['edit_list'].get_indexes()
+                    dataidx = int(self.logs[idx_in_editlist[0]].split(' - ')[0])
+                    tmp = self.sdvx_logger.alllog.pop(dataidx)
+                    logger.debug(f"idx:{dataidx} - {tmp.title}({tmp.difficulty}, {tmp.cur_score:,}, {tmp.lamp})")
+                    tmp.disp()
+                    self.modflg = True
+                    self.num_del += 1
+                    self.update_edit_list(val)
+                except Exception:
+                    print(traceback.format_exc())
     
 if __name__ == '__main__':
     #b = SDVXLogger()
