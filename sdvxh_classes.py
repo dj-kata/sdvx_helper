@@ -375,6 +375,14 @@ class SDVXLogger:
             with open(ALLLOG_FILE, 'rb') as f:
                 self.alllog = pickle.load(f)
             self.alllog.sort()
+            # 不正データがあれば自動で削除
+            dellist = []
+            for i,d in enumerate(self.alllog):
+                if d.cur_score > 10000000:
+                    dellist.append(i)
+                    print(f'誤検出リザルトを自動削除しました。({d.title}, {d.difficulty}, {d.cur_score})')
+            for i in reversed(dellist):
+                tmp = self.alllog.pop(i)
         except Exception:
             print(f"プレーログファイル(alllog.pkl)がありません。新規作成します。")
             self.alllog = []
