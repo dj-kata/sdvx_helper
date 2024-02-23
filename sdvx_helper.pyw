@@ -358,6 +358,7 @@ class SDVXHelper:
             self.settings['save_jacketimg'] = val['save_jacketimg']
             self.settings['import_from_select'] = val['import_from_select']
             self.settings['import_arcade_score'] = val['import_arcade_score']
+            self.settings['autosave_prewait'] = val['autosave_prewait']
 
     def build_layout_one_scene(self, name, LR=None):
         """OBS制御設定画面におけるシーン1つ分のGUIを出力する。
@@ -516,7 +517,7 @@ class SDVXHelper:
             [sg.Checkbox('画面取得時にファイル保存を行う(旧方式)', self.settings['save_on_capture'], key='save_on_capture', enable_events=True, tooltip='有効(旧方式): out/capture.pngに保存される\n無効(新方式): メモリ上で処理(ディスク負荷小)\n本ツールによってカクつきが発生する場合は有効にしてみてください。')],
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
             [sg.Text(self.settings['autosave_dir'], key='txt_autosave_dir')],
-            [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True)],
+            [sg.Checkbox('更新に関係なく常時保存する',self.settings['autosave_always'],key='chk_always', enable_events=True), par_text('リザルト撮影前のwait', font=(None,10), tooltip=f'リザルト画面を認識してから自動保存するまでの待ち時間(デフォルト:0.0)\nネメシスクルーによって変なタイミングになってしまう場合への対策'),sg.Spin([f"{i/10:.1f}" for i in range(100)], self.settings['autosave_prewait'], readonly=True, key='autosave_prewait', size=(4,1))],
             [sg.Checkbox('サマリ画像生成時にrankDを無視する',self.settings['ignore_rankD'],key='chk_ignore_rankD', enable_events=True)],
             [sg.Button('保存したリザルト画像をプレーログに反映(重いです)', key='read_from_result')],
             [sg.Button('保存したリザルト画像からVFビュー用ジャケット画像を一括生成', key='gen_jacket_imgs')], 
@@ -996,6 +997,7 @@ class SDVXHelper:
                     done_thissong = False # 曲が始まるタイミングでクリア
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
+                    time.sleep(float(self.settings['autosave_prewait']))
                     if self.settings['autosave_always']:
                         now = datetime.datetime.now()
                         diff = (now - self.last_autosave_time).total_seconds()
