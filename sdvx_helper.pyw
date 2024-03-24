@@ -58,6 +58,7 @@ class SDVXHelper:
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
         self.last_play0_time = datetime.datetime.now()
+        self.last_play1_time = datetime.datetime.now()
         self.last_autosave_time = datetime.datetime.now()
         self.img_rot = False # 正しい向きに直したImage形式の画像
         self.stop_thread = False # 強制停止用
@@ -66,6 +67,7 @@ class SDVXHelper:
         self.window = False
         self.obs = False
         self.plays = 0
+        self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
         self.imgpath = os.getcwd()+'/out/capture.png'
         keyboard.add_hotkey('F6', self.save_screenshot_general)
         keyboard.add_hotkey('F8', self.update_rival)
@@ -522,11 +524,15 @@ class SDVXHelper:
             [sg.Button('保存したリザルト画像をプレーログに反映(重いです)', key='read_from_result')],
             [sg.Button('保存したリザルト画像からVFビュー用ジャケット画像を一括生成', key='gen_jacket_imgs')], 
             [sg.Checkbox('リザルト画面でジャケット画像を自動保存(VF表示ビュー用)', self.settings['save_jacketimg'], key='save_jacketimg')],
-            [sg.Text('プレイ曲数用テキストの設定', tooltip='OBSで指定した名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。')],
             [
-                #par_text('テキストソース名'),sg.Input(self.settings['obs_txt_plays'], key='obs_txt_plays', size=(20,1)),
+                sg.Text('プレイ曲数用テキストの設定', tooltip=f'OBSで{self.settings["obs_txt_plays"]}という名前のテキストソースを作成しておくと、\n本日のプレイ曲数を表示することができます。'),
                 sg.Text('ヘッダ', tooltip='"play: "や"本日の曲数:"など'),sg.Input(self.settings['obs_txt_plays_header'], key='obs_txt_plays_header', size=(10,1)),
                 sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
+            ],
+            [
+                sg.Text('プレイ時間用テキストの設定', tooltip=f'OBSで{self.settings["obs_txt_playtime"]}という名前のテキストソースを作成しておくと、\n本日の総プレイ時間を表示することができます。'),
+                sg.Text('ヘッダ', tooltip='"playtime: "や"本日のプレー時間:"など'),sg.Input(self.settings['obs_txt_playtime_header'], key='obs_txt_playtime_header', size=(10,1)),
+                #sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
             ],
             [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
             [sg.Text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
@@ -915,6 +921,7 @@ class SDVXHelper:
         if obsv != None:
             logger.debug(f'OBSver:{obsv.obs_version}, RPCver:{obsv.rpc_version}, OBSWSver:{obsv.obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
+        self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime))
         while True:
             self.get_capture_after_rotate()
             pre_mode = self.detect_mode
@@ -981,10 +988,11 @@ class SDVXHelper:
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                 if self.is_onplay():
                     now = datetime.datetime.now()
-                    time_delta = (now - self.last_play0_time).total_seconds()
+                    time_delta = (now - self.last_play1_time).total_seconds()
                     #logger.debug(f'diff = {diff}s')
                     if time_delta > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
                         self.detect_mode = detect_mode.play
+                        self.last_play0_time = datetime.datetime.now()
 
             # 状態遷移判定
             if pre_mode != self.detect_mode:
@@ -1014,7 +1022,9 @@ class SDVXHelper:
                         self.obs.change_text(self.settings['obs_txt_blastermax'],'')
 
                 if pre_mode == detect_mode.play:
-                    self.last_play0_time = datetime.datetime.now()
+                    self.last_play1_time = datetime.datetime.now()
+                    self.playtime += (self.last_play1_time - self.last_play0_time).seconds
+                    self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime))
                     self.control_obs_sources('play1')
                 if pre_mode == detect_mode.result:
                     self.control_obs_sources('result1')

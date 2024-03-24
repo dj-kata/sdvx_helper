@@ -21,6 +21,8 @@ default_val = {
     'obs_txt_plays':'sdvx_helper_playcount', 'obs_txt_plays_header':'plays: ', 'obs_txt_plays_footer':'', 
     # VF表示用
     'obs_txt_vf_with_diff':'sdvx_helper_vf_with_diff', 'obs_txt_vf_header':'VF: ', 'obs_txt_vf_footer':'',
+    # プレイ時間表示用
+    'obs_txt_playtime':'sdvx_helper_playtime', 'obs_txt_playtime_header':'playtime: ', 'obs_txt_playtime_footer':'',
     # ブラスターゲージMAX時のリマインド用
     'obs_txt_blastermax':'sdvx_helper_blastermax','alert_blastermax':False,
     # sdvx_helperで使うシーンコレクション
