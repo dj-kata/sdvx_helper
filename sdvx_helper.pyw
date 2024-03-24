@@ -935,6 +935,8 @@ class SDVXHelper:
 
             # モードごとの専用処理
             if self.detect_mode == detect_mode.play:
+                playtime = self.playtime + (datetime.datetime.now() - self.last_play0_time)
+                self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(playtime))
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.result:
@@ -992,11 +994,11 @@ class SDVXHelper:
                     #logger.debug(f'diff = {diff}s')
                     if time_delta > self.settings['play0_interval']: # 曲終わりのアニメーション後に再度入らないようにする
                         self.detect_mode = detect_mode.play
-                        self.last_play0_time = datetime.datetime.now()
 
             # 状態遷移判定
             if pre_mode != self.detect_mode:
                 if self.detect_mode == detect_mode.play:
+                    self.last_play0_time = datetime.datetime.now()
                     self.control_obs_sources('play0')
                     self.plays += 1
                     self.window['txt_plays'].update(str(self.plays))
