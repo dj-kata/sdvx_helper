@@ -15,6 +15,7 @@ import threading
 from collections import defaultdict
 from gen_summary import *
 from manage_settings import *
+from params_secret import *
 import traceback
 import urllib
 import logging, logging.handlers
@@ -229,7 +230,7 @@ class Reporter:
 
     def send_webhook(self, title, difficulty, hash_jacket, hash_info):
         try:
-            webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
+            webhook = DiscordWebhook(url=url_webhook_reg, username="unknown title info")
             msg = f"**{title}**\n"
             msg += f" - **{hash_jacket}**"
             if hash_info != "":
@@ -248,7 +249,7 @@ class Reporter:
             print(traceback.format_exc())
 
     def send_pkl(self):
-        webhook = DiscordWebhook(url=self.params['url_webhook_reg'], username="unknown title info")
+        webhook = DiscordWebhook(url=url_webhook_reg, username="unknown title info")
         with open('resources/musiclist.pkl', 'rb') as f:
             webhook.add_file(file=f.read(), filename='musiclist.pkl')
         webhook.content = f"追加した譜面数: {self.num_added_fumen}, total: {len(self.musiclist['jacket']['APPEND'])+len(self.musiclist['jacket']['nov'])+len(self.musiclist['jacket']['adv'])+len(self.musiclist['jacket']['exh'])}"
