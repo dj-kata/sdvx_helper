@@ -921,7 +921,7 @@ class SDVXHelper:
         if obsv != None:
             logger.debug(f'OBSver:{obsv.obs_version}, RPCver:{obsv.rpc_version}, OBSWSver:{obsv.obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
-        self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime))
+        self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime).split('.')[0])
         while True:
             self.get_capture_after_rotate()
             pre_mode = self.detect_mode
@@ -936,7 +936,7 @@ class SDVXHelper:
             # モードごとの専用処理
             if self.detect_mode == detect_mode.play:
                 playtime = self.playtime + (datetime.datetime.now() - self.last_play0_time)
-                self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(playtime))
+                self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(playtime).split('.')[0])
                 if not self.is_onplay():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.result:
@@ -1025,8 +1025,8 @@ class SDVXHelper:
 
                 if pre_mode == detect_mode.play:
                     self.last_play1_time = datetime.datetime.now()
-                    self.playtime += (self.last_play1_time - self.last_play0_time).seconds
-                    self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime))
+                    self.playtime += (self.last_play1_time - self.last_play0_time)
+                    self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime).split('.')[0])
                     self.control_obs_sources('play1')
                 if pre_mode == detect_mode.result:
                     self.control_obs_sources('result1')
