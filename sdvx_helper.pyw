@@ -402,7 +402,7 @@ class SDVXHelper:
     def gui_webhook(self):
         """カスタムWebhook設定画面のGUIを起動する。
         """
-        self.gui_mode = gui_mode.webhook
+        self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
 
@@ -430,12 +430,13 @@ class SDVXHelper:
             [sg.Frame('送信対象ランプ', layout=layout_lamps, title_color='#000044')],
         ]
 
+        self.gui_mode = gui_mode.webhook
         self.window = sg.Window(f"SDVX helper - カスタムWebhook設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_googledrive(self):
         """Googleドライブ連携設定用のGUIを起動する。
         """
-        self.gui_mode = gui_mode.googledrive
+        self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
         layout_list = [
@@ -456,12 +457,13 @@ class SDVXHelper:
             [par_text('ライバル用URL'), sg.Input('', key='rival_googledrive')],
             [sg.Column(layout_list), sg.Column(layout_btn)]
         ]
+        self.gui_mode = gui_mode.googledrive
         self.window = sg.Window(f"SDVX helper - Googleドライブ設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_obs_control(self):
         """OBS制御設定画面のGUIを起動する。
         """
-        self.gui_mode = gui_mode.obs_control
+        self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
         obs_scenes = []
@@ -497,6 +499,7 @@ class SDVXHelper:
             [col_l, col_r],
             [sg.Text('', key='info', font=(None,9))]
         ]
+        self.gui_mode = gui_mode.obs_control
         self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.settings['obs_scene_collection'] != '':
             self.window['scene_collection'].update(value=self.settings['obs_scene_collection'])
@@ -504,7 +507,7 @@ class SDVXHelper:
     def gui_setting(self):
         """設定画面のGUIを起動する。
         """
-        self.gui_mode = gui_mode.setting
+        self.gui_mode = detect_mode.init
         if self.window:
             self.window.close()
         layout_obs = [
@@ -545,12 +548,13 @@ class SDVXHelper:
             [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
             [sg.Frame('その他設定', layout=layout_etc, title_color='#000044')],
         ]
+        self.gui_mode = gui_mode.setting
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
     def gui_main(self):
         """メイン画面のGUIを起動する。
         """
-        self.gui_mode = gui_mode.main
+        self.gui_mode = detect_mode.init
         self.detect_mode = detect_mode.init
         if self.window:
             self.window.close()
@@ -570,6 +574,7 @@ class SDVXHelper:
         ]
         if self.settings['dbg_enable_output']:
             layout.append([sg.Output(size=(63,8), key='output', font=(None, 9))])
+        self.gui_mode = gui_mode.main
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.connect_obs():
             self.window['txt_obswarning'].update('')
@@ -632,7 +637,8 @@ class SDVXHelper:
         Returns:
             bool: 正常終了していればTrue
         """
-        self.window['txt_mode'].update(self.detect_mode.name)
+        if self.gui_mode == gui_mode.main:
+            self.window['txt_mode'].update(self.detect_mode.name)
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
