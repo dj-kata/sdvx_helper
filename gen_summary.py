@@ -421,11 +421,52 @@ class GenSummary:
             difficulty = 'exh'
         else:
             difficulty = 'APPEND'
+        
+        # 曲名を検出
         for h in self.musiclist_hash['jacket'][difficulty].keys():
             hash_cur = imagehash.hex_to_hash(h)
             if abs(hash_cur - hash_jacket) < minval:
                 minval = abs(hash_cur - hash_jacket)
                 title = self.musiclist_hash['jacket'][difficulty][h]
+        return title, minval, difficulty
+
+    def ocr_from_detect(self):
+        """曲決定画面から曲名情報を抽出。曲中で表示するライバル欄などに使う。
+
+        Returns:
+            str: 曲名
+            int: 差分の最小値
+            str: 難易度
+        """
+        jacket      = Image.open('out/select_jacket.png')
+        hash_jacket = imagehash.average_hash(jacket)
+        diff        = Image.open('out/select_difficulty.png')
+        hash_nov = imagehash.hex_to_hash('267e7c787a787c7e')
+        hash_adv = imagehash.hex_to_hash('43478889a9b99cdf')
+        hash_exh = imagehash.hex_to_hash('436328fafa39efc6')
+        hash_diff = imagehash.average_hash(diff)
+        if abs(hash_nov - hash_diff) < 10:
+            difficulty = 'nov'
+        elif abs(hash_adv - hash_diff) < 10:
+            difficulty = 'adv'
+        elif abs(hash_exh - hash_diff) < 10:
+            difficulty = 'exh'
+        else:
+            difficulty  = 'APPEND'
+        #rsum = np.array(diff)[:,:,0].sum()
+        #gsum = np.array(diff)[:,:,1].sum()
+        #bsum = np.array(diff)[:,:,2].sum()
+        #print(imagehash.average_hash(diff), rsum, gsum, bsum)
+        title       = False
+        minval      = 99999
+
+        # 曲名を検出
+        for h in self.musiclist_hash['jacket'][difficulty].keys():
+            hash_cur = imagehash.hex_to_hash(h)
+            if abs(hash_cur - hash_jacket) < minval:
+                minval = abs(hash_cur - hash_jacket)
+                title = self.musiclist_hash['jacket'][difficulty][h]
+
         return title, minval, difficulty
 
     def ocr(self, notify:bool=False):
@@ -543,10 +584,11 @@ class GenSummary:
 if __name__ == '__main__':
     start = datetime.datetime(year=2023,month=10,day=15,hour=0)
     a = GenSummary(start)
-    a.generate()
-    import glob
-    for f in glob.glob('tmp/sel_*png'):
-        img = Image.open(f)
-        print(f, a.get_score_on_select(img))
+    #a.generate()
+    #import glob
+    #for f in glob.glob('tmp/sel_*png'):
+    #    img = Image.open(f)
+    #    print(f, a.get_score_on_select(img))
     #a.generate_today_all('hoge.png')
     #a.chk_ocr(60)
+    print(a.ocr_from_detect())

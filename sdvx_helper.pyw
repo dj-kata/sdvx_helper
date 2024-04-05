@@ -899,6 +899,8 @@ class SDVXHelper:
         title.save('out/select_title.png')
         lv = self.img_rot.crop(self.get_detect_points('info_lv'))
         lv.save('out/select_level.png')
+        lv = self.img_rot.crop(self.get_detect_points('info_diff'))
+        lv.save('out/select_difficulty.png')
         bpm = self.img_rot.crop(self.get_detect_points('info_bpm'))
         bpm.save('out/select_bpm.png')
         ef = self.img_rot.crop(self.get_detect_points('info_ef'))
@@ -992,6 +994,11 @@ class SDVXHelper:
                         time.sleep(self.settings['detect_wait'])
                         self.get_capture_after_rotate()
                         self.update_musicinfo()
+                        # ライバル欄更新のため、曲決定画面からもOCRを動かしておく
+                        title, diff_hash, diff = self.gen_summary.ocr_from_detect()
+                        self.sdvx_logger.update_rival_view(title, diff)
+                        self.sdvx_logger.gen_vf_onselect(title, diff)
+                        self.sdvx_logger.gen_history_cursong(title, diff)
                         done_thissong = True
                 #if self.is_onplay() and done_thissong: # 曲決定画面を検出してから入る(曲終了時に何度も入らないように)
                 if self.is_onplay():
