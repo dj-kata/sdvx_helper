@@ -166,12 +166,11 @@
                 dataType: 'xml',
                 cache: false
             });
+            cnt = cnt+1;
             getxml.done(function(xml){
                 // xmlデータからほしいデータをfindで探し処理
                 var out = "<tr><td>from</td><td>title</td><td>score</td><td>diff</td></tr>";
                 var out = "";
-                cnt += 1;
-                var cnt_mod;
                 $(xml).find("Updates Item").each(function(index, item){
                     var lv = $(item).find('lv').text();
                     var rival = $(item).find('rival').text();
@@ -212,18 +211,24 @@
                     else{
                         rank = '<span class="D">D</span>';
                     }
-                    cnt_mod = cnt % wsize;
-                    if ((index >= wsize*cnt_mod) && (index < wsize*(cnt_mod+1))){
-                        out += '<tr>';
-                        out += '    <td>'+rival+'</td>';
-                        out += '    <td><span class="lv'+lv+'">'+lv+'</span></td>';
-                        out += '    <td>'+title+'</td>';
-                        out += '    <td>'+score+'</td>';
-                        out += '    <td>('+behind_fmt+')</td>';
-                        out += '</tr>'
-                    } 
+                    if ($(item).find('score').length){
+                        var left = wsize*cnt;
+                        if (left > $(xml).find("Updates Item").length){
+                            cnt = 0;
+                        }
+                        if ((index >= wsize*cnt) && (index < wsize*(cnt+1))){
+                            //alert((wsize*cnt).toString());
+                            out += '<tr>';
+                            out += '    <td>'+rival+'</td>';
+                            out += '    <td><span class="lv'+lv+'">'+lv+'</span></td>';
+                            out += '    <td>'+title+'</td>';
+                            out += '    <td>'+score+'</td>';
+                            out += '    <td>('+behind_fmt+')</td>';
+                            out += '</tr>'
+                        } 
+                    }
                     // ループさせる
-                    if (wsize*(cnt_mod) > $(xml).find("Updates Item").length){
+                    if (wsize*(cnt) >= $(xml).find("Updates Item").length){
                         cnt = 0;
                     }
                 });
@@ -235,7 +240,7 @@
         }
 
         window.addEventListener('DOMContentLoaded', function() {
-            var roopTimer = setInterval(loadXml, 4000);
+            var roopTimer = setInterval(loadXml, 1000);
         });
 
 </script>
