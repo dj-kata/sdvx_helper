@@ -234,7 +234,7 @@ class SDVXHelper:
         """
         out = {}
         for i,p in enumerate(self.sdvx_logger.rival_names):
-            out[p] = self.sdvx_logger.rival_score[i]
+            out[p] = self.sdvx_logger.rival_score[p]
         with open('out/rival_log.pkl', 'wb') as f:
             pickle.dump(self.rival_log, f)
 
@@ -257,29 +257,45 @@ class SDVXHelper:
 
                 # 検索
                 for s in self.sdvx_logger.rival_score[p]:
+                    new = None
                     if (s.title, s.difficulty) in tmp.keys():
                         if s.best_score > tmp[(s.title, s.difficulty)].best_score:
-                            out[p].append([s.title, s.difficulty, s.best_score, s.best_score-tmp[(s.title, s.difficulty)].best_score]) # title, diff, score, diffだけ保持
-                            logger.debug(f'added! {out[p][-1]}')
+                            new = [s.title, s.difficulty, s.best_score, s.best_score-tmp[(s.title, s.difficulty)].best_score]
                     else:
-                        out[p].append([s.title, s.difficulty, s.best_score, s.best_score]) # title, diff, score, diffだけ保持
-                        logger.debug(f'added! {out[p][-1]}')
-                print(f'player:{p}, {len(out[p])}曲更新')
+                        new = [s.title, s.difficulty, s.best_score, s.best_score]
+                    # 自己べよりも高い場合は出力。自分が未プレーの場合は出力されない。
+                    if new != None:
+                        for i,my in enumerate(self.sdvx_logger.best_allfumen):
+                            if (s.title==my.title) and (s.difficulty == my.difficulty):
+                                if s.best_score > my.best_score:
+                                    new.append(my.best_score)
+                                    out[p].append(new) # title, diff, score, diffだけ保持
+                                    logger.debug(f'added! {new}')
+                print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
             #self.rival_log[p] = self.sdvx_logger.rival_score[i] # ライバルの一時スコアを保存する場合はこれ
         with open('out/rival_updates.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+            f.write(f'<Updates>\n')
             for p in out.keys(): # ライバルID
                 for s in out[p]: # 曲
-                    f.write("<Items>\n")
-                    title_esc = s[0].replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
-                    diff  = s[1]
-                    score = s[2]
-                    diff  = s[3]
+                    f.write("<Item>\n")
+                    title_esc   = s[0].replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                    difficulty  = s[1]
+                    score       = s[2]
+                    diff        = s[3]
+                    myscore     = s[4]
+                    _, info = self.sdvx_logger.get_fumen_data(s[0], difficulty)
+                    lv = info.lv
                     f.write(f"    <rival>{p}</rival>\n")
+                    f.write(f"    <lv>{lv}</lv>\n")
                     f.write(f"    <title>{title_esc}</title>\n")
-                    f.write(f"    <difficulty>{diff}</difficulty>\n")
-                    f.write(f"    <score>{score}</score>\n")
-                    f.write("</Items>\n")
+                    f.write(f"    <difficulty>{difficulty}</difficulty>\n")
+                    f.write(f"    <score>{score:,}</score>\n")
+                    f.write(f"    <myscore>{myscore:,}</myscore>\n")
+                    f.write(f"    <behind>{score - myscore}</behind>\n")
+                    f.write(f"    <behind_fmt>{score - myscore:+,}</behind_fmt>\n")
+                    f.write("</Item>\n")
+            f.write(f'</Updates>\n')
         return out
 
     def update_rival(self):
@@ -984,6 +1000,7 @@ class SDVXHelper:
                             if (sc>best_sc) or (lamp_table.index(lamp) < lamp_table.index(best_lamp)):
                                 print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
                                 self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
+                                self.check_rival_update() # お手紙ビューを更新
                 if diff_hash < 13:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
