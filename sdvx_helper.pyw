@@ -224,7 +224,10 @@ class SDVXHelper:
         except:
             self.rival_log = {}
             for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
-                self.rival_log[p] = self.sdvx_logger.rival_score[i]
+                if p in self.sdvx_logger.rival_score.keys():
+                    self.rival_log[p] = self.sdvx_logger.rival_score[p]
+                else:
+                    self.rival_log[p] = []
 
     def save_rivallog(self):
         """ライバルの自己べ情報を保存する
@@ -253,7 +256,7 @@ class SDVXHelper:
                     tmp[(s.title,s.difficulty)] = s
 
                 # 検索
-                for s in self.sdvx_logger.rival_score[i]:
+                for s in self.sdvx_logger.rival_score[p]:
                     if (s.title, s.difficulty) in tmp.keys():
                         if s.best_score > tmp[(s.title, s.difficulty)].best_score:
                             out[p].append([s.title, s.difficulty, s.best_score, s.best_score-tmp[(s.title, s.difficulty)].best_score]) # title, diff, score, diffだけ保持

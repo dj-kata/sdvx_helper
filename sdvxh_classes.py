@@ -332,7 +332,7 @@ class SDVXLogger:
         self.pre_onselect_difficulty = ''
         self.myname = ''
         self.rival_names = []
-        self.rival_score = []
+        self.rival_score = {}
         self.total_vf = 0
         self.vf_pre = False
         self.player_name = player_name
@@ -390,7 +390,7 @@ class SDVXLogger:
     def get_rival_score(self, myname, names, ids):
         self.myname = myname
         self.rival_names = names
-        ret = [] # MusicInfoの配列
+        ret = {} # key:name, keyごとにMusicInfoの配列. TODO そのうちkeyをidにしたいかも
         for id,name in zip(ids, names):
             URL = 'https://docs.google.com/uc?export=download'
             print(f"ライバルのスコアを取得中:{name}")
@@ -433,7 +433,7 @@ class SDVXLogger:
                         tmp.append(info)
                     except Exception:
                         logger.debug(f'rival data error! (title:{r[0]}, difficulty:{difficulty}, best_score:{best_score}, best_lamp:{best_lamp})')
-            ret.append(tmp)
+            ret[name] = tmp
         self.rival_score = ret
         print(f"ライバルのスコアを取得完了しました。")
         return ret
@@ -595,7 +595,8 @@ class SDVXLogger:
                     d.me = True
                     lv = d.lv
                     infos.append(d)
-            for tmp,name in zip(self.rival_score, self.rival_names): # tmp: 1人分
+            for name in self.rival_names: # tmp: 1人分
+                tmp = self.rival_score[name]
                 for s in tmp: # 1曲分
                     if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
                         s.player_name = name
@@ -951,9 +952,10 @@ class SDVXLogger:
     
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
-    for i,s in enumerate(a.best_allfumen):
-        if i<50:
-            s.disp()
-    for i,s in enumerate(a.best_allfumen):
-       if 'Gun Shooo' in s.title:
-            s.disp()
+    a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
+    #for i,s in enumerate(a.best_allfumen):
+    #    if i<50:
+    #        s.disp()
+    #for i,s in enumerate(a.best_allfumen):
+    #   if 'Gun Shooo' in s.title:
+    #        s.disp()
