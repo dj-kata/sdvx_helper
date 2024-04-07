@@ -272,6 +272,7 @@ class SDVXHelper:
                                     out[p].append(new) # title, diff, score, diffだけ保持
                                     logger.debug(f'added! {new}')
                 print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
+                logger.debug(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
             #self.rival_log[p] = self.sdvx_logger.rival_score[i] # ライバルの一時スコアを保存する場合はこれ
         with open('out/rival_updates.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
@@ -292,8 +293,12 @@ class SDVXHelper:
                     f.write(f"    <difficulty>{difficulty}</difficulty>\n")
                     f.write(f"    <score>{score:,}</score>\n")
                     f.write(f"    <myscore>{myscore:,}</myscore>\n")
+                    f.write(f"    <score_10k>{int(score/10000):,}</score_10k>\n")
+                    f.write(f"    <myscore_10k>{int(myscore/10000):,}</myscore_10k>\n")
                     f.write(f"    <behind>{score - myscore}</behind>\n")
                     f.write(f"    <behind_fmt>{score - myscore:+,}</behind_fmt>\n")
+                    f.write(f"    <behind_10k>{int((score - myscore)/10000)}</behind_10k>\n")
+                    f.write(f"    <behind_fmt_10k>{int((score - myscore)/10000):+,}</behind_fmt_10k>\n")
                     f.write("</Item>\n")
             f.write(f'</Updates>\n')
         return out
