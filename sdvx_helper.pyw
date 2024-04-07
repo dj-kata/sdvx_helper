@@ -223,11 +223,14 @@ class SDVXHelper:
                 self.rival_log = pickle.load(f)
         except:
             self.rival_log = {}
-            for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
-                if p in self.sdvx_logger.rival_score.keys():
-                    self.rival_log[p] = self.sdvx_logger.rival_score[p]
-                else:
-                    self.rival_log[p] = []
+        logger.debug(f'rival_logに保存されたkey: {self.rival_log.keys()}')
+        logger.debug(f'rival_scoreのkey: {self.sdvx_logger.rival_score.keys()}')
+        for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
+            if p in self.sdvx_logger.rival_score.keys():
+                self.rival_log[p] = self.sdvx_logger.rival_score[p]
+            else:
+                self.rival_log[p] = []
+            logger.debug(f"rival: {p} - {len(self.sdvx_logger.rival_score[p])}件")
 
     def save_rivallog(self):
         """ライバルの自己べ情報を保存する
@@ -246,6 +249,8 @@ class SDVXHelper:
             dict: 各ライバルの更新データ。key:ライバル名(str)
         """
         out = {}
+        logger.debug(f"rival_names:{self.sdvx_logger.rival_names}")
+        logger.debug(f"rival_log.keys():{self.rival_log.keys()}")
         for i,p in enumerate(self.sdvx_logger.rival_names):
             if p in self.rival_log.keys():
                 out[p] = []
@@ -1079,6 +1084,7 @@ class SDVXHelper:
     def main(self):
         """メイン処理。PySimpleGUIのイベント処理など。
         """
+        logger.debug('started')
         now = datetime.datetime.now()
         now_mod = now - datetime.timedelta(hours=self.settings['logpic_offset_time']) # 多少の猶予をつける。2時間前までは遡る
 
@@ -1120,8 +1126,7 @@ class SDVXHelper:
                     self.sdvx_logger.save_alllog()
                     self.sdvx_logger.gen_playcount_csv(self.settings['my_googledrive']+'/playcount.csv')
                     self.update_mybest()
-                    if not self.settings['dbg_enable_output']:
-                        self.save_rivallog()
+                    self.save_rivallog()
                     print(f"プレーログを保存しました。")
                     vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_total_vf.png"
                     print(f"VF対象一覧を保存中 (OBSに設定していれば保存されます) ...\n==> {vf_filename}")
