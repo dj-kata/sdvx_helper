@@ -474,6 +474,7 @@ class SDVXHelper:
         layout_btn = [
             [par_btn('追加', key='add_rival')],
             [par_btn('削除', key='del_rival')],
+            [par_btn('URLを開く', key='open_rival')],
             #[par_btn('上書き', key='mod_rival')],
         ]
         layout = [
@@ -1286,6 +1287,10 @@ class SDVXHelper:
                     self.settings['rival_names'].pop(idx)
                     self.settings['rival_googledrive'].pop(idx)
                 self.window['rival_names'].update([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+            elif ev == 'open_rival':
+                for idx in val['rival_names']:
+                    id = self.settings['rival_googledrive'][idx]
+                    webbrowser.open(f"https://drive.google.com/file/d/{id}/view")
 
             ### ツイート機能
             elif ev == 'VF内訳をツイート':
