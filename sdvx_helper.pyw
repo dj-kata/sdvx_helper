@@ -226,7 +226,7 @@ class SDVXHelper:
         logger.debug(f'rival_logに保存されたkey: {self.rival_log.keys()}')
         logger.debug(f'rival_scoreのkey: {self.sdvx_logger.rival_score.keys()}')
         for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
-            if p in self.sdvx_logger.rival_score.keys():
+            if p in self.rival_log.keys():
                 self.rival_log[p] = self.sdvx_logger.rival_score[p]
             else:
                 self.rival_log[p] = []
