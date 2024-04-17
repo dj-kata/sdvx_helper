@@ -123,6 +123,7 @@ class ScoreViewer:
             [
                 sg.Radio('VF', group_id='sort_key', enable_events=True, key='sort_vf', default=True),
                 sg.Radio('Lv', group_id='sort_key', enable_events=True, key='sort_lv'),
+                sg.Radio('Tier', group_id='sort_key', enable_events=True, key='sort_tier'),
                 sg.Radio('曲名', group_id='sort_key', enable_events=True, key='sort_title'),
                 sg.Radio('スコア', group_id='sort_key', enable_events=True, key='sort_score'),
                 sg.Radio('ランプ', group_id='sort_key', enable_events=True, key='sort_lamp'),
@@ -206,6 +207,8 @@ class ScoreViewer:
                 sort_row = 2
             elif self.window['sort_lv'].get(): # lv sort
                 sort_row = 0
+            elif self.window['sort_tier'].get(): # S-Tier sort
+                sort_row = 1
             elif self.window['sort_score'].get(): # score sort
                 sort_row = 4
             elif self.window['sort_lamp'].get(): # lamp sort
@@ -222,11 +225,20 @@ class ScoreViewer:
                 tmp = tmp[tmp[:,1].argsort()] # IDX, srateだけのfloat型のnp.arrayを作ってソート
                 idxlist = [int(tmp[i][0]) for i in range(tmp.shape[0])]
                 dat_np = dat_np[idxlist, :]
-            elif self.window['sort_lv'].get() or self.window['sort_score'].get() or self.window['sort_lamp'].get(): # intソート
+            elif self.window['sort_lv'].get() or self.window['sort_score'].get() or self.window['sort_lamp'].get() or self.window['sort_tier'].get(): # intソート
                 tmp = []
                 for i,y in enumerate(out):
-                    if type(out[i][sort_row]) == str:
+                    if sort_row == 4:
                         tmp.append([i,  int(out[i][sort_row].replace(',',''))])
+                    elif sort_row == 1:
+                        if out[i][sort_row] in ('N/A', ''):
+                            tmp.append([i,  0.0])
+                        elif out[i][sort_row] == '0-':
+                            tmp.append([i,  0.1])
+                        elif out[i][sort_row] == '0+':
+                            tmp.append([i,  -0.1])
+                        else:
+                            tmp.append([i,  float(out[i][sort_row])])
                     else:
                         tmp.append([i,  int(out[i][sort_row])])
                 tmp = np.array(tmp)
