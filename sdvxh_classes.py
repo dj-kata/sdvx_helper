@@ -391,9 +391,9 @@ class SDVXLogger:
         self.myname = myname
         self.rival_names = names
         ret = {} # key:name, keyごとにMusicInfoの配列. TODO そのうちkeyをidにしたいかも
+        print(f"ライバルのスコアを取得中")
         for id,name in zip(ids, names):
             URL = 'https://docs.google.com/uc?export=download'
-            print(f"ライバルのスコアを取得中:{name}")
 
             session = requests.Session()
             response = session.get(URL, params = { 'id' : id }, stream = True)
@@ -434,6 +434,11 @@ class SDVXLogger:
                     except Exception:
                         logger.debug(f'rival data error! (title:{r[0]}, difficulty:{difficulty}, best_score:{best_score}, best_lamp:{best_lamp})')
             ret[name] = tmp
+            vf = 0.0
+            for s in ret[name][:50]:
+                vf += s.vf
+            print(f"{name}: {vf/1000:.3f}")
+            logger.debug(f"{name}: {vf/1000:.3f}")
         self.rival_score = ret
         print(f"ライバルのスコアを取得完了しました。")
         return ret
