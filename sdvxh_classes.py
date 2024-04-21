@@ -410,12 +410,14 @@ class SDVXLogger:
                 response = session.get(URL, params = params, stream = True)
 
             CHUNK_SIZE = 32*1024
+            # google drive上のcsvを扱うために仕方なく一度ローカルに書き出している
             with open('out/rival_tmp.csv', 'wb') as f:
                 for chunk in response.iter_content(CHUNK_SIZE):
                     if chunk:
                         f.write(chunk)
 
             tmp = []
+            # ローカルに書き出したcsvから読み込み
             with open('out/rival_tmp.csv', encoding='utf-8') as f:
                 csvr = csv.reader(f)
                 for i,r in enumerate(csvr):
