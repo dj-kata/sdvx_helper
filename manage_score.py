@@ -50,6 +50,18 @@ class ScoreViewer:
         self.window = None
         self.modflg = False # 内部データを弄ったかどうか覚えておく
         self.num_del = 0 # 削除したデータ数
+        self.load_rivallog()
+
+    def load_rivallog(self):
+        """前回起動時に保存していたライバルの自己べ情報を読み込む
+        """
+        try:
+            with open('out/rival_log.pkl', 'rb') as f:
+                self.rival_log = pickle.load(f)
+        except:
+            self.rival_log = {}
+        logger.debug(f'rival_logに保存されたkey: {self.rival_log.keys()}')
+        logger.debug(f'ライバル:{self.settings["rival_names"]}')
 
     def load_musiclist(self):
         try:
@@ -125,19 +137,39 @@ class ScoreViewer:
                 sg.Radio('Lv', group_id='sort_key', enable_events=True, key='sort_lv'),
                 sg.Radio('Tier', group_id='sort_key', enable_events=True, key='sort_tier'),
                 sg.Radio('曲名', group_id='sort_key', enable_events=True, key='sort_title'),
+            ],
+            [
                 sg.Radio('スコア', group_id='sort_key', enable_events=True, key='sort_score'),
                 sg.Radio('ランプ', group_id='sort_key', enable_events=True, key='sort_lamp'),
                 sg.Radio('最終プレー日', group_id='sort_key', enable_events=True, key='sort_date'),
-            ]
+            ],
         ]
         layout_edit = [
             [sg.Text('', key='edit_title')],
-            [sg.Listbox([], size=(80,4), key='edit_list', enable_events=True)],
+            [sg.Listbox([], size=(40,4), key='edit_list', enable_events=True)],
             [sg.Button('削除', key='edit_delete', enable_events=True),],
+        ]
+        layout_rival = [
+            [
+                sg.Table(
+                    []
+                    ,size=(40,7)
+                    ,key='table_rival'
+                    ,headings=['name', 'score', 'lamp']
+                    ,vertical_scroll_only = True
+                    ,auto_size_columns=False
+                    #,cols_justification='cclrccc' # 4.61.0.21以降
+                    ,justification='left'
+                    ,select_mode = sg.TABLE_SELECT_MODE_BROWSE
+                    ,col_widths=[10,7,7]
+                    ,background_color='#ffffff'
+                    ,enable_events=True
+                )
+            ]
         ]
         header = ['lv', 'Tier', 'title', 'diff', 'score', 'lamp', 'VF', 'last played']
         layout = [
-            [sg.Frame(title='filter', layout=layout_filter), sg.Frame(title='sort', layout=layout_sort), sg.Frame(title='edit', layout=layout_edit)],
+            [sg.Frame(title='filter', layout=layout_filter), sg.Frame(title='sort', layout=layout_sort), sg.Frame(title='Rival', layout=layout_rival), sg.Frame(title='edit', layout=layout_edit)],
             [
                 sg.Table(
                     []
@@ -292,6 +324,52 @@ class ScoreViewer:
         except Exception: # 切り替わり時など、雑に回避しておく
             pass
 
+    def update_rival_list(self, val):
+        try:
+            tmp = self.data[val['table'][0]]
+            title = tmp[2]
+            diff  = 'APPEND' if tmp[3] == '' else tmp[3]
+
+            rivals  = []
+            for i,p in enumerate(self.settings['rival_names']):
+                if p in self.rival_log.keys():
+                    for s in self.rival_log[p]:
+                        if s.title == title and s.difficulty == diff:
+                            rivals.append([p, s.best_score, s.best_lamp])
+                            break
+
+            # 自己べも入れる
+            for s in self.sdvx_logger.best_allfumen:
+                if s.title == title and s.difficulty == diff:
+                    lamp = s.best_lamp.replace('clear','COMP').replace('hard','exc').upper()
+                    rivals.append([self.settings['player_name'], s.best_score, lamp])
+                    break
+
+            # スコア順にソート
+            rivals = sorted(rivals, reverse=True, key=lambda x: x[1])
+
+            self.window['table_rival'].update(values=rivals)
+            row_colors = []
+            # 色付けのためソート後の配列を確認
+            for i in range(len(rivals)):
+                bgc='#ffffff'
+                lamp = rivals[i][2]
+                if lamp == 'PUC':
+                    bgc = '#ffff66'
+                elif lamp == 'UC':
+                    bgc = '#ffaaaa'
+                elif lamp == 'EXC':
+                    bgc = '#ffccff'
+                elif lamp == 'COMP':
+                    bgc = '#77ff77'
+                elif lamp == 'FAILED':
+                    bgc = '#aaaaaa'
+                row_colors.append([len(row_colors), '#000000', bgc])
+            self.window['table_rival'].update(row_colors=row_colors)
+            self.rivals = rivals
+        except Exception: # 切り替わり時など、雑に回避しておく
+            pass
+
     def main(self):
         self.gui()
 
@@ -317,6 +395,7 @@ class ScoreViewer:
                 self.update_table()
             elif ev == 'table': # 曲を選択した際にedit欄を更新
                 self.update_edit_list(val)
+                self.update_rival_list(val)
             elif ev == 'edit_delete':
                 try:
                     idx_in_editlist = self.window['edit_list'].get_indexes()
