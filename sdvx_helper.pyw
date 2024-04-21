@@ -1092,13 +1092,13 @@ class SDVXHelper:
         self.gen_summary = GenSummary(now_mod)
         self.gen_summary.generate()
         self.starttime = now
+        self.gui_main()
         if self.settings['get_rival_score']:
             try:
                 self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
             except Exception: # 関数全体が落ちる=Googleドライブへのアクセスでコケたときの対策
                 logger.debug(traceback.format_exc())
                 print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
-        self.gui_main()
         self.load_rivallog()
         self.check_rival_update()
         self.th = False
