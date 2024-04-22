@@ -388,6 +388,16 @@ class SDVXLogger:
             self.alllog = []
 
     def get_rival_score(self, myname, names, ids):
+        """ライバルのスコアをGoogleドライブから取得
+
+        Args:
+            myname (str): 自分のプレーヤ名
+            names (list): ライバルのプレーヤ名のリスト
+            ids (list): ライバルのGoogleドライブのIDリスト
+
+        Returns:
+            dict[rival_name]: 各ライバルの自己べデータ
+        """
         self.myname = myname
         self.rival_names = names
         ret = {} # key:name, keyごとにMusicInfoの配列. TODO そのうちkeyをidにしたいかも
@@ -442,7 +452,6 @@ class SDVXLogger:
             print(f"{name}: {vf/1000:.3f}")
             logger.debug(f"{name}: {vf/1000:.3f}")
         self.rival_score = ret
-        print(f"ライバルのスコアを取得完了しました。")
         return ret
 
     def save_alllog(self):
@@ -966,3 +975,7 @@ if __name__ == '__main__':
     #for i,s in enumerate(a.best_allfumen):
     #   if 'Gun Shooo' in s.title:
     #        s.disp()
+    with open('out/rival_log.pkl', 'rb') as f:
+        b = pickle.load(f)
+    print(f"自己べ: {a.best_allfumen[-27].best_score}")
+    print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 

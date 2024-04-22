@@ -226,18 +226,15 @@ class SDVXHelper:
         logger.debug(f'rival_logに保存されたkey: {self.rival_log.keys()}')
         logger.debug(f'rival_scoreのkey: {self.sdvx_logger.rival_score.keys()}')
         for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
-            if p in self.rival_log.keys():
-                self.rival_log[p] = self.sdvx_logger.rival_score[p]
-            else:
+            if p not in self.rival_log.keys():
                 self.rival_log[p] = []
             logger.debug(f"rival: {p} - {len(self.sdvx_logger.rival_score[p])}件")
 
     def save_rivallog(self):
         """ライバルの自己べ情報を保存する
         """
-        out = {}
         for i,p in enumerate(self.sdvx_logger.rival_names):
-            out[p] = self.sdvx_logger.rival_score[p]
+            self.rival_log[p] = self.sdvx_logger.rival_score[p]
         with open('out/rival_log.pkl', 'wb') as f:
             pickle.dump(self.rival_log, f)
 
@@ -255,7 +252,7 @@ class SDVXHelper:
             if p in self.rival_log.keys():
                 out[p] = []
 
-                # 逆引き用dict作成
+                # pklに保存していたライバルデータに対して逆引き用dict作成
                 tmp = {}
                 for s in self.rival_log[p]:
                     tmp[(s.title,s.difficulty)] = s
@@ -263,15 +260,16 @@ class SDVXHelper:
                 # 検索
                 for s in self.sdvx_logger.rival_score[p]:
                     new = None
+                    # 既にスコアがついてた曲の更新時
                     if (s.title, s.difficulty) in tmp.keys():
                         if s.best_score > tmp[(s.title, s.difficulty)].best_score:
                             new = [s.title, s.difficulty, s.best_score, s.best_score-tmp[(s.title, s.difficulty)].best_score]
-                    else:
+                    else: # 新規プレイ時
                         new = [s.title, s.difficulty, s.best_score, s.best_score]
                     # 自己べよりも高い場合は出力。自分が未プレーの場合は出力されない。
                     if new != None:
                         for i,my in enumerate(self.sdvx_logger.best_allfumen):
-                            if (s.title==my.title) and (s.difficulty == my.difficulty):
+                            if (s.title==my.title) and (s.difficulty == my.difficulty.upper()): # TODO 自己べ情報のフォーマットを揃えたい
                                 if s.best_score > my.best_score:
                                     new.append(my.best_score)
                                     out[p].append(new) # title, diff, score, diffだけ保持
@@ -279,6 +277,7 @@ class SDVXHelper:
                 print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
                 logger.debug(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
             #self.rival_log[p] = self.sdvx_logger.rival_score[i] # ライバルの一時スコアを保存する場合はこれ
+
         with open('out/rival_updates.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write(f'<Updates>\n')
@@ -312,6 +311,7 @@ class SDVXHelper:
         try:
             self.update_mybest()
             self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
+            print(f"ライバルのスコアを取得完了しました。")
             self.check_rival_update()
         except Exception:
             logger.debug(traceback.format_exc())
@@ -1096,6 +1096,7 @@ class SDVXHelper:
         if self.settings['get_rival_score']:
             try:
                 self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
+                print(f"ライバルのスコアを取得完了しました。")
             except Exception: # 関数全体が落ちる=Googleドライブへのアクセスでコケたときの対策
                 logger.debug(traceback.format_exc())
                 print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
