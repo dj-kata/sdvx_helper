@@ -1012,7 +1012,7 @@ class SDVXHelper:
                                 print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
                                 self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
                                 self.check_rival_update() # お手紙ビューを更新
-                if diff_hash < 13:
+                if diff_hash < 5:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
                     self.sdvx_logger.gen_history_cursong(title, diff)
