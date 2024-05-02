@@ -466,7 +466,7 @@ class GenSummary:
             if abs(hash_cur - hash_jacket) < minval:
                 minval = abs(hash_cur - hash_jacket)
                 title = self.musiclist_hash['jacket'][difficulty][h]
-
+        logger.debug(f"title:{title}, difficulty:{difficulty}, minval:{minval}")
         return title, minval, difficulty
 
     def ocr(self, notify:bool=False):
