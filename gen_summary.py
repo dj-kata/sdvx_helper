@@ -441,22 +441,25 @@ class GenSummary:
         jacket      = Image.open('out/select_jacket.png')
         hash_jacket = imagehash.average_hash(jacket)
         diff        = Image.open('out/select_difficulty.png')
-        hash_nov = imagehash.hex_to_hash('267e7c787a787c7e')
-        hash_adv = imagehash.hex_to_hash('43478889a9b99cdf')
-        hash_exh = imagehash.hex_to_hash('436328fafa39efc6')
+        target = {}
+        target['nov'] = imagehash.hex_to_hash('267e7c787a787c7e')
+        target['adv'] = imagehash.hex_to_hash('43478889a9b99cdf')
+        target['exh'] = imagehash.hex_to_hash('436328fafa39efc6')
+        target['inf'] = imagehash.hex_to_hash('367e7c7e7e7c6c6e')
+        target['grv'] = imagehash.hex_to_hash('66763e3e3c7c7c7c')
+        target['hvn'] = imagehash.hex_to_hash('484c04fcfcbcb6ff')
+        target['mxm'] = imagehash.hex_to_hash('001099cdcdddfdef')
+        target['vvd'] = imagehash.hex_to_hash('1c3c3c3c3c3c3cbc')
         hash_diff = imagehash.average_hash(diff)
-        if abs(hash_nov - hash_diff) < 10:
-            difficulty = 'nov'
-        elif abs(hash_adv - hash_diff) < 10:
-            difficulty = 'adv'
-        elif abs(hash_exh - hash_diff) < 10:
-            difficulty = 'exh'
-        else:
-            difficulty  = 'APPEND'
-        #rsum = np.array(diff)[:,:,0].sum()
-        #gsum = np.array(diff)[:,:,1].sum()
-        #bsum = np.array(diff)[:,:,2].sum()
-        #print(imagehash.average_hash(diff), rsum, gsum, bsum)
+        # hash差分が最小の難易度を見つける
+        minval = 999
+        for t in target.keys():
+            val = abs(target[t] - hash_diff)
+            if val < minval:
+                minval = val
+                difficulty = t
+        if difficulty not in ('nov', 'adv', 'exh'):
+            difficulty = 'APPEND'
         title       = False
         minval      = 99999
 
@@ -611,5 +614,6 @@ if __name__ == '__main__':
     #a.generate_today_all('hoge.png')
     #a.chk_ocr(60)
     for f in ['debug/profession_exh.png', 'debug/gambol_inf.png', 'debug/gorira_adv.png', 'debug/unlimi_nov.png']:
+    #for f in ['debug/profession_exh.png']:
         a.update_musicinfo(Image.open(f))
-        print(a.ocr_from_detect())
+        print(f, a.ocr_from_detect())
