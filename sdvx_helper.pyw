@@ -70,6 +70,7 @@ class SDVXHelper:
         self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
         self.imgpath = os.getcwd()+'/out/capture.png'
         keyboard.add_hotkey('F6', self.save_screenshot_general)
+        keyboard.add_hotkey('F7', self.import_score_on_select_with_dialog)
         keyboard.add_hotkey('F8', self.update_rival)
 
         self.load_settings()
@@ -942,6 +943,11 @@ class SDVXHelper:
 
         self.img_rot.save('out/select_whole.png')
 
+    def import_score_on_select_with_dialog(self):
+        """ボタンを押したときだけ選曲画面から自己べを取り込む。合ってるかどうかの確認もやる。
+        """
+        self.window.write_event_value('-import_score_on_select-', " ")
+
     def detect(self):
         """認識処理を行う。無限ループになっており、メインスレッドから別スレッドで起動される。
 
@@ -1012,7 +1018,7 @@ class SDVXHelper:
                                 print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
                                 self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
                                 self.check_rival_update() # お手紙ビューを更新
-                if diff_hash < 5:
+                if diff_hash < 8:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
                     self.sdvx_logger.gen_history_cursong(title, diff)
@@ -1314,6 +1320,29 @@ class SDVXHelper:
                         sg.popup_ok(f'CSV出力完了\n\n(-> {tmp})')
                     else:
                         sg.popup_error(f'CSV出力失敗')
+            elif ev == '-import_score_on_select-':
+                if self.detect_mode == detect_mode.select:
+                    title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
+                        self.img_rot.crop(self.get_detect_points('select_jacket')),
+                        self.img_rot.crop(self.get_detect_points('select_nov')),
+                        self.img_rot.crop(self.get_detect_points('select_adv')),
+                        self.img_rot.crop(self.get_detect_points('select_exh')),
+                        self.img_rot.crop(self.get_detect_points('select_APPEND')),
+                    )
+                    sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
+                    now = datetime.datetime.now()
+                    self.last_autosave_time = now
+                    fmtnow = format(now, "%Y%m%d_%H%M%S")
+                    if sc <= 10000000:
+                        ans = sg.popup_yes_no(f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}', icon=self.ico)
+                        if ans == "Yes":
+                            print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
+                            self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
+                            self.check_rival_update() # お手紙ビューを更新
+                    else:
+                        print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
+                else:
+                    print(f'選曲画面ではないのでスキップします。')
 
 if __name__ == '__main__':
     a = SDVXHelper()

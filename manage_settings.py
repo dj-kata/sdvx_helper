@@ -3,7 +3,7 @@ default_val = {
     'host':'localhost', 'port':'4444', 'passwd':'',
     'autosave_dir':'','autosave_always':False,'autosave_interval':60,'play0_interval':10,
     'autosave_prewait':'0.0', # リザルト画面を認識して撮影するまでの待ち時間(クルーに対する調整用)
-    'detect_wait':3.5,
+    'detect_wait':2.7,
     'obs_source':'', 'top_is_right':False, # 回転している前提、画面上部が右ならTrueにする
     # スレッド起動時の設定
     'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
