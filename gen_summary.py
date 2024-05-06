@@ -581,6 +581,25 @@ class GenSummary:
         except Exception as e:
             logger.error(traceback.format_exc())
 
+    def update_musicinfo(self, img):
+        """曲決定時に出る曲情報を切り出してファイルに保存する。
+        """
+        jacket = img.crop(self.get_detect_points('info_jacket'))
+        jacket.save('out/select_jacket.png')
+        title = img.crop(self.get_detect_points('info_title'))
+        title.save('out/select_title.png')
+        lv = img.crop(self.get_detect_points('info_lv'))
+        lv.save('out/select_level.png')
+        lv = img.crop(self.get_detect_points('info_diff'))
+        lv.save('out/select_difficulty.png')
+        bpm = img.crop(self.get_detect_points('info_bpm'))
+        bpm.save('out/select_bpm.png')
+        ef = img.crop(self.get_detect_points('info_ef'))
+        ef.save('out/select_effector.png')
+        illust = img.crop(self.get_detect_points('info_illust'))
+        illust.save('out/select_illustrator.png')
+        img.save('out/select_whole.png')
+
 if __name__ == '__main__':
     start = datetime.datetime(year=2023,month=10,day=15,hour=0)
     a = GenSummary(start)
@@ -591,4 +610,6 @@ if __name__ == '__main__':
     #    print(f, a.get_score_on_select(img))
     #a.generate_today_all('hoge.png')
     #a.chk_ocr(60)
-    print(a.ocr_from_detect())
+    for f in ['debug/profession_exh.png', 'debug/gambol_inf.png', 'debug/gorira_adv.png', 'debug/unlimi_nov.png']:
+        a.update_musicinfo(Image.open(f))
+        print(a.ocr_from_detect())

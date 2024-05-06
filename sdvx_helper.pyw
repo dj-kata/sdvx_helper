@@ -275,7 +275,8 @@ class SDVXHelper:
                                     new.append(my.best_score)
                                     out[p].append(new) # title, diff, score, diffだけ保持
                                     logger.debug(f'added! {new}')
-                print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
+                if len(out[p]) > 0:
+                    print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
                 logger.debug(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
             #self.rival_log[p] = self.sdvx_logger.rival_score[i] # ライバルの一時スコアを保存する場合はこれ
 
@@ -921,28 +922,6 @@ class SDVXHelper:
                 print('webhook送出エラー(URLがおかしい？)')
                 logger.debug(traceback.format_exc())
 
-    def update_musicinfo(self):
-        """曲決定時に出る曲情報を切り出してファイルに保存する。
-        """
-        jacket = self.img_rot.crop(self.get_detect_points('info_jacket'))
-        jacket.save('out/select_jacket.png')
-        title = self.img_rot.crop(self.get_detect_points('info_title'))
-        title.save('out/select_title.png')
-        lv = self.img_rot.crop(self.get_detect_points('info_lv'))
-        lv.save('out/select_level.png')
-        lv = self.img_rot.crop(self.get_detect_points('info_diff'))
-        lv.save('out/select_difficulty.png')
-        bpm = self.img_rot.crop(self.get_detect_points('info_bpm'))
-        bpm.save('out/select_bpm.png')
-        ef = self.img_rot.crop(self.get_detect_points('info_ef'))
-        ef.save('out/select_effector.png')
-        illust = self.img_rot.crop(self.get_detect_points('info_illust'))
-        illust.save('out/select_illustrator.png')
-        self.obs.refresh_source('nowplaying')
-        self.obs.refresh_source('nowplaying.html')
-
-        self.img_rot.save('out/select_whole.png')
-
     def import_score_on_select_with_dialog(self):
         """ボタンを押したときだけ選曲画面から自己べを取り込む。合ってるかどうかの確認もやる。
         """
@@ -1030,7 +1009,7 @@ class SDVXHelper:
                         print(f"曲決定画面を検出")
                         time.sleep(self.settings['detect_wait'])
                         self.get_capture_after_rotate()
-                        self.update_musicinfo()
+                        self.gen_summary.update_musicinfo(self.img_rot)
                         # ライバル欄更新のため、曲決定画面からもOCRを動かしておく
                         title, diff_hash, diff = self.gen_summary.ocr_from_detect()
                         self.sdvx_logger.update_rival_view(title, diff)
