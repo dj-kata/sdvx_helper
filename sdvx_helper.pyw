@@ -240,8 +240,7 @@ class SDVXHelper:
             pickle.dump(self.rival_log, f)
 
     def check_rival_update(self):
-        """ライバルの更新有無を確認
-        更新された曲一覧をdictで返す
+        """ライバル挑戦状用の処理。ライバルの更新有無を確認し、更新された曲一覧をdictで返す。
 
         Returns:
             dict: 各ライバルの更新データ。key:ライバル名(str)

@@ -654,7 +654,7 @@ class SDVXLogger:
         Returns:
             list(OnePlayData), MusicInfo: プレー履歴のList、その曲のbest等の情報
         """
-        diff_table = ['nov', 'adv', 'exh', 'APPEND']
+        diff_table = ['NOV', 'ADV', 'EXH', 'APPEND']
         lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
         logs = []
         best_score = 0
@@ -676,7 +676,7 @@ class SDVXLogger:
             tmp = self.titles[title]
             artist = tmp[1]
             bpm    = tmp[2]
-            lv     = tmp[3+diff_table.index(difficulty)]
+            lv     = tmp[3+diff_table.index(difficulty.upper())]
         except:
             logger.debug(traceback.format_exc())
             artist = ''
