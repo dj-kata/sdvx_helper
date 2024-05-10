@@ -1010,6 +1010,8 @@ class SDVXHelper:
                         time.sleep(self.settings['detect_wait'])
                         self.get_capture_after_rotate()
                         self.gen_summary.update_musicinfo(self.img_rot)
+                        self.obs.refresh_source('nowplaying.html')
+                        self.obs.refresh_source('nowplaying')
                         # ライバル欄更新のため、曲決定画面からもOCRを動かしておく
                         title, diff_hash, diff = self.gen_summary.ocr_from_detect()
                         self.sdvx_logger.update_rival_view(title, diff)
