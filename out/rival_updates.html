@@ -9,10 +9,11 @@
         <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
         <style>
             body { 
+            width: 100%;
             height: 100%;
-            width:100%;
-            margin: 0px;
-            padding: 0px;
+            background-color: rgba(0, 0, 0, 0);
+            margin: 10px;
+            padding: 10px;
             overflow: hidden;
             font-family:"RocknRoll One";
             color:#2196F3;   
@@ -24,10 +25,15 @@
                          -2px -2px 0 #000;
             }
             div#all{
-                display:flex;
+                border: 16px solid #000000;
                 -moz-box-sizing:border-box;
                 box-sizing: border-box;
-                background-color: rgba(0, 0, 0, 0);
+                position: absolute;
+                top:0;
+                bottom:0;
+                left:0;
+                right:0;
+                background-color: rgba(0, 0, 0, 0.95);
             }
             table {
             	width:100%;
@@ -39,29 +45,42 @@
             	white-space:nowrap;
                 height: 60px;
             }
-            table td:nth-child(1){
+            table tr:nth-child(1) td{ /* タイトル行 */
+                border: none;
+                vertical-align: middle;
+                text-align: center;
+            	white-space:nowrap;
+                font-size: 24px;
+                background-color: #222;
+                background: linear-gradient(
+                    180deg
+                    ,rgba(0,0,60,0.9)
+                    ,rgba(35,85,155,0.9)
+                ); 
+            }
+            table tr:nth-child(n+2) td:nth-child(1){
                 color:#ffffee;
                 text-align:center;
-                width:20%;
+                width:18%;
             }
-            table td:nth-child(2){
+            table tr:nth-child(n+2) td:nth-child(2){
                 color:#eeeeee;
                 text-align:center;
-                width:10%;
+                width:8%;
             }
-            table td:nth-child(3){
+            table tr:nth-child(n+2) td:nth-child(3){
                 font-size: 36px;
                 max-width: 10px;
             	overflow:hidden;
             	text-overflow:ellipsis;
             }
-            table td:nth-child(4){
+            table tr:nth-child(n+2) td:nth-child(4){
                 color: #ccffff;
                 text-align:right;
                 padding-right: 30px;
-            	width:15%;
+            	width:12%;
             }
-            table td:nth-child(5){
+            table tr:nth-child(n+2) td:nth-child(5){
                 color:#eeeeee;
                 text-align:center;
             	width:15%;
@@ -90,6 +109,9 @@
             .exh{color: #ffaaaa}
             .adv{color: #ffffaa}
             .nov{color: #aaaaff}
+            .EXH{color: #ffaaaa}
+            .ADV{color: #ffffaa}
+            .NOV{color: #aaaaff}
             .APPEND{color: #ffccff;}
             .S{
                 color:#ffff00;
@@ -158,7 +180,7 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script>
         var cnt = -1; // 表の表示範囲を切り替えるために使う。初期値は-1固定。
-        var wsize = 10; // 表示範囲のサイズ
+        var wsize = 10; // 1ページに何曲分表示するか(デフォ:10)
         function loadXml() {
             var getxml = $.ajax({
                 url: './rival_updates.xml',
@@ -169,55 +191,29 @@
             cnt = cnt+1;
             getxml.done(function(xml){
                 // xmlデータからほしいデータをfindで探し処理
-                var out = "<tr><td>from</td><td>title</td><td>score</td><td>diff</td></tr>";
-                var out = "";
+                var out = "<tr>";
+                out += "<td>from</td>";
+                out += "<td>lv</td>";
+                out += "<td>title</td>";
+                out += "<td>score</td>";
+                out += "<td>diff</td>";
+                out += "</tr>";
+                //var out = "";
                 $(xml).find("Updates Item").each(function(index, item){
                     var lv = $(item).find('lv').text();
                     var rival = $(item).find('rival').text();
                     var title = $(item).find('title').text();
                     var difficulty = $(item).find('difficulty').text();
                     title = '<span class="'+difficulty+'">'+title+"</span>";
-                    var score = $(item).find('score').text();
-                    var myscore = $(item).find('myscore').text();
-                    var behind_fmt = $(item).find('behind_fmt').text();
-                    var rank = "";
-                    if (score >= 990){
-                        rank = '<span class="S">S</span>';
-                    }
-                    else if (score >= 980){
-                        rank = '<span class="AAAplus">AAA+</span>';
-                    }
-                    else if (score >= 970){
-                        rank = '<span class="AAA">AAA</span>';
-                    }
-                    else if (score >= 950){
-                        rank = '<span class="AAplus">AA+</span>';
-                    }
-                    else if (score >= 930){
-                        rank = '<span class="AA">AA</span>';
-                    }
-                    else if (score >= 900){
-                        rank = '<span class="Aplus">A+</span>';
-                    }
-                    else if (score >= 870){
-                        rank = '<span class="A">A</span>';
-                    }
-                    else if (score >= 750){
-                        rank = '<span class="B">B</span>';
-                    }
-                    else if (score >= 650){
-                        rank = '<span class="C">C</span>';
-                    }
-                    else{
-                        rank = '<span class="D">D</span>';
-                    }
+                    var score = $(item).find('score_10k').text();
+                    var myscore = $(item).find('myscore_10k').text();
+                    var behind_fmt = $(item).find('behind_fmt_10k').text();
                     if ($(item).find('score').length){
                         var left = wsize*cnt;
                         if (left > $(xml).find("Updates Item").length){
                             cnt = 0;
                         }
                         if ((index >= wsize*cnt) && (index < wsize*(cnt+1))){
-                            //alert((wsize*cnt).toString());
                             out += '<tr>';
                             out += '    <td>'+rival+'</td>';
                             out += '    <td><span class="lv'+lv+'">'+lv+'</span></td>';
@@ -235,19 +231,19 @@
                 $('#rival tbody').html(out);
             });
             getxml.fail(function(err) {
-                alert('failed');
+                //alert('failed');
             });
         }
 
         window.addEventListener('DOMContentLoaded', function() {
-            var roopTimer = setInterval(loadXml, 1000);
+            var roopTimer = setInterval(loadXml, 3000); /* リフレッシュ間隔;3000なら3秒 */
         });
 
 </script>
 </head>
 <body>
   <div id="all">
-    <table id="rival">
+    <table id="rival" Rules="none">
         <tbody>
         </tbody>
     </table>
