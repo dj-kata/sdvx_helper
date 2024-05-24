@@ -689,7 +689,7 @@ class SDVXHelper:
         # 表示の制御
         for s in self.settings[f"obs_enable_{name}"]:
             tmps, tmpid = self.obs.search_itemid(scene, s)
-            self.obs.refresh_source(s)
+            #self.obs.refresh_source(s)
             self.obs.enable_source(tmps,tmpid)
             #print('enable', scene, s, tmps, tmpid)
         return True
