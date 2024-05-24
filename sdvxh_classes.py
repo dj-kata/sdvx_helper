@@ -631,6 +631,11 @@ class SDVXLogger:
                 f.write(f"    <title>{title}</title>\n")
                 f.write(f"    <difficulty>{difficulty.upper()}</difficulty>\n")
                 f.write(f"    <lv>{lv}</lv>\n")
+                if type(lv) == int:
+                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                        tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
+                        if tmp != None:
+                            f.write(f"        <gradeS_tier>{tmp}</gradeS_tier>\n")
                 for i,(info,r) in enumerate(zip(infos_sorted, rank)):
                     f.write("    <rival>\n")
                     f.write(f"        <rank>{int(r)}</rank>\n")
