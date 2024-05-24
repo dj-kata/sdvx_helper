@@ -24,6 +24,10 @@
                          2px -2px 0 #000,
                          -2px -2px 0 #000;
             }
+            :root{ /* 外部から変更できる変数 */
+                --num: 20;
+                --sleep_ms: 5000; /* ms単位 */
+            }
             div#all{
                 border: 16px solid #000000;
                 -moz-box-sizing:border-box;
@@ -180,7 +184,6 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
         <script>
         var cnt = -1; // 表の表示範囲を切り替えるために使う。初期値は-1固定。
-        var wsize = 10; // 1ページに何曲分表示するか(デフォ:10)
         function loadXml() {
             var getxml = $.ajax({
                 url: './rival_updates.xml',
@@ -188,6 +191,7 @@
                 dataType: 'xml',
                 cache: false
             });
+            var wsize = getComputedStyle(document.documentElement).getPropertyValue('--num')
             cnt = cnt+1;
             getxml.done(function(xml){
                 // xmlデータからほしいデータをfindで探し処理
@@ -236,7 +240,8 @@
         }
 
         window.addEventListener('DOMContentLoaded', function() {
-            var roopTimer = setInterval(loadXml, 3000); /* リフレッシュ間隔;3000なら3秒 */
+            var sleep_ms = getComputedStyle(document.documentElement).getPropertyValue('--sleep_ms')
+            var roopTimer = setInterval(loadXml, sleep_ms); /* リフレッシュ間隔;3000なら3秒 */
         });
 
 </script>

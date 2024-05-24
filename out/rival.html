@@ -36,8 +36,6 @@
             table#title {
                 color: #fff;
                 background-color: rgba(0, 0, 100, 0.95);
-                font-size: 90px;
-                line-height: 140%;
                 width:100%;
                 background-color: #222;
                 background: linear-gradient(
@@ -54,6 +52,25 @@
                 max-width: 10px;
             	overflow:hidden;
             	text-overflow:ellipsis;
+            }
+            table#title td:nth-child(2){
+                text-align: center;
+                width: 200px;
+            }
+            table#title td:nth-child(3){
+                text-align: center;
+                width: 200px;
+            }
+            table#title tr:nth-child(1){
+                font-size: 33px;
+                text-align: center;
+                color: #cccccc;
+            }
+            table#title tr:nth-child(2){
+                font-size: 90px;
+            }
+            table#title tr:nth-child(2) td:nth-child(n+2){
+                color: #ffffaa;
             }
             table#result {
                 font-size: 96px;
@@ -186,6 +203,8 @@
                 var out = "";
                 var title = $(xml).find('Items title').text();
                 var difficulty = $(xml).find('Items difficulty').text();
+                var lv= $(xml).find('Items lv').text();
+                var gradeS_tier= $(xml).find('Items gradeS_tier').text();
                 if (difficulty == "APPEND"){
                     difficulty = '';
                 }else{
@@ -234,7 +253,18 @@
                     out += '</tr>'
                 });
                 var title_html = "<tr>";
+                    title_html += "<td></td>";
+                    title_html += "<td>Lv</td>";
+                    title_html += "<td>Tier</td>";
+                    title_html += "</tr>";
+                    title_html += "<tr>";
                     title_html += "<td>"+title+difficulty+"</td>";
+                    title_html += "<td>"+lv+"</td>";
+                    if (gradeS_tier != ""){
+                        title_html += "<td>"+gradeS_tier+"</td>";
+                    }else{
+                        title_html += "<td></td>";
+                    }
                     title_html += "</tr>";
                 $('#title tbody').html(title_html);
                 $('#result tbody').html(out);
