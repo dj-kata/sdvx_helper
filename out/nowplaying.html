@@ -94,6 +94,21 @@
         </style>
     </head>
 
+    <script>
+      document.addEventListener('DOMContentLoaded', function(){
+        const RELOAD_SPAN = 1000;
+        function reload(){
+          document.getElementById('jacket').src ='select_jacket.png' + '?' + Date.now();
+          document.getElementById('level').src ='select_level.png' + '?' + Date.now();
+          document.getElementById('bpm').src ='select_bpm.png' + '?' + Date.now();
+          document.getElementById('title').src ='select_title.png' + '?' + Date.now();
+          document.getElementById('effector').src ='select_effector.png' + '?' + Date.now();
+          document.getElementById('illustrator').src ='select_illustrator.png' + '?' + Date.now();
+        }
+        setInterval(reload, RELOAD_SPAN);
+      });
+    </script>
+
     <body>
         <div class="kakomiarea">
             <span class="titlearea">
@@ -102,14 +117,14 @@
             <table>
                 <tr>
                     <td rowspan="2">
-                        <img src="select_jacket.png" width="570px">
+                        <img src="select_jacket.png" id="jacket" width="570px">
                     </td>
                     <td>
                         <center>
                             &nbsp;
-                            <img src="select_level.png" width="150px"><br><br>
+                            <img src="select_level.png" id="level" width="150px"><br><br>
                             &nbsp;
-                            <img src="select_bpm.png" width="100px">
+                            <img src="select_bpm.png" id="bpm" width="100px">
                         </center>
                     </td>
                 </tr>
@@ -119,9 +134,9 @@
                 </tr>
             </table>
             <center>
-            <img src="select_title.png">
-            <img src="select_effector.png">
-            <img src="select_illustrator.png">
+            <img src="select_title.png" id="title">
+            <img src="select_effector.png" id="effector">
+            <img src="select_illustrator.png" id="illustrator">
             </center>
         </div>
     </body>
