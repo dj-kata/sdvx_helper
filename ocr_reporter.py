@@ -49,7 +49,7 @@ class Reporter:
             self.update_musiclist()
         self.gen_summary = GenSummary(start)
         self.load_musiclist()
-        #self.read_bemaniwiki()
+        self.read_bemaniwiki()
         self.ico=self.ico_path('icon.ico')
         self.num_added_fumen = 0 # 登録した譜面数
         self.flg_registered = {} # key:ファイル名、値:登録済みならTrue.do_coloringの結果保存用。
@@ -145,7 +145,7 @@ class Reporter:
         req = requests.get('https://bemaniwiki.com/index.php?%A5%B3%A5%CA%A5%B9%A5%C6/SOUND+VOLTEX+EXCEED+GEAR/%B3%DA%B6%CA%A5%EA%A5%B9%A5%C8')
 
         soup = BeautifulSoup(req.text, 'html.parser')
-        titles = {}
+        titles = self.musiclist['titles']
         for tr in soup.find_all('tr'):
             tds = tr.find_all('td')
             numtd = len(tds)
