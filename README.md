@@ -230,6 +230,30 @@ v.1.0.8からリザルトをDiscordに自動投稿できるようになりまし
 うまく設定できると、選曲画面やリザルト画面で以下のようなビュー(out\rival.html)が表示できます。
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/9bf84220-a720-4a67-97fb-65c10e2c0c4c)
 
+### RTA機能を利用する
+インペリアルRTAなどに使えるように、VF:0からスタートして目標VFを達成するまでの時間を測定できるようになりました。
+
+1. 設定画面から目標VFを設定する。(デフォルト:20.000)
+2. メニューバー内RTA->RTA開始をクリック(または、F3キーを押下)してRTAモードを開始する
+3. 目標VFに到達するとタイマーが止まる
+4. sdvx_helper終了時に、rta_sdvx_stats_v2.htmlという名前のソースがあれば画像フォルダにRTA結果ビューが自動保存される。
+
+![image](https://github.com/user-attachments/assets/a630e3db-5be1-45bc-89db-640652d5194a)
+
+RTA用の情報に関しては以下のお好きな方法で表示できます。
+- RTA用統計情報ビュー(layout\rta_sdvx_stats_v2.html)をOBSにD&D(幅4000，高さ3000ぐらいを推奨)
+- 指定された名前のテキスト(GDI+)のソースを用意する
+  - VF表示: sdvx_helper_rta_vf
+  - タイマー表示: sdvx_helper_rta_timer
+
+![image](https://github.com/user-attachments/assets/4f2ad38f-2b2b-4e41-acfc-b1af5a706939)
+![image](https://github.com/user-attachments/assets/c6c17963-33e7-43c4-8c05-ed8ab3dde29d)
+RTA用統計情報ビューに表示されるタイマーについては、達成時以外は空白になります。
+
+また、指定した名前のテキストソースに書き込まれる方のタイマーについては、曲決定画面で止まってしまう問題があります。  
+将来的には別スレッドに移動して止まらないようにしますが、そこまで大きな影響はないと思うので一旦このまま出しています。
+インペRTAチャレンジなどにご活用ください。
+
 # 使い方
 上記設定ができていれば、OBS配信や録画を行う際に起動しておくだけでOKです。  
 F6キーを押すと指定したフォルダにキャプチャ画像を正しい向きで保存することができます。
