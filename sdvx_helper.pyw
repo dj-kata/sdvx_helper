@@ -20,6 +20,7 @@ from manage_settings import *
 from sdvxh_classes import *
 import urllib
 import webbrowser
+from decimal import Decimal
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -66,12 +67,21 @@ class SDVXHelper:
         self.gen_first_vf = False
         self.window = False
         self.obs = False
+        # RTA関連
+        self.rta_mode = False
+        self.rta_finished = False
+        self.rta_starttime = datetime.datetime.now()
+        self.rta_endtime = datetime.datetime.now()
+        self.rta_target_vf = Decimal('20.0')
+
         self.plays = 0
         self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
         self.imgpath = os.getcwd()+'/out/capture.png'
+
         keyboard.add_hotkey('F6', self.save_screenshot_general)
         keyboard.add_hotkey('F7', self.import_score_on_select_with_dialog)
         keyboard.add_hotkey('F8', self.update_rival)
+        keyboard.add_hotkey('F3', self.start_rta_mode)
 
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
@@ -186,12 +196,29 @@ class SDVXHelper:
             lamp = self.gen_summary.lamp
             difficulty = self.gen_summary.difficulty
         except:
+            #print(traceback.format_exc())
             pass
         tmp_playdata = OnePlayData(title='???', cur_score=cur, pre_score=pre, lamp=lamp, difficulty=difficulty, date=fmtnow)
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
             tmp_playdata = self.sdvx_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+            # RTA用
+            if self.rta_mode:
+                self.rta_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+                self.rta_vf_cur = self.rta_logger.total_vf
+                if Decimal(str(self.rta_vf_cur))>=Decimal(self.settings['rta_target_vf']):
+                    self.rta_finished = True
+                    current = self.rta_endtime if self.rta_finished else datetime.datetime.now()
+                    self.rta_endtime = datetime.datetime.now()
+                    rta_time = (self.rta_endtime - self.rta_starttime)
+                    self.obs.change_text('sdvx_helper_rta_timer', str(rta_time).split('.')[0])
+                    print(f"Timer stop! ({str(rta_time).split('.')[0]}), vf:{self.rta_vf_cur}")
+                    self.rta_logger.rta_timer = str(rta_time).split('.')[0]
+                    self.rta_logger.update_stats()
+                rta_vf_str = f"{self.settings['obs_txt_vf_header']}{self.rta_vf_cur:.3f}{self.settings['obs_txt_vf_footer']}"
+                self.obs.change_text('sdvx_helper_rta_vf', rta_vf_str)
+                tmp_playdata.disp()
             self.vf_cur = self.sdvx_logger.total_vf # アプリ起動時のVF
             vf_str = f"{self.settings['obs_txt_vf_header']}{self.vf_cur:.3f} ({self.vf_cur-self.vf_pre:+.3f}){self.settings['obs_txt_vf_footer']}"
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
@@ -332,6 +359,18 @@ class SDVXHelper:
                 class_cur.save('out/class_pre.png')
                 self.gen_first_vf = True
 
+    def start_rta_mode(self):
+        """RTA開始処理。変数の初期化などを行う。
+        """
+        self.rta_mode = True
+        self.rta_finished = False
+        self.rta_starttime = datetime.datetime.now()
+        self.rta_logger = SDVXLogger(player_name=self.settings['player_name'], rta_mode=True)
+        self.rta_target_vf = Decimal(self.settings['rta_target_vf'])
+        rta_vf_str = f"{self.settings['obs_txt_vf_header']}0.000{self.settings['obs_txt_vf_footer']}"
+        self.obs.change_text('sdvx_helper_rta_vf', rta_vf_str)
+        print(f'RTAモードを開始します。\ntarget VF = {self.rta_target_vf}')
+
     def get_capture_after_rotate(self):
         """ゲーム画面のキャプチャを取得し、正しい向きに直す。self.img_rotにも格納する。
 
@@ -384,6 +423,7 @@ class SDVXHelper:
             self.settings['obs_txt_plays_footer'] = val['obs_txt_plays_footer']
             self.settings['alert_blastermax'] = val['alert_blastermax']
             self.settings['logpic_bg_alpha'] = val['logpic_bg_alpha']
+            self.settings['rta_target_vf'] = val['rta_target_vf']
             self.settings['player_name'] = val['player_name']
             self.sdvx_logger.player_name = val['player_name']
             self.settings['save_on_capture'] = val['save_on_capture']
@@ -549,6 +589,8 @@ class SDVXHelper:
         layout_gamemode = [
             [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
         ]
+        list_vf = [f"{i}.000" for i in range(1,17)]
+        list_vf += [z for sublist in [[x, y] for x, y in zip([f'{i}.000' for i in range(17,23)], [f'{i}.500' for i in range(17,23)])] for z in sublist]
         layout_etc = [
             [sg.Checkbox('画面取得時にファイル保存を行う(旧方式)', self.settings['save_on_capture'], key='save_on_capture', enable_events=True, tooltip='有効(旧方式): out/capture.pngに保存される\n無効(新方式): メモリ上で処理(ディスク負荷小)\n本ツールによってカクつきが発生する場合は有効にしてみてください。')],
             [par_text('リザルト自動保存先フォルダ'), par_btn('変更', key='btn_autosave_dir')],
@@ -567,6 +609,9 @@ class SDVXHelper:
                 sg.Text('プレイ時間用テキストの設定', tooltip=f'OBSで{self.settings["obs_txt_playtime"]}という名前のテキストソースを作成しておくと、\n本日の総プレイ時間を表示することができます。'),
                 sg.Text('ヘッダ', tooltip='"playtime: "や"本日のプレー時間:"など'),sg.Input(self.settings['obs_txt_playtime_header'], key='obs_txt_playtime_header', size=(10,1)),
                 #sg.Text('フッタ', tooltip='"plays", "曲"など'), sg.Input(self.settings['obs_txt_plays_footer'], key='obs_txt_plays_footer', size=(10,1)),
+            ],
+            [
+                par_text('RTA用設定'), par_text('target VF'), sg.Combo(list_vf, key='rta_target_vf', default_value=self.settings['rta_target_vf'], enable_events=True)
             ],
             [sg.Checkbox('BLASTER GAUGE最大時に音声でリマインドする',self.settings['alert_blastermax'],key='alert_blastermax', enable_events=True)],
             [sg.Text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
@@ -592,6 +637,7 @@ class SDVXHelper:
         menuitems = [
             ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
             ['ライバル関連',['Googleドライブ設定(ライバル関連)', 'ライバルのスコアを取得']],
+            ['RTA',['RTA開始']],
             ['分析',['VF内訳をツイート', '全プレーログをCSV出力', '自己ベストをCSV出力']]
         ]
         layout = [
@@ -948,6 +994,10 @@ class SDVXHelper:
         while True:
             self.get_capture_after_rotate()
             pre_mode = self.detect_mode
+            if self.rta_mode:
+                current = self.rta_endtime if self.rta_finished else datetime.datetime.now()
+                rta_time = (current - self.rta_starttime)
+                self.obs.change_text('sdvx_helper_rta_timer', str(rta_time).split('.')[0])
             # 全モード共通の処理
             if self.is_onlogo():
                 self.detect_mode = detect_mode.init
@@ -996,6 +1046,8 @@ class SDVXHelper:
                             if (sc>best_sc) or (lamp_table.index(lamp) < lamp_table.index(best_lamp)):
                                 print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
                                 self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
+                                if self.rta_mode:
+                                    self.rta_logger.push(title, sc, 0, lamp, diff, fmtnow)
                                 self.check_rival_update() # お手紙ビューを更新
                 if diff_hash < 8:
                     self.sdvx_logger.update_rival_view(title, diff)
@@ -1137,6 +1189,17 @@ class SDVXHelper:
                         self.obs.disable_source(tmps, tmpid)
                     except Exception:
                         pass
+                    if self.rta_mode:
+                        try:
+                            tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'rta_sdvx_stats_v2.html')
+                            self.obs.enable_source(tmps, tmpid)
+                            time.sleep(2)
+                            rta_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_rta_result.png"
+                            self.obs.ws.save_source_screenshot('rta_sdvx_stats_v2.html', 'png', rta_filename, 3500, 2700, 100)
+                            print(f"RTAのリザルトを保存しました。")
+                            self.obs.disable_source(tmps, tmpid)
+                        except Exception:
+                            pass
                     break
                 else: # メイン以外のGUIを閉じた場合
                     self.start_detect()
@@ -1154,6 +1217,8 @@ class SDVXHelper:
                     self.gui_obs_control()
                 else:
                     sg.popup_error('OBSに接続できません')
+            elif ev == 'RTA開始':
+                self.start_rta_mode()
             elif ev == 'btn_savefig':
                 self.save_screenshot_general()
 
@@ -1319,6 +1384,8 @@ class SDVXHelper:
                         if ans == "Yes":
                             print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
                             self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
+                            if self.rta_mode:
+                                self.rta_logger.push(title, sc, 0, lamp, diff, fmtnow)
                             self.check_rival_update() # お手紙ビューを更新
                     else:
                         print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')

@@ -1,0 +1,358 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>hoge</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
+        <style>
+            body { 
+            height: 100%;
+            width:100%;
+            margin: 0px;
+            padding: 0px;
+            overflow: hidden;
+            font-family:"RocknRoll One";
+            color:#2196F3;   
+            font-size: 30px;
+            color: #fff;
+            text-shadow: 2px 2px 0 #000,
+                         -2px 2px 0 #000,
+                         2px -2px 0 #000,
+                         -2px -2px 0 #000;
+            }
+            .frame_0 {
+                overflow: hidden;
+                height: 100%;
+                width: 33%;
+                padding-right:1%;
+            }
+            .frame_1 {
+                overflow: hidden;
+                height: 100%;
+                width: 33%;
+                padding-right:1%;
+                padding-left:1%;
+            }
+            .frame_2 {
+                overflow: hidden;
+                height: 100%;
+                width: 33%;
+                padding-left:1%;
+            }
+            div#all{
+                display:flex;
+                -moz-box-sizing:border-box;
+                box-sizing: border-box;
+                background-color: rgba(0, 0, 0, 0);
+            }
+            table {
+            	width:100%;
+                border: none;
+            }
+            table td {
+                border: none;
+                vertical-align: middle;
+            	white-space:nowrap;
+                height: 60px;
+            }
+            table tr:nth-child(odd) td:nth-child(1) { /* 何番目かの数字 */
+                font-family:'Black Ops One';
+                color:rgb(255, 255, 153);
+                padding-left: 15px;
+                padding-right: 30px;
+            	width:40px;
+                font-size: 40px;
+                text-align: center;
+            }
+            table td:nth-child(2) {
+                color:#ffffee;
+            	margin-left:4%;
+                padding-right: 30px;
+            	width:40px;
+            }
+            table tr:nth-child(odd) td:nth-child(3) { /* タイトル */
+                font-size: 42px;
+                max-width: 10px;
+            	overflow:hidden;
+            	text-overflow:ellipsis;
+            }
+            table tr:nth-child(even) td { /* 2行目 */
+                background-color: rgba(55,55,55,0.85);
+                font-size: 38px;
+            }
+            table tr:nth-child(even) td:nth-child(2) { /* 2行目 */
+                text-align: right;
+            }
+            tr#updated td{
+                background-color: #007777;
+            }
+            table td:nth-child(4) {
+                color:#eeeeee;
+                padding-left: 30px;
+            	width:80px;
+            }
+            table td:nth-child(5) {
+            	width:40px;
+                padding-left: 15px;
+                text-align:center;
+            }
+            table td:nth-child(4) {
+                color:#ccffcc;
+                font-size: 40px;
+            }
+            img#jacket{
+                height: 120px;
+            }
+            img#lamp{
+                height: 40px;
+                position: relative;
+                top: 5px;
+                left: 15px;
+            }
+            .MAX{
+                animation-name: flashmax;
+                animation-duration: 0.4s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashmax {
+                0%   { color: #ff2828; }
+                20%  { color: #d5ff28; }
+                40%  { color: #28ff7e; }
+                60%  { color: #2872ff; }
+                80%  { color: #d528ff; }
+                100% { color: #ff2828; }
+            }
+            .lv16{color: #77ff77}
+            .lv17{color: #aabbff}
+            .lv18{color: #f8f871}
+            .lv19{color: #ffaacc}
+            .lv20{color: #ab77ff}
+            .exh{color: #ffaaaa}
+            .adv{color: #ffffaa}
+            .nov{color: #aaaaff}
+            .APPEND{color: #ffccff;}
+            .S{
+                color:#ffff00;
+            }
+            .AAAplus{
+                color:#ffff28;
+            }
+            .AAA{
+                color:#ffff28;
+            }
+            .AAplus{
+                color:#c3c3c3;
+            }
+            .AA{
+                color:#c3c3c3;
+            }
+            .Aplus{
+                color:#2ddf71;
+            }
+            .A{
+                color:#2ddf71;
+            }
+            .B{
+                color:#7777ff;
+            }
+            .C{
+                color:#7777ff;
+            }
+            .D{
+                color:#7777ff;
+            }
+            .E{
+                color:#7777ff;
+            }
+            .F{
+                color:#7777ff;
+            }
+            .fc{
+                animation-name: flashfc;
+                animation-duration: 0.2s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfc {
+                0%   { background-color: #ff2828; }
+                20%  { background-color: #d5ff28; }
+                40%  { background-color: #28ff7e; }
+                60%  { background-color: #2872ff; }
+                80%  { background-color: #d528ff; }
+                100% { background-color: #ff2828; }
+            }
+            .failed{
+                animation-name: flashfailed;
+                animation-duration: 0.8s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfailed {
+                0%   { color: #ff2828; }
+                50%  { color: #282828; }
+                100% { color: #ff2828; }
+            }
+            .clear{color: #77ff77;}
+            .hard{color: #ffc115;}
+            .uc{color: #ff7777;}
+            .puc{color: #ffff99;}
+        </style>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <script>
+        function loadXml() {
+            var getxml = $.ajax({
+                url: './rta_total_vf.xml',
+                type: 'GET',
+                dataType: 'xml',
+                cache: false
+            });
+            getxml.done(function(xml){
+                // xmlデータからほしいデータをfindで探し処理
+                var left = "";
+                var center = "";
+                var right = "";
+                $(xml).find("vfinfo music").each(function(index, item){
+                    var idx = Number($(item).find('idx').text());
+                    var lv = $(item).find('lv').text();
+                    lv = '<span class="lv'+lv+'">'+lv+"</span>";
+                    var title = $(item).find('title').text();
+                    var difficulty = $(item).find('difficulty').text();
+                    title = '<span class="'+difficulty+'">'+title+"</span>";
+                    var score = Number($(item).find('score').text());
+                    var lamp = $(item).find('lamp').text();
+                    var hash = $(item).find('hash').text();
+                    var vf = Number($(item).find('vf').text());
+                    var updated = $(item).find('updated').text();
+                    score=Math.floor(score / 10000)
+                    vf = vf/10;
+                    var rank = "";
+                    if (score >= 990){
+                        rank = '<span class="S">S</span>';
+                    }
+                    else if (score >= 980){
+                        rank = '<span class="AAAplus">AAA+</span>';
+                    }
+                    else if (score >= 970){
+                        rank = '<span class="AAA">AAA</span>';
+                    }
+                    else if (score >= 950){
+                        rank = '<span class="AAplus">AA+</span>';
+                    }
+                    else if (score >= 930){
+                        rank = '<span class="AA">AA</span>';
+                    }
+                    else if (score >= 900){
+                        rank = '<span class="Aplus">A+</span>';
+                    }
+                    else if (score >= 870){
+                        rank = '<span class="A">A</span>';
+                    }
+                    else if (score >= 750){
+                        rank = '<span class="B">B</span>';
+                    }
+                    else if (score >= 650){
+                        rank = '<span class="C">C</span>';
+                    }
+                    else{
+                        rank = '<span class="D">D</span>';
+                    }
+
+                    if (lamp == "failed"){
+                        lamp = '<img src="../resources/log_lamp_failed.png" id="lamp">'
+                        //lamp = '<span class="failed">FAILED</span>'
+                    }
+                    else if (lamp == "clear"){
+                        //lamp = '<span class="clear">COMP</span>'
+                        lamp = '<img src="../resources/log_lamp_clear.png" id="lamp">'
+                    }
+                    else if (lamp == "hard"){
+                        //lamp = '<span class="hard">EXC</span>'
+                        lamp = '<img src="../resources/log_lamp_hard.png" id="lamp">'
+                    }
+                    else if (lamp == "uc"){
+                        //lamp = '<span class="uc">UC</span>'
+                        lamp = '<img src="../resources/log_lamp_uc.png" id="lamp">'
+                    }
+                    else if (lamp == "puc"){
+                        //lamp = '<span class="puc">PUC</span>'
+                        lamp = '<img src="../resources/log_lamp_puc.png" id="lamp">'
+                    }
+                    else{ // Failed, No playは何も表示しない
+                        lamp = ''
+                    }
+                    // テーブルに追加
+                    var tmp = "";
+                        // 1行目
+                        if (updated != ''){
+                            tmp += '<tr id="updated">'
+                        }else{
+                            tmp += '<tr>'
+                        }
+                        tmp += '    <td rowspan="2">'+idx+'</td>';
+                        //tmp += '    <td rowspan="2">'+idx+'</td>';
+                        tmp += '    <td rowspan="2"><img src="../jackets/'+hash+'.png" id="jacket"></td>';
+                        tmp += '    <td colspan="4">'+title+'</td>';
+                        tmp += '</tr>'
+                        // 2行目
+                        if (updated != ''){
+                            tmp += '<tr id="updated">'
+                        }else{
+                            tmp += '<tr>'
+                        }
+                        tmp += '    <td>Lv'+lv+'</td>';
+                        tmp += '    <td>'+score.toLocaleString()+'</td>';
+                        tmp += '    <td>'+lamp+'</td>';
+                        tmp += '    <td>'+vf.toPrecision(3)+'</td>';
+                        tmp += '</tr>'
+                        if (updated != ''){
+                            tmp += '</updated>'
+                        }
+                    if (index < 17){ // 直近の20プレイだけ表示としている。曲数はここから変更可能。A
+                        left += tmp;
+                    }else if(index < 34){
+                        center += tmp;
+                    }else{
+                        right += tmp;
+                    }
+                });
+                $('#vf_0 tbody').html(left);
+                $('#vf_1 tbody').html(center);
+                $('#vf_2 tbody').html(right);
+            });
+            getxml.fail(function(err) {
+                $(songtitle).text("ERROR!!!"+err);
+                //alert('failed');
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', function() {
+            var roopTimer = setInterval(loadXml, 1000);
+        });
+
+</script>
+</head>
+<body>
+  <div id="all">
+    <div class="frame_0">
+        <table id="vf_0" Rules="None">
+          <tbody>
+          </tbody>
+        </table>
+    </div>
+    <div class="frame_1">
+        <table id="vf_1" Rules="None">
+          <tbody>
+          </tbody>
+        </table>
+    </div>
+    <div class="frame_2">
+        <table id="vf_2" Rules="None">
+          <tbody>
+          </tbody>
+        </table>
+    </div>
+  </div>
+</body>
+</html>

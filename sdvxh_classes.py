@@ -323,7 +323,7 @@ class Stats:
             self.data[idx].read(minfo)
 
 class SDVXLogger:
-    def __init__(self, player_name:str=''):
+    def __init__(self, player_name:str='', rta_mode=False):
         self.date = datetime.datetime.now()
         self.gen_summary = GenSummary(self.date)
         self.stats       = Stats()
@@ -337,7 +337,16 @@ class SDVXLogger:
         self.vf_pre = False
         self.player_name = player_name
         self.load_settings()
-        self.load_alllog()
+        self.rta_mode = rta_mode
+        self.filename_total_vf = 'out/total_vf.xml'
+        self.filename_stats = 'out/stats.xml'
+        self.rta_timer = ''
+        if self.rta_mode:
+            self.alllog = []
+            self.filename_total_vf = 'out/rta_total_vf.xml'
+            self.filename_stats = 'out/rta_stats.xml'
+        if not self.rta_mode:
+            self.load_alllog()
         self.titles = self.gen_summary.musiclist['titles']
         self.update_best_allfumen()
         self.update_total_vf()
@@ -472,7 +481,8 @@ class SDVXLogger:
         # 全譜面のbestを更新
         self.update_best_onesong(title, difficulty)
         # ここでHTML表示用XMLを作成
-        self.gen_history_cursong(title, difficulty)
+        if not self.rta_mode:
+            self.gen_history_cursong(title, difficulty)
         # VF情報更新
         self.update_total_vf()
         # 統計情報も更新
@@ -740,7 +750,7 @@ class SDVXLogger:
             if type(f.lv) == int:
                 self.stats.read_all(f)
 
-        with open('out/stats.xml', 'w', encoding='utf-8') as f:
+        with open(self.filename_stats, 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<stats>\n")
             f.write(f"    <date>{self.date.strftime('%Y/%m/%d')}</date>\n")
@@ -748,6 +758,7 @@ class SDVXLogger:
             f.write(f"    <total_vf>{self.total_vf:.3f}</total_vf>\n")
             f.write(f"    <total_vf_pre>{self.vf_pre:.3f}</total_vf_pre>\n")
             f.write(f"    <total_vf_diff>{self.total_vf - self.vf_pre:.3f}</total_vf_diff>\n")
+            f.write(f"    <timer>{self.rta_timer}</timer>\n")
             for st in self.stats.data:
                 f.write("    <lvs>\n")
                 f.write(f"        <lv>{st.lv}</lv>\n")
@@ -768,7 +779,7 @@ class SDVXLogger:
             out/total_vf.xmlにも出力する。
         """
         ret = 0
-        with open('out/total_vf.xml', 'w', encoding='utf-8') as f:
+        with open(self.filename_total_vf, 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
             f.write("<vfinfo>\n")
             for i,s in enumerate(self.best_allfumen):

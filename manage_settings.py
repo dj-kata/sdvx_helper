@@ -47,6 +47,9 @@ default_val = {
     'import_from_select': False,
     'import_arcade_score': False, # AC自己べのものを許容するか
 
+    # RTA機能関連
+    'rta_target_vf': '20.000',
+
     # others
     'ignore_rankD':True, 'auto_update':True,
     'params_json':'resources/params.json',
