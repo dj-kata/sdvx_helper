@@ -1173,31 +1173,31 @@ class SDVXHelper:
                     print(f"VF対象一覧を保存中 (OBSに設定していれば保存されます) ...\n==> {vf_filename}")
                     try:
                         tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'sdvx_stats.html')
-                        self.obs.enable_source(tmps, tmpid)
-                        time.sleep(2)
-                        self.obs.ws.save_source_screenshot('sdvx_stats.html', 'png', vf_filename, 3000, 2300, 100)
-                        print(f"VF対象一覧を保存しました。")
-                        self.obs.disable_source(tmps, tmpid)
+                        if self.obs.enable_source(tmps, tmpid):
+                            time.sleep(2)
+                            self.obs.ws.save_source_screenshot('sdvx_stats.html', 'png', vf_filename, 3000, 2300, 100)
+                            print(f"VF対象一覧を保存しました。")
+                            self.obs.disable_source(tmps, tmpid)
                     except Exception:
                         pass
                     try:
                         tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'sdvx_stats_v2.html')
-                        self.obs.enable_source(tmps, tmpid)
-                        time.sleep(2)
-                        self.obs.ws.save_source_screenshot('sdvx_stats_v2.html', 'png', vf_filename, 3500, 2700, 100)
-                        print(f"VF対象一覧を保存しました。")
-                        self.obs.disable_source(tmps, tmpid)
+                        if self.obs.enable_source(tmps, tmpid):
+                            time.sleep(2)
+                            self.obs.ws.save_source_screenshot('sdvx_stats_v2.html', 'png', vf_filename, 3500, 2700, 100)
+                            print(f"VF対象一覧を保存しました。")
+                            self.obs.disable_source(tmps, tmpid)
                     except Exception:
                         pass
                     if self.rta_mode:
                         try:
                             tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'rta_sdvx_stats_v2.html')
-                            self.obs.enable_source(tmps, tmpid)
-                            time.sleep(2)
-                            rta_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_rta_result.png"
-                            self.obs.ws.save_source_screenshot('rta_sdvx_stats_v2.html', 'png', rta_filename, 3500, 2700, 100)
-                            print(f"RTAのリザルトを保存しました。")
-                            self.obs.disable_source(tmps, tmpid)
+                            if self.obs.enable_source(tmps, tmpid):
+                                time.sleep(2)
+                                rta_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_rta_result.png"
+                                self.obs.ws.save_source_screenshot('rta_sdvx_stats_v2.html', 'png', rta_filename, 3500, 2700, 100)
+                                print(f"RTAのリザルトを保存しました。")
+                                self.obs.disable_source(tmps, tmpid)
                         except Exception:
                             pass
                     break

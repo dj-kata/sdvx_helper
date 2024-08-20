@@ -109,14 +109,16 @@ class OBSSocket():
     def enable_source(self, scenename, sourceid): # グループ内のitemはscenenameにグループ名を指定する必要があるので注意
         try:
             res = self.ws.set_scene_item_enabled(scenename, sourceid, enabled=True)
+            return True
         except Exception as e:
-            return e
+            return False
 
     def disable_source(self, scenename, sourceid):
         try:
             res = self.ws.set_scene_item_enabled(scenename, sourceid, enabled=False)
+            return True
         except Exception as e:
-            return e
+            return False
         
     def refresh_source(self, sourcename):
         try:
