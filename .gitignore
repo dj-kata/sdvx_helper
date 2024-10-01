@@ -9,7 +9,6 @@ __pycache__/*
 sdvx_helper/*
 tmp/*
 jackets/*
-params_secret.py
 *.zip
 *.png
 log/*
