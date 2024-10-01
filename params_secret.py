@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# このファイルはコミットしないこと！
 
 url_webhook_unknown = ""
 url_webhook_unknown_exh = ""
