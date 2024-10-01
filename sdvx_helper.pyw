@@ -162,6 +162,7 @@ class SDVXHelper:
                 print(f"{k}が設定ファイル内に存在しません。デフォルト値({default_val[k]}を登録します。)")
                 ret[k] = default_val[k]
         self.settings = ret
+        self.check_legacy_settings()
         with open(self.settings['params_json'], 'r') as f:
             self.params = json.load(f)
         return ret
@@ -171,6 +172,17 @@ class SDVXHelper:
         """
         with open(SETTING_FILE, 'w') as f:
             json.dump(self.settings, f, indent=2)
+
+    def check_legacy_settings(self):
+        """古くなった設定からの移行時に呼び出す関数。古いパラメータがある際に一度だけ呼び出す想定。
+        """
+        if 'top_is_right' in self.settings.keys(): # 1.0.29, 画面回転モードの判定
+            if self.settings['top_is_right']:
+                self.settings['orientation_top'] = 'right'
+            else:
+                self.settings['orientation_top'] = 'left'
+            self.settings.pop('top_is_right')
+            print('old parameter updated.\n(top_is_right -> orientation_top)')
 
     def save_screenshot_general(self):
         """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
@@ -384,10 +396,12 @@ class SDVXHelper:
                     img = Image.open(self.imgpath)
                 else:
                     img = self.obs.get_screenshot()
-                if self.settings['top_is_right']:
+                if self.settings['orientation_top'] == 'right':
                     ret = img.rotate(90, expand=True)
-                else:
+                elif self.settings['orientation_top'] == 'left':
                     ret = img.rotate(270, expand=True)
+                else:
+                    ret = img.resize((1080,1920))
                 break
             except Exception:
                 continue
@@ -414,7 +428,12 @@ class SDVXHelper:
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
-            self.settings['top_is_right'] = val['top_is_right']
+            if val['orientation_top_right']:
+                self.settings['top_is_right'] = 'right'
+            elif val['orientation_top_top']:
+                self.settings['top_is_right'] = 'top'
+            elif val['orientation_top_left']:
+                self.settings['top_is_right'] = 'left'
             self.settings['autosave_always'] = val['chk_always']
             self.settings['ignore_rankD'] = val['chk_ignore_rankD']
             self.settings['auto_update'] = val['chk_auto_update']
@@ -587,7 +606,11 @@ class SDVXHelper:
             [par_text('OBS websocket password'), sg.Input(self.settings['passwd'], font=FONT, key='input_passwd', size=(20,20), password_char='*')],
         ]
         layout_gamemode = [
-            [par_text('画面の向き(設定画面で選んでいるもの)'), sg.Radio('頭が右', group_id='topmode',default=self.settings['top_is_right'], key='top_is_right'), sg.Radio('頭が左', group_id='topmode', default=not self.settings['top_is_right'])],
+            [par_text('画面の向き(設定画面で選んでいるもの)'),
+             sg.Radio('頭が右', group_id='topmode',default=self.settings['orientation_top']=='right', key='orientation_top_right'),
+             sg.Radio('回転なし', group_id='topmode', default=self.settings['orientation_top']=='top', key='orientation_top_top'),
+             sg.Radio('頭が左', group_id='topmode', default=self.settings['orientation_top']=='left', key='orientation_top_left'),
+            ],
         ]
         list_vf = [f"{i}.000" for i in range(1,17)]
         list_vf += [z for sublist in [[x, y] for x, y in zip([f'{i}.000' for i in range(17,23)], [f'{i}.500' for i in range(17,23)])] for z in sublist]
