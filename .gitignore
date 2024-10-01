@@ -12,3 +12,4 @@ jackets/*
 *.zip
 *.png
 log/*
+params_secret.py
