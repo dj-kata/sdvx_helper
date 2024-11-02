@@ -5,7 +5,7 @@ default_val = {
     'autosave_prewait':'0.0', # リザルト画面を認識して撮影するまでの待ち時間(クルーに対する調整用)
     'detect_wait':2.7,
     'obs_source':'',
-    'orientation_top':False, # 画面回転の設定(False, 'left', 'right', 'top')
+    'orientation_top':'left', # 画面回転の設定(False, 'left', 'right', 'top')
     'ui_language':'jp', # jp / en
     # スレッド起動時の設定
     'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
