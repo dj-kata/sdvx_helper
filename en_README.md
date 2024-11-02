@@ -79,9 +79,8 @@ If you see a message saying 'Cannot connect to OBS', suspect the following.
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/6b63586e-8d9f-4429-876f-2fe12fefe459)
 
 ## 4. Select the orientation of the screen specified in the e-AMUSEMENT Cloud version of Sound Voltex in the settings.
-Please note that layouts that do not rotate are currently not supported.
 The settings in Sound Voltex and this tool correspond as follows:
-![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/3ca2fd3f-8da4-47ee-b3b0-0b18d14c8fc9)
+![image](https://github.com/user-attachments/assets/40e717b7-5756-4264-b694-a175f3900714)
 
 ## 5. Close the settings window.
 ## 6. Open 'OBS制御設定(OBS control settings)' from the menu bar.
