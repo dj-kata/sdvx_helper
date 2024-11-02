@@ -182,7 +182,7 @@ class SDVXHelper:
             else:
                 self.settings['orientation_top'] = 'left'
             self.settings.pop('top_is_right')
-            print('old parameter updated.\n(top_is_right -> orientation_top)')
+            print('old parameter is updated.\n(top_is_right -> orientation_top)')
 
     def save_screenshot_general(self):
         """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
@@ -429,11 +429,11 @@ class SDVXHelper:
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
             if val['orientation_top_right']:
-                self.settings['top_is_right'] = 'right'
+                self.settings['orientation_top'] = 'right'
             elif val['orientation_top_top']:
-                self.settings['top_is_right'] = 'top'
+                self.settings['orientation_top'] = 'top'
             elif val['orientation_top_left']:
-                self.settings['top_is_right'] = 'left'
+                self.settings['orientation_top'] = 'left'
             self.settings['autosave_always'] = val['chk_always']
             self.settings['ignore_rankD'] = val['chk_ignore_rankD']
             self.settings['auto_update'] = val['chk_auto_update']
@@ -607,9 +607,9 @@ class SDVXHelper:
         ]
         layout_gamemode = [
             [par_text('画面の向き(設定画面で選んでいるもの)'),
-             sg.Radio('頭が右', group_id='topmode',default=self.settings['orientation_top']=='right', key='orientation_top_right'),
-             sg.Radio('回転なし', group_id='topmode', default=self.settings['orientation_top']=='top', key='orientation_top_top'),
-             sg.Radio('頭が左', group_id='topmode', default=self.settings['orientation_top']=='left', key='orientation_top_left'),
+             sg.Radio('頭が右', group_id='topmode',default=self.settings['orientation_top']=='right', enable_events=True, key='orientation_top_right'),
+             sg.Radio('回転なし', group_id='topmode', default=self.settings['orientation_top']=='top', enable_events=True, key='orientation_top_top'),
+             sg.Radio('頭が左', group_id='topmode', default=self.settings['orientation_top']=='left', enable_events=True, key='orientation_top_left'),
             ],
         ]
         list_vf = [f"{i}.000" for i in range(1,17)]
