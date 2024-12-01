@@ -13,3 +13,7 @@ jackets/*
 *.png
 log/*
 params_secret.py
+
+# PyClipse project files
+.project
+.pydevproject
