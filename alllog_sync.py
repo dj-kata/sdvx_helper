@@ -1,5 +1,8 @@
 import pickle
 import os
+import argparse
+import shutil
+import sys
 from os import path
 from PIL import Image
 from datetime import datetime 
@@ -7,15 +10,15 @@ from sdvxh_classes import OnePlayData
 from gen_summary import GenSummary
 
 
-def load():
+def load(allogFolder):
     ret = None
-    with open('D:/Tools/SoundVoltex/sdvx_helper/alllog.pkl', 'rb') as f:
+    with open(f'{allogFolder}/alllog.pkl', 'rb') as f:
         ret = pickle.load(f)
     return ret
 
 
-def save(dat:dict):
-    with open('D:/Tools/SoundVoltex/sdvx_helper/alllog.pkl', 'wb') as f:
+def save(dat:dict, allogFolder):
+    with open(f'{allogFolder}/alllog.pkl', 'wb') as f:
         pickle.dump(dat, f)
 
         
@@ -24,19 +27,19 @@ def isSongInLog(songLog, songToSearch):
     songFound = False
     songExistOnDate = False
     for songFromLog in songLog:
-        if songFromLog.title == songFromScreenshot.title and songFromLog.date == songFromScreenshot.date:
-#            print(f'Song {songFromScreenshot.title} already exists on file')
+        if songFromLog.title == songToSearch.title and songFromLog.date == songToSearch.date:
+#            print(f'Song {songToSearch.title} already exists on file')
             songFound = True
             break
-        elif songFromLog.title == songFromScreenshot.title:
+        elif songFromLog.title == songToSearch.title:
             songLogDate = songFromLog.date.split('_')[0]
             songLogTime = datetime.strptime(songFromLog.date.split('_')[1], '%H%M%S')
             
-            if not "_" in songFromScreenshot.date: 
-                print(f'Mallformed song data: {songFromScreenshot.disp()}')
+            if not "_" in songToSearch.date: 
+                print(f'Mallformed song data: {songToSearch.disp()}')
             
-            songSSDate = songFromScreenshot.date.split('_')[0]
-            songSSTime = datetime.strptime(songFromScreenshot.date.split('_')[1], '%H%M%S')
+            songSSDate = songToSearch.date.split('_')[0]
+            songSSTime = datetime.strptime(songToSearch.date.split('_')[1], '%H%M%S')
             
             diferenceInSeconds = abs((songSSTime - songLogTime).total_seconds())
             
@@ -64,20 +67,47 @@ def parse_unparsed_results_screen (resultsFilename):
     parts = genSummary.cut_result_parts(img)
     genSummary.ocr()
     dif = genSummary.difficulty
-
-if __name__ == '__main__':
-    songLog = load()
     
-    updatedSongs = 0
+def print_logo():
+    print(' _                  __  __           _        ____                   ')
+    print('| |    ___   __ _  |  \\/  |_   _ ___(_) ___  / ___| _   _ _ __   ___ ')
+    print('| |   / _ \\ / _` | | |\\/| | | | / __| |/ __| \\___ \\| | | | \'_ \\ / __|')
+    print('| |__| (_) | (_| | | |  | | |_| \\__ \\ | (__   ___) | |_| | | | | (__ ')
+    print('|_____\\___/ \\__, | |_|  |_|\\__,_|___/_|\\___| |____/ \\__, |_| |_|\\___|')
+    print('            |___/                                   |___/            ')
     
-    # TODO: Argument
-    rootFolder = 'D:/Tools/SoundVoltex/results'
+def main(songLogFolder, resultsFolder):
+    
+    print_logo()
+    
+    if os.path.isdir(resultsFolder) : 
+        rootFolder = resultsFolder
+    else :
+        print(f'Cannot run log sync: results folder \'{resultsFolder}\' is not a folder', file=sys.stderr)
+        exit(1)
+        
+    if os.path.isdir(songLogFolder) :       
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S') 
+        backupLogFile = 'alllog.pkl.'+timestamp
+        print(f'Backuping log file to {backupLogFile}')
+        shutil.copyfile(f'{songLogFolder}/alllog.pkl', f'{songLogFolder}/{backupLogFile}')
+        
+        songLog = load(songLogFolder)
+    else :
+        print(f'Cannot run log sync: alllog folder \'{songLogFolder}\' is not a folder', file=sys.stderr)
+        exit(1)
+        
 
+    print('Initialising OCR...')
     # When running manually, call in the settings yourself to be able to run from the IDE
     start = datetime(year=2023, month=10, day=15, hour=0)
     genSummary = GenSummary(start, rootFolder.join('/sync'), 'true', 255, 2)
+    
+    print(f'Processing {len(os.listdir(rootFolder))} files from folder \'{rootFolder}\'')
 
-    for playScreenshotFileName in os.listdir(rootFolder):
+    updatedSongs = 0
+    processedFiles = 0
+    for playScreenshotFileName in os.listdir(rootFolder):                
         # We ignore files which are a summany and are not png
         if playScreenshotFileName.find('summary') > 0 :
             continue
@@ -94,13 +124,13 @@ if __name__ == '__main__':
         playDate = ''
         
         # Go through all the filename parts to extract the song data. The ocr_reporter must be used 1st to put that inforation
-        # in the filename of the results screenshot
+        # in the filename of the resultsFolder screenshot
         for split in nameSplits:
             if split == 'sdvx':
                 continue
             
             # Files that have no information about them on the filename should try to get their information
-            # From the results screenshot
+            # From the resultsFolder screenshot
             if split.isnumeric() and songTitle == '': 
                 #parse_unparsed_results_screen(playScreenshotFileName)
                 break
@@ -130,5 +160,20 @@ if __name__ == '__main__':
                 songLog.append(songFromScreenshot)
                 updatedSongs += 1
         
-    print(f'Update song log with {updatedSongs} songs')
-    save(songLog)
+        processedFiles += 1
+        if processedFiles % 100 == 0:
+            print(f'{processedFiles} files processed...')
+        
+    print(f'Update song log with {updatedSongs} songs out of {processedFiles} valid files')
+    save(songLog, songLogFolder)
+
+if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser(description='Reads the sdvx results folders and re-inserts missing songs into the alllog.pkl')
+    parser.add_argument('--songLog', required=True, help='The directory containing the alllog file')
+    parser.add_argument('--results', required=True, help='The directory containing the result screenshots')
+    
+    args = parser.parse_args()
+    main(args.songLog, args.results)
+    
+    
