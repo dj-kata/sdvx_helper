@@ -44,20 +44,20 @@ def isSongInLog(songLog, songToSearch):
             diferenceInSeconds = abs((songSSTime - songLogTime).total_seconds())
             
             if songLogDate == songSSDate and diferenceInSeconds < 120:
-                #print(f'Song {songFromScreenshot.title} already exists on file')
+                #print(f'Song {songToSearch.title} already exists on file')
                 songFound = True
                 break
             else: 
-                #print(f'Song \'{songFromScreenshot.title}\' already exists on file but with different date: {songFromLog.date} in log vs {songFromScreenshot.date} in screenshot ({diferenceInSeconds}s difference)')
+                #print(f'Song \'{songToSearch.title}\' already exists on file but with different date: {songFromLog.date} in log vs {songToSearch.date} in screenshot ({diferenceInSeconds}s difference)')
                 songExistOnDate = True
             
 
     if not songFound and not songExistOnDate:
-        print(f'Song \'{songFromScreenshot.title}\' is new!')
+        print(f'Song \'{songToSearch.title}\' is new!')
         return False
     elif not songFound and songExistOnDate : 
-        print(f'Song \'{songFromScreenshot.title}\' already exists but with another date. Adding new date.')
-        return False
+        #print(f'Song \'{songToSearch.title}\' already exists but with another date.')
+        return True
 
     return True
 
