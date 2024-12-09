@@ -28,17 +28,36 @@ except Exception:
     SWVER = "v?.?.?"
 
 class GenSummary:
-    def __init__(self, now):
+    
+    def __init__(self, now, autosave_dir=None, ignore_rankD=None, logpic_bg_alpha=None, log_maxnum=None):
         self.start = now
         self.result_parts = False
         self.difficulty = False
         self.load_settings()
         self.load_hashes()
-        self.savedir = self.settings['autosave_dir']
-        self.ignore_rankD = self.settings['ignore_rankD']
-        self.alpha = self.settings['logpic_bg_alpha']
-        self.max_num = self.params['log_maxnum']
+        
+        if autosave_dir : 
+            self.savedir = autosave_dir
+        else :
+            self.savedir = self.settings['autosave_dir']
+            
+        if ignore_rankD : 
+            self.ignore_rankD = ignore_rankD
+        else :
+            self.ignore_rankD = self.settings['ignore_rankD']
+            
+        if logpic_bg_alpha:
+            self.alpha = logpic_bg_alpha
+        else :
+            self.alpha = self.settings['logpic_bg_alpha']
+            
+        if log_maxnum :
+            self.max_num = log_maxnum
+        else :
+            self.max_num = self.params['log_maxnum']
+            
         print(now, self.savedir)
+    
 
     def load_settings(self):
         try:
