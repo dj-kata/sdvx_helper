@@ -416,8 +416,12 @@ class SDVXHelper:
             val (dict): sgの各GUIの値
         """
         if self.gui_mode == gui_mode.main:
-            self.settings['lx'] = self.window.current_location()[0]
-            self.settings['ly'] = self.window.current_location()[1]
+            if self.settings['clip_lxly']:
+                self.settings['lx'] = max(0, self.window.current_location()[0])
+                self.settings['ly'] = max(0, self.window.current_location()[1])
+            else:
+                self.settings['lx'] = self.window.current_location()[0]
+                self.settings['ly'] = self.window.current_location()[1]
         elif self.gui_mode == gui_mode.webhook:
             self.settings['webhook_player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
@@ -425,6 +429,7 @@ class SDVXHelper:
             self.settings['update_rival_on_result'] = val['update_rival_on_result']
             self.settings['player_name'] = val['player_name3']
         elif self.gui_mode == gui_mode.setting:
+            self.settings['clip_lxly'] = val['clip_lxly']
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
@@ -641,6 +646,7 @@ class SDVXHelper:
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
             [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
             [sg.Checkbox('選曲画面からスコアを取り込む',self.settings['import_from_select'],key='import_from_select', enable_events=True),sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)],
+            [sg.Checkbox('ウィンドウの座標を0以上に補正する',self.settings['clip_lxly'],key='clip_lxly', enable_events=True, tooltip='設定ファイルに保存されるsdvx_helperウィンドウの座標がマイナスにならないようにします。(60p/120pを切り替える人向け)\n基本的には外しておいてOKです。')],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
