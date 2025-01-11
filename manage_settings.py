@@ -30,6 +30,9 @@ default_val = {
     # sdvx_helperで使うシーンコレクション
     'obs_scene_collection':'',
 
+    # lx,lyが負の値にならないようにclipする
+    'clip_lxly':False,
+
     # カスタムwebhook用
     # それぞれ1エントリが1つの設定に対応。(全ての配列が同じ長さになる)
     'webhook_player_name':'', # webhook送信時のプレーヤ名(元のplayer_nameと独立させるために追加)
