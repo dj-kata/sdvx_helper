@@ -8,9 +8,16 @@ from PIL import Image
 from datetime import datetime 
 from sdvxh_classes import OnePlayData
 from gen_summary import GenSummary
+import xml.etree.ElementTree as ET
 
 
-def load(allogFolder):
+def loadSongList(songList):
+    ret = None
+    with open(f'{songList}/musiclist.pkl', 'rb') as f:
+        ret = pickle.load(f)
+    return ret
+
+def loadPlaysList(allogFolder):
     ret = None
     with open(f'{allogFolder}/alllog.pkl', 'rb') as f:
         ret = pickle.load(f)
@@ -35,8 +42,9 @@ def isSongInLog(songLog, songToSearch):
             songLogDate = songFromLog.date.split('_')[0]
             songLogTime = datetime.strptime(songFromLog.date.split('_')[1], '%H%M%S')
             
-            if not "_" in songToSearch.date: 
+            if not "_" in songToSearch.date or len(songToSearch.date.split('_')) < 2 : 
                 print(f'Mallformed song data: {songToSearch.disp()}')
+                return True                
             
             songSSDate = songToSearch.date.split('_')[0]
             songSSTime = datetime.strptime(songToSearch.date.split('_')[1], '%H%M%S')
@@ -92,7 +100,7 @@ def main(songLogFolder, resultsFolder):
         print(f'Backuping log file to {backupLogFile}')
         shutil.copyfile(f'{songLogFolder}/alllog.pkl', f'{songLogFolder}/{backupLogFile}')
         
-        songLog = load(songLogFolder)
+        songLog = loadPlaysList(songLogFolder)
     else :
         print(f'Cannot run log sync: alllog folder \'{songLogFolder}\' is not a folder', file=sys.stderr)
         exit(1)
@@ -101,52 +109,53 @@ def main(songLogFolder, resultsFolder):
     print('Initialising OCR...')
     # When running manually, call in the settings yourself to be able to run from the IDE
     start = datetime(year=2023, month=10, day=15, hour=0)
-    genSummary = GenSummary(start, rootFolder.join('/sync'), 'true', 255, 2)
+    genSummary = GenSummary(start, rootFolder + '/sync', 'true', 255, 2)
     
     print(f'Processing {len(os.listdir(rootFolder))} files from folder \'{rootFolder}\'')
 
     updatedSongs = 0
     processedFiles = 0
     for playScreenshotFileName in os.listdir(rootFolder):                
-        # We ignore files which are a summany and are not png
+        # We ignore files which are a summary and are not png
         if playScreenshotFileName.find('summary') > 0 :
             continue
         
         if playScreenshotFileName.find('png') < 0 :
             continue
+        
+        if not playScreenshotFileName.startswith("sdvx") :
+            continue
 
-        nameSplits = playScreenshotFileName.split("_")
-        
+        nameSplits = playScreenshotFileName.split("_")                
+                        
         songTitle = ''
-        dif = ''
-        lamp = ''
-        score = ''
-        playDate = ''
-        
-        # Go through all the filename parts to extract the song data. The ocr_reporter must be used 1st to put that inforation
-        # in the filename of the resultsFolder screenshot
-        for split in nameSplits:
-            if split == 'sdvx':
+        for i in range(1,len(nameSplits)) :
+            
+            # Read all chunks as song title until we hit and difficulty identifier
+            if nameSplits[i] != 'NOV' and nameSplits[i] != 'ADV' and nameSplits[i] != 'EXH' :         
+                songTitle += nameSplits[i] + ' '
+                lastIndexOfName = i
                 continue
-            
-            # Files that have no information about them on the filename should try to get their information
-            # From the resultsFolder screenshot
-            if split.isnumeric() and songTitle == '': 
-                #parse_unparsed_results_screen(playScreenshotFileName)
-                break
-            
-            if dif == '' and split != 'NOV' and split != 'ADV' and split != 'EXH':
-                 songTitle += split + ' '
-            elif dif == '': 
-                dif = split
-            elif dif != '' and lamp == '':
-                lamp = split                
-            elif lamp != ''  and score == '':
-                score = split
-            elif score != '':
-                playDate += split + '_'
+            else :
+                break;
+         
+        # Set the rest of the data based on offset of the last chunk of the title       
+        dif = nameSplits[lastIndexOfName+1]
+        lamp = nameSplits[lastIndexOfName+2]
         
-        # print(f'Read from file: {songTitle} - {dif} - {lamp} - {score} - {playDate}')
+        # It can happen that the score is empty and we have a file of type
+        # sdvx_プナイプナイたいそう_NOV_failed__20250111_173755
+        # In the case, consider the score 0 otherwise things might break later 
+        # if the playDate chunks are not assigbned correctly
+        if nameSplits[lastIndexOfName+3] == '' :
+            score = 0
+        else :
+            score = nameSplits[lastIndexOfName+3]
+            
+        playDate = nameSplits[lastIndexOfName+4]+'_'+nameSplits[lastIndexOfName+5]
+        playDate = playDate.removesuffix('.png')
+                
+        #print(f'Read from file: {songTitle} / {dif} / {lamp} / {score} / {playDate}')
 
         if songTitle != '':
             
@@ -166,14 +175,79 @@ def main(songLogFolder, resultsFolder):
         
     print(f'Update song log with {updatedSongs} songs out of {processedFiles} valid files')
     save(songLog, songLogFolder)
-
+    
+    
+def findSongRating(songFromLog, songList):
+    
+    rating = "n/a"
+    
+    # Find the numeric value of the song rating based on it's difficulty category
+    for songTitle in songList['titles'] :
+        if songTitle == songFromLog.title :
+            song = songList['titles'][songTitle]
+            if songFromLog.difficulty == 'nov' : 
+                rating = song[3]
+            elif songFromLog.difficulty == 'adv' :
+                rating = song[4]
+            elif songFromLog.difficulty == 'exh' :
+                rating = song[5]
+            else :
+                rating = song[6]
+            break
+        
+    return str(rating)
+    
+def dump(songLogFolder, songListFolder):
+    
+    songLog = loadPlaysList(songLogFolder)
+    songList = loadSongList(songListFolder)
+    
+    songListElement = ET.Element("songList")
+    xmlTree = ET.ElementTree(songListElement)
+    plays={}
+    
+    print(f'Dumping {len(songLog)} song plays to XML...')
+    for songFromLog in songLog:
+        
+        title = songFromLog.title.replace("'","\"")
+        
+        rating = findSongRating(songFromLog, songList)
+        songHash = str(hash(title+"_"+songFromLog.difficulty+"_"+rating))
+                
+        existingNode = plays.get(songHash,None)
+        
+        #Format the date to more similar to ISO
+        songDate = datetime.strptime(songFromLog.date, '%Y%m%d_%H%M%S')
+        formatted_date = songDate.strftime("%Y-%m-%d %H:%M:%S")
+        
+        # If we already added this song, create new "play" entry under the same song and difficulty / rating
+        if existingNode is not None:       
+            ET.SubElement(existingNode,"play",score=str(songFromLog.cur_score), lamp=songFromLog.lamp, date=formatted_date)
+        else :
+            songNode = ET.SubElement(songListElement, "song", title=title)
+            playsNode = ET.SubElement(songNode,"plays", difficulty=songFromLog.difficulty, rating=rating)
+            ET.SubElement(playsNode,"play",score=str(songFromLog.cur_score), lamp=songFromLog.lamp, date=formatted_date)
+            plays[songHash] = playsNode
+        
+        
+    print(f'Writing XML to {songLogFolder}/played_songs.xml')
+    ET.indent(xmlTree, space="\t", level=0)
+    xmlTree.write(songLogFolder+"/played_songs.xml",encoding="UTF-8",xml_declaration=True)
+        
+        
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Reads the sdvx results folders and re-inserts missing songs into the alllog.pkl')
-    parser.add_argument('--songLog', required=True, help='The directory containing the alllog file')
+    parser.add_argument('--songLog', required=True, help='The directory containing the alllog (alllog.pkl) file')
     parser.add_argument('--results', required=True, help='The directory containing the result screenshots')
+    parser.add_argument('--dump', required=False, help='Dumps the alllog.pkl into an xml file', action='store_true')
+    parser.add_argument('--songList', required=False, help='The directory containing the song list (musiclist.pkl) file, only used with the --dump option')
     
     args = parser.parse_args()
     main(args.songLog, args.results)
     
+    if args.dump :
+        dump(args.songLog, args.songList)
     
+    
+
