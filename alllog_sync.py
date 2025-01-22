@@ -47,6 +47,7 @@ def isSongInLog(songLog, songToSearch):
                 return True                
             
             songSSDate = songToSearch.date.split('_')[0]
+            #print(f'Searching for {songToSearch.title}')
             songSSTime = datetime.strptime(songToSearch.date.split('_')[1], '%H%M%S')
             
             diferenceInSeconds = abs((songSSTime - songLogTime).total_seconds())
@@ -141,12 +142,17 @@ def main(songLogFolder, resultsFolder):
          
         # Set the rest of the data based on offset of the last chunk of the title       
         dif = nameSplits[lastIndexOfName+1]
+        
+        # If the chunk after the difficulty is 'class' we know it's a screenshot of the Skill Analyser mode and we skip that chunk
+        if nameSplits[lastIndexOfName+2] == 'class' :
+            lastIndexOfName+=1
+            
         lamp = nameSplits[lastIndexOfName+2]
         
         # It can happen that the score is empty and we have a file of type
         # sdvx_プナイプナイたいそう_NOV_failed__20250111_173755
         # In the case, consider the score 0 otherwise things might break later 
-        # if the playDate chunks are not assigbned correctly
+        # if the playDate chunks are not assigned correctly
         if nameSplits[lastIndexOfName+3] == '' :
             score = 0
         else :
