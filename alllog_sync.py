@@ -10,6 +10,44 @@ from sdvxh_classes import OnePlayData
 from gen_summary import GenSummary
 import xml.etree.ElementTree as ET
 
+specialTitles = {
+        'Death by Glamour  華麗なる死闘':  'Death by Glamour / 華麗なる死闘',
+        'Electric Sister Bitch':'Electric "Sister" Bitch',
+        'Lunatic Dial':'Lunartic Dial',
+        'ASGORE  アズゴア':'ASGORE / アズゴア',
+        'archivezip':'archive::zip',
+        'Sakura Reflection (PLight Slayer Remix)':'Sakura Reflection (P*Light Slayer Remix)',
+        'Spider Dance  スパイダーダンス':'Spider Dance / スパイダーダンス',
+        'U.N. Owen was her (Hyuji Remix)':'U.N. Owen was her? (Hyuji Remix)',
+        'I’m Your Treasure Box ＊あなたは マリンせんちょうを たからばこからみつけた。':'I’m Your Treasure Box ＊あなたは マリンせんちょうを たからばこからみつけた。',
+        'The Sampling Paradise (PLight Remix)':'The Sampling Paradise (P*Light Remix)',
+        'Finale  フィナーレ':'Finale / フィナーレ',
+        'コンベア速度Max!しゃいにん☆廻転ズシSushi&Peace':'コンベア速度Max!? しゃいにん☆廻転ズシ"Sushi&Peace"',
+        'VoynichManuscript':'Voynich:Manuscript',
+        'Pure Evil':'Pure Evil',
+        'Believe (y)our Wings {VIVID RAYS}':'Believe (y)our Wings {V:IVID RAYS}',
+        'チルノのパーフェクトさんすう教室 ⑨周年バージョン':'チルノのパーフェクトさんすう教室　⑨周年バージョン',
+        'Wuv U(picoustic rmx)':'Wuv U(pico/ustic rmx)',
+        'Battle Against a True Hero  本物のヒーローとの戦い':'Battle Against a True Hero / 本物のヒーローとの戦い',
+        'rEVoltagers':'rE:Voltagers',
+        'S1CK F41RY':'S1CK_F41RY',
+        'ニ分間の世界':'二分間の世界',
+        'ReRose Gun Shoooot!':'Re:Rose Gun Shoooot!',
+        'gigadelic (かめりあ\'s The TERA RMX)':'gigadelic (かめりあ\'s "The TERA" RMX)',
+        'PROVOESPROPOSE êl fine':'PROVOES*PROPOSE <<êl fine>>',
+        'LuckyClover':'Lucky*Clover',
+        '壊Raveit!! 壊Raveit!!':'壊Rave*it!! 壊Rave*it!!',
+        'BLACK or WHITE':'BLACK or WHITE?',
+        'MrVIRTUALIZER':'Mr.VIRTUALIZER',
+        '#Fairy dancing in lake':'#Fairy_dancing_in_lake',
+        '゜。Chantilly Fille。°':'゜*。Chantilly Fille。*°'
+    }
+
+def restoreTitle(songTitle):       
+    return specialTitles.get(songTitle.strip(),songTitle.strip())
+
+def isSpecialTitle(songTitle):
+    return songTitle.strip() in specialTitles
 
 def loadSongList(songList):
     ret = None
@@ -34,11 +72,11 @@ def isSongInLog(songLog, songToSearch):
     songFound = False
     songExistOnDate = False
     for songFromLog in songLog:
-        if songFromLog.title == songToSearch.title and songFromLog.date == songToSearch.date:
+        if songFromLog.title == restoreTitle(songToSearch.title) and songFromLog.date == songToSearch.date:
 #            print(f'Song {songToSearch.title} already exists on file')
             songFound = True
             break
-        elif songFromLog.title == songToSearch.title:
+        elif songFromLog.title == restoreTitle(songToSearch.title):
             songLogDate = songFromLog.date.split('_')[0]
             songLogTime = datetime.strptime(songFromLog.date.split('_')[1], '%H%M%S')
             
@@ -165,10 +203,19 @@ def main(songLogFolder, resultsFolder):
 
         if songTitle != '':
             
+            if isSpecialTitle(songTitle) :                
+                for i in range(0,len(songLog)) :                    
+                    if songLog[i].title == songTitle.strip() :
+                        songLog.pop(i)
+                        print(f'Removed incorrect song with title {songTitle} from play log.')
+                        break                                                                    
+                        
+            songTitle = restoreTitle(songTitle)
+            
             img = Image.open(os.path.abspath(f'{rootFolder}/{playScreenshotFileName}'))
             scoreFromImage = genSummary.get_score(img)                
             
-            songFromScreenshot = OnePlayData(songTitle.removesuffix(' '), scoreFromImage[0], scoreFromImage[1], lamp, dif.lower(), playDate.removesuffix('.png_'))
+            songFromScreenshot = OnePlayData(songTitle, scoreFromImage[0], scoreFromImage[1], lamp, dif.lower(), playDate.removesuffix('.png_'))
 
             # If the song is not in the long, with a tolerance of 120 seconds, add it to the log                
             if not isSongInLog(songLog, songFromScreenshot):
@@ -185,21 +232,23 @@ def main(songLogFolder, resultsFolder):
     
 def findSongRating(songFromLog, songList):
     
-    rating = "n/a"
+    rating = 0
     
     # Find the numeric value of the song rating based on it's difficulty category
-    for songTitle in songList['titles'] :
-        if songTitle == songFromLog.title :
-            song = songList['titles'][songTitle]
-            if songFromLog.difficulty == 'nov' : 
-                rating = song[3]
-            elif songFromLog.difficulty == 'adv' :
-                rating = song[4]
-            elif songFromLog.difficulty == 'exh' :
-                rating = song[5]
-            else :
-                rating = song[6]
-            break
+    song = songList['titles'].get(restoreTitle(songFromLog.title),None)
+    
+    if song is not None :
+        if songFromLog.difficulty == 'nov' : 
+            rating = song[3]
+        elif songFromLog.difficulty == 'adv' :
+            rating = song[4]
+        elif songFromLog.difficulty == 'exh' :
+            rating = song[5]
+        else :
+            rating = song[6]
+                
+    if rating == 0 :
+        print(f'Could not find song in song list for rating: {songFromLog.title}')
         
     return str(rating)
     
@@ -215,7 +264,7 @@ def dump(songLogFolder, songListFolder):
     print(f'Dumping {len(songLog)} song plays to XML...')
     for songFromLog in songLog:
         
-        title = songFromLog.title.replace("'","\"")
+        title = restoreTitle(songFromLog.title)
         
         rating = findSongRating(songFromLog, songList)
         songHash = str(hash(title+"_"+songFromLog.difficulty+"_"+rating))
