@@ -24,7 +24,7 @@ specialTitles = {
         'Finale  フィナーレ':'Finale / フィナーレ',
         'コンベア速度Max!しゃいにん☆廻転ズシSushi&Peace':'コンベア速度Max!? しゃいにん☆廻転ズシ"Sushi&Peace"',
         'VoynichManuscript':'Voynich:Manuscript',
-        'Pure Evil':'Pure Evil',
+        #'Pure Evil':'Pure Evil',
         'Believe (y)our Wings {VIVID RAYS}':'Believe (y)our Wings {V:IVID RAYS}',
         'チルノのパーフェクトさんすう教室 ⑨周年バージョン':'チルノのパーフェクトさんすう教室　⑨周年バージョン',
         'Wuv U(picoustic rmx)':'Wuv U(pico/ustic rmx)',
@@ -67,46 +67,50 @@ def save(dat:dict, allogFolder):
         pickle.dump(dat, f)
 
         
-def isSongInLog(songLog, songToSearch):
+def isSongInLog(songLog, songToSearch,fileNumber):
+        
+    songExists = False
+    songDifferentDate = False
     
-    songFound = False
-    songExistOnDate = False
+    allPlaysOfSong = []
+    
     for songFromLog in songLog:
-        if songFromLog.title == restoreTitle(songToSearch.title) and songFromLog.date == songToSearch.date:
-#            print(f'Song {songToSearch.title} already exists on file')
-            songFound = True
-            break
-        elif songFromLog.title == restoreTitle(songToSearch.title):
-            songLogDate = songFromLog.date.split('_')[0]
-            songLogTime = datetime.strptime(songFromLog.date.split('_')[1], '%H%M%S')
-            
-            if not "_" in songToSearch.date or len(songToSearch.date.split('_')) < 2 : 
-                print(f'Mallformed song data: {songToSearch.disp()}')
-                return True                
-            
-            songSSDate = songToSearch.date.split('_')[0]
-            #print(f'Searching for {songToSearch.title}')
-            songSSTime = datetime.strptime(songToSearch.date.split('_')[1], '%H%M%S')
-            
-            diferenceInSeconds = abs((songSSTime - songLogTime).total_seconds())
-            
-            if songLogDate == songSSDate and diferenceInSeconds < 120:
-                #print(f'Song {songToSearch.title} already exists on file')
-                songFound = True
-                break
-            else: 
-                #print(f'Song \'{songToSearch.title}\' already exists on file but with different date: {songFromLog.date} in log vs {songToSearch.date} in screenshot ({diferenceInSeconds}s difference)')
-                songExistOnDate = True
-            
+        if songFromLog.title == restoreTitle(songToSearch.title) and songFromLog.difficulty == songToSearch.difficulty:
+            allPlaysOfSong.append(songFromLog)
+    
+    songSSDate = datetime.strptime(songToSearch.date.split('_')[0], "%Y%m%d")            
+    songSSTime = datetime.strptime(songToSearch.date.split('_')[1], '%H%M%S')
+    
+    for songFromLog in allPlaysOfSong:
+                    
+        if not "_" in songToSearch.date or len(songToSearch.date.split('_')) < 2 : 
+            print(f'Mallformed song data: {songToSearch.disp()}')
+            return True
+        
+        songLogDate = datetime.strptime(songFromLog.date.split('_')[0], "%Y%m%d")
+        songLogTime = datetime.strptime(songFromLog.date.split('_')[1], '%H%M%S')
+                        
+        diferenceInSeconds = abs((songSSTime - songLogTime).total_seconds())
+        diferenceInDays = abs((songLogDate - songSSDate)).days
+        
+        if diferenceInDays == 0 and diferenceInSeconds < 120:
+            songExists = True
+            if songDifferentDate == True :
+                print(f'[{fileNumber}] [{songToSearch.title}-{songToSearch.difficulty.upper()}] Found: Log: {songFromLog.date} | Screenshot: {songToSearch.date}\n')
+            break;
+        elif diferenceInDays == 0 and diferenceInSeconds >= 120: 
+            print(f'[{fileNumber}] [{songToSearch.title}-{songToSearch.difficulty.upper()}] Difference time: Log: {songLogTime} | Screenshot: {songSSTime} ({diferenceInSeconds}s)')
+            songDifferentDate = True
+        elif diferenceInDays > 0 :
+            print(f'[{fileNumber}] [{songToSearch.title}-{songToSearch.difficulty.upper()}] Difference date: Log: {songLogDate} | Screenshot: {songSSDate} ({diferenceInDays}d)')
+            songDifferentDate = True
 
-    if not songFound and not songExistOnDate:
-        print(f'Song \'{songToSearch.title}\' is new!')
-        return False
-    elif not songFound and songExistOnDate : 
-        #print(f'Song \'{songToSearch.title}\' already exists but with another date.')
-        return True
-
-    return True
+    if songExists == False :
+        print(f'[{fileNumber}] [{songToSearch.title}-{songToSearch.difficulty.upper()}] not found in play log')
+        
+            
+    return songExists    
+    
 
 # TODO: Find a way to extract the data from a result screenshot without data in the filename
 def parse_unparsed_results_screen (resultsFilename):
@@ -151,6 +155,8 @@ def main(songLogFolder, resultsFolder):
     genSummary = GenSummary(start, rootFolder + '/sync', 'true', 255, 2)
     
     print(f'Processing {len(os.listdir(rootFolder))} files from folder \'{rootFolder}\'')
+    
+    dtStart = datetime.now()
 
     updatedSongs = 0
     processedFiles = 0
@@ -218,15 +224,18 @@ def main(songLogFolder, resultsFolder):
             songFromScreenshot = OnePlayData(songTitle, scoreFromImage[0], scoreFromImage[1], lamp, dif.lower(), playDate.removesuffix('.png_'))
 
             # If the song is not in the long, with a tolerance of 120 seconds, add it to the log                
-            if not isSongInLog(songLog, songFromScreenshot):
+            if not isSongInLog(songLog, songFromScreenshot,processedFiles):
+                print(f'[{processedFiles}] [{songFromScreenshot.title}-{songFromScreenshot.difficulty.upper()}] Adding to log with date {songFromScreenshot.date}\n')
                 songLog.append(songFromScreenshot)
                 updatedSongs += 1
         
         processedFiles += 1
         if processedFiles % 100 == 0:
             print(f'{processedFiles} files processed...')
-        
-    print(f'Update song log with {updatedSongs} songs out of {processedFiles} valid files')
+    
+    dtEnd = datetime.now()
+    duration = dtEnd - dtStart
+    print(f'Update song log with {updatedSongs} songs out of {processedFiles} valid files in {round(duration.total_seconds(),2)}s')
     save(songLog, songLogFolder)
     
     
