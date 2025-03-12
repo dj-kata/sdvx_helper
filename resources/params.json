@@ -303,6 +303,8 @@
     "select_arcade_w":50,
     "select_arcade_h":10,
 
+    "detect_wait":1.5,
+
     "url_musiclist":"https://github.com/dj-kata/sdvx_helper/raw/main/resources/musiclist.pkl",
 
     "$comment": "none"

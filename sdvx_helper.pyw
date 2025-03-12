@@ -1088,7 +1088,7 @@ class SDVXHelper:
                 if not done_thissong:
                     if self.is_ondetect():
                         print(f"曲決定画面を検出")
-                        time.sleep(self.settings['detect_wait'])
+                        time.sleep(self.params['detect_wait'])
                         self.get_capture_after_rotate()
                         self.gen_summary.update_musicinfo(self.img_rot)
                         self.obs.refresh_source('nowplaying.html')
