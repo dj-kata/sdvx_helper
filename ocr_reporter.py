@@ -152,11 +152,27 @@ class Reporter:
             if numtd in (7,8):
                 if tds[2].text != 'BPM':
                     tmp = [tds[0].text, tds[1].text, tds[2].text]
-                    tmp.append(int(tds[3].text))
-                    tmp.append(int(tds[4].text))
-                    tmp.append(int(tds[5].text))
+                    
+                    novText = tds[3].text
+                    if novText.startswith('[STOP]') :
+                        novText = novText[len('[STOP]')].strip()
+                    tmp.append(int(novText))
+                    
+                    advText = tds[4].text
+                    if advText.startswith('[STOP]') :
+                        advText = advText[len('[STOP]')].strip()
+                    tmp.append(int(advText))
+                                        
+                    exhText = tds[5].text
+                    if exhText.startswith('[STOP]') :
+                        exhText = exhText[len('[STOP]')].strip()
+                    tmp.append(int(exhText))
+                                        
                     if tds[6].text not in ('', '-'):
-                        tmp.append(int(tds[6].text))
+                        appendText = tds[6].text
+                        if appendText.startswith('[STOP]') :
+                            appendText = appendText[len('[STOP]')].strip()
+                        tmp.append(int(appendText))
                     else:
                         tmp.append(None)
                     titles[tds[0].text] = tmp
