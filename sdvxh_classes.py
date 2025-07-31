@@ -7,6 +7,7 @@ import logging, logging.handlers
 from functools import total_ordering
 from collections import defaultdict
 from scipy.stats import rankdata
+from connect_maya2 import *
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -154,7 +155,7 @@ class MusicInfo:
 
     ソートはVF順に並ぶようにしている。
     """
-    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str=''):
+    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str='', s_tier:str='', p_tier:str=''):
         self.title = title
         self.artist = artist
         self.bpm = bpm
@@ -164,6 +165,8 @@ class MusicInfo:
         self.best_lamp = best_lamp
         self.rank = score_rank.novalue
         self.date = date
+        self.s_tier = s_tier
+        self.p_tier = p_tier
         self.get_vf_single()
 
     def disp(self):
@@ -348,6 +351,7 @@ class SDVXLogger:
         if not self.rta_mode:
             self.load_alllog()
         self.titles = self.gen_summary.musiclist['titles']
+        self.maya2 = ManageMaya2() # サーバが生きていれば応答するコネクタ
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
@@ -535,7 +539,11 @@ class SDVXLogger:
                 lv = info.lv
                 f.write(f"    <lv>{lv}</lv>\n")
                 if type(lv) == int:
-                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                    maya2info = self.maya2.search(title, difficulty)
+                    if maya2info is not None: # maya2のマスタ上に楽曲情報が存在する場合
+                        f.write(f"    <gradeS_tier>{maya2info['s_tier'][5:]}</gradeS_tier>\n")
+                        f.write(f"    <PUC_tier>{maya2info['p_tier']}</PUC_tier>\n")
+                    elif min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
                         tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
                         if tmp != None:
                             f.write(f"    <gradeS_tier>{tmp}</gradeS_tier>\n")
