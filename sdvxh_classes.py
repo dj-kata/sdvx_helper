@@ -7,6 +7,7 @@ import logging, logging.handlers
 from functools import total_ordering
 from collections import defaultdict
 from scipy.stats import rankdata
+from connect_maya2 import *
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
