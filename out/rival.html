@@ -61,6 +61,10 @@
                 text-align: center;
                 width: 200px;
             }
+            table#title td:nth-child(4){
+                text-align: center;
+                width: 200px;
+            }
             table#title tr:nth-child(1){
                 font-size: 33px;
                 text-align: center;
@@ -205,6 +209,7 @@
                 var difficulty = $(xml).find('Items difficulty').text();
                 var lv= $(xml).find('Items lv').text();
                 var gradeS_tier= $(xml).find('Items gradeS_tier').text();
+                var PUC_tier= $(xml).find('Items PUC_tier').text();
                 if (difficulty == "APPEND"){
                     difficulty = '';
                 }else{
@@ -256,12 +261,18 @@
                     title_html += "<td></td>";
                     title_html += "<td>Lv</td>";
                     title_html += "<td>Tier</td>";
+                    title_html += "<td>PUC</td>";
                     title_html += "</tr>";
                     title_html += "<tr>";
                     title_html += "<td>"+title+difficulty+"</td>";
                     title_html += "<td>"+lv+"</td>";
                     if (gradeS_tier != ""){
                         title_html += "<td>"+gradeS_tier+"</td>";
+                    }else{
+                        title_html += "<td></td>";
+                    }
+                    if (PUC_tier != ""){
+                        title_html += "<td>"+PUC_tier+"</td>";
                     }else{
                         title_html += "<td></td>";
                     }

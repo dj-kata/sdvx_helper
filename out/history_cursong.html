@@ -108,6 +108,7 @@
             }
             table#best td {
             	white-space:nowrap;
+                text-align:center;
             }
             table#best tr:nth-child(1) {
                 color:#fff;
@@ -132,10 +133,14 @@
                 width: 8%;
             }
             table#best tr:nth-child(2) td:nth-child(4){
+                color:#ccccff;
+                width: 8%;
+            }
+            table#best tr:nth-child(2) td:nth-child(5){
                 color:#ffccff;
                 width: 28%;
             }
-            table#best tr:nth-child(2) td:nth-child(6){
+            table#best tr:nth-child(2) td:nth-child(7){
                 color:#ccffcc;
                 width: 14%;
             }
@@ -236,6 +241,7 @@
                 var title = $(xml).find('Items title').text();
                 var lv = $(xml).find('Items lv').text();
                 var gradeS_tier = $(xml).find('Items gradeS_tier').text();
+                var PUC_tier = $(xml).find('Items PUC_tier').text();
                 var difficulty = $(xml).find('Items difficulty').text();
                 if (difficulty == "APPEND"){
                     difficulty = '';
@@ -347,11 +353,12 @@
                     best_lamp = ''
                 }
 
-                best_html = '<tr><font size="40"><td height="50">diff</td> <td>Lv</td> <td>Tier</td> <td>best score</td> <td>best lamp</td> <td>VF</td></font></tr>'
+                best_html = '<tr><font size="40"><td height="50">diff</td> <td>Lv</td> <td>Tier</td> <td>PUC</td> <td>best score</td> <td>best lamp</td> <td>VF</td></font></tr>'
                 best_html += '<tr>'
                 best_html += '<td>'+difficulty+'</td>'
                 best_html += '<td>'+lv+'</td>'
                 best_html += '<td>'+gradeS_tier+'</td>'
+                best_html += '<td>'+PUC_tier+'</td>'
                 best_html += '<td>'+best_score.toLocaleString()+'</td>'
                 best_html += '<td>'+best_lamp+'</td>'
                 best_html += '<td>'+vf+'</td>'

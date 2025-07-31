@@ -154,7 +154,7 @@ class MusicInfo:
 
     ソートはVF順に並ぶようにしている。
     """
-    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str=''):
+    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str='', s_tier:str='', p_tier:str=''):
         self.title = title
         self.artist = artist
         self.bpm = bpm
@@ -164,6 +164,8 @@ class MusicInfo:
         self.best_lamp = best_lamp
         self.rank = score_rank.novalue
         self.date = date
+        self.s_tier = s_tier
+        self.p_tier = p_tier
         self.get_vf_single()
 
     def disp(self):
@@ -348,6 +350,7 @@ class SDVXLogger:
         if not self.rta_mode:
             self.load_alllog()
         self.titles = self.gen_summary.musiclist['titles']
+        self.maya2 = ManageMaya2() # サーバが生きていれば応答するコネクタ
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
@@ -531,11 +534,16 @@ class SDVXLogger:
             f.write(f"    <title>{title_esc}</title>\n")
             f.write(f"    <difficulty>{difficulty}</difficulty>\n")
 
-            if (logs != False) and (info != False):
+            if (logs != False) and (info != False): # TODO ここのせいでプレー済み曲しか出ていない
                 lv = info.lv
                 f.write(f"    <lv>{lv}</lv>\n")
                 if type(lv) == int:
-                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                    maya2info = self.maya2.search_fumeninfo(title, difficulty)
+                    if maya2info is not None: # maya2のマスタ上に楽曲情報が存在する場合
+                        if maya2info['s_tier'] is not None:
+                            f.write(f"    <gradeS_tier>{maya2info['s_tier'][5:]}</gradeS_tier>\n")
+                        f.write(f"    <PUC_tier>{maya2info['p_tier']}</PUC_tier>\n")
+                    elif min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
                         tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
                         if tmp != None:
                             f.write(f"    <gradeS_tier>{tmp}</gradeS_tier>\n")
@@ -588,7 +596,12 @@ class SDVXLogger:
                 f.write(f"        <difficulty>{difficulty.upper()}</difficulty>\n")
                 f.write(f"        <lv>{lv}</lv>\n")
                 if type(lv) == int:
-                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                    maya2info = self.maya2.search_fumeninfo(title, difficulty)
+                    if maya2info is not None: # maya2のマスタ上に楽曲情報が存在する場合
+                        if maya2info['s_tier'] is not None:
+                            f.write(f"        <gradeS_tier>{maya2info['s_tier'][5:]}</gradeS_tier>\n")
+                        f.write(f"        <PUC_tier>{maya2info['p_tier']}</PUC_tier>\n")
+                    elif min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
                         tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
                         if tmp != None:
                             f.write(f"        <gradeS_tier>{tmp}</gradeS_tier>\n")
@@ -642,7 +655,12 @@ class SDVXLogger:
                 f.write(f"    <difficulty>{difficulty.upper()}</difficulty>\n")
                 f.write(f"    <lv>{lv}</lv>\n")
                 if type(lv) == int:
-                    if min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
+                    maya2info = self.maya2.search_fumeninfo(title, difficulty)
+                    if maya2info is not None: # maya2のマスタ上に楽曲情報が存在する場合
+                        if maya2info['s_tier'] is not None:
+                            f.write(f"    <gradeS_tier>{maya2info['s_tier'][5:]}</gradeS_tier>\n")
+                        f.write(f"    <PUC_tier>{maya2info['p_tier']}</PUC_tier>\n")
+                    elif min(19,lv) in (17,18,19): # 対象LvならS難易度表を取得
                         tmp = self.gen_summary.musiclist[f'gradeS_lv{min(19,lv)}'].get(title)
                         if tmp != None:
                             f.write(f"        <gradeS_tier>{tmp}</gradeS_tier>\n")
@@ -981,7 +999,127 @@ class SDVXLogger:
                 msg += '\n'
         msg += '#sdvx_helper'
         return msg
+
+    def upload_best(self, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
+        return self.maya2.upload_best(self, player_id, player_name, volforce)
     
+class ManageMaya2:
+    def __init__(self, url = maya2_url):
+        self.url = url
+        self.master_db = []
+        if self.is_alive():
+            self.get_musiclist()
+
+    def is_alive(self):
+        """サーバ側が生きているかどうかを確認
+        """
+        payload = {}
+        try:
+            r = requests.get(self.url+'/', params=payload)
+        except Exception:
+            logger.error(traceback.format_exc())
+            logger.info('server: dead')
+            return False
+        if r.status_code == 200:
+            logger.info('server: alive')
+            return True
+        else:
+            logger.info('server: dead')
+            return False
+
+    def get_musiclist(self):
+        """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
+        """
+        try:
+            payload = {}
+            r = requests.get(self.url+'/export/musics', params=payload)
+            js = json.loads(r.text)
+
+            musics = js['musics']
+            self.master_db = musics
+        except Exception:
+            print(traceback.format_exc())
+            return False
+        return True
+
+    def search_fumeninfo(self, title, fumen='APPEND'):
+        """楽曲dbから1譜面の情報を検索する
+        """
+        ret = None
+        fumen_list = ['nov', 'adv', 'exh', 'APPEND']
+        logger.debug(f"title:{title}, fumen:{fumen}")
+        fumen_idx  = fumen_list.index(fumen)
+        for m in self.master_db:
+            if m.get('title') == title:
+                if fumen_idx < len(m.get('charts')):
+                    ret = m.get('charts')[fumen_idx]
+        return ret
+
+    def search_musicinfo(self, title):
+        """楽曲を検索する
+        """
+        ret = None
+        for m in self.master_db:
+            if m.get('title') == title:
+                    ret = m
+        return ret
+
+    def upload_best(self, logger:SDVXLogger, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
+        fumen_list = ['nov', 'adv', 'exh', 'APPEND']
+        if logger is None:
+            return False
+        
+        cnt_ok = 0
+        cnt_ng = 0
+        filename = 'out/maya2_payload.csv'
+
+        fp = open(filename, 'w', encoding='utf-8')
+        end = '\n'
+
+        # header
+        checksum = '?'*16
+        fp.write(f"{player_id},{player_name},{volforce},{checksum}{end}")
+
+        for song in logger.best_allfumen:
+            key = song.title
+            fumen_idx = fumen_list.index(song.difficulty)
+            lv = song.lv
+            chart = self.search_fumeninfo(song.title, song.difficulty)
+            if chart is not None:
+                music = self.search_musicinfo(song.title)
+                cnt_ok += 1
+                exscore=''
+                lamp=song.best_lamp.upper()
+                if lamp == 'HARD':
+                    lamp = 'EX_COMP'
+                if lamp == 'CLEAR':
+                    lamp = 'COMP'
+                fp.write(f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp},{checksum}{end}")
+                #print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
+            else:
+                cnt_ng += 1
+                print(f'not found in maya2 db!! title:{song.title}, diff:{song.difficulty}')
+
+        print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
+
+        import datetime
+        now = datetime.datetime.now()
+        now = now.replace(microsecond=0)
+        fp.write(f"{now},{cnt_ok},{checksum}{end}")
+        fp.close()
+
+        # サーバへ送信
+        file_binary = open(filename, 'rb').read()
+        files = {'regist_score': (filename, file_binary)}
+        url = f'{self.url}/test/import'
+        res = requests.post(url, files=files)
+
+        contents = res.content
+        soup = BeautifulSoup(contents, 'html.parser')
+        file = open('result.html', 'w', encoding='utf-8')
+        file.write(str(soup))
+        file.close()
+        return res
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
     a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
@@ -993,5 +1131,8 @@ if __name__ == '__main__':
     #        s.disp()
     with open('out/rival_log.pkl', 'rb') as f:
         b = pickle.load(f)
-    print(f"自己べ: {a.best_allfumen[-27].best_score}")
-    print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
+    #print(f"自己べ: {a.best_allfumen[-27].best_score}")
+    #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
+    print(a.maya2.is_alive())
+    print(a.maya2.search_fumeninfo('V'))
+    res = a.maya2.upload_best(a)
