@@ -8,6 +8,9 @@ from functools import total_ordering
 from collections import defaultdict
 from scipy.stats import rankdata
 from connect_maya2 import *
+from params_secret import maya2_key
+import datetime
+import hashlib, hmac
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -1047,9 +1050,9 @@ class ManageMaya2:
         """楽曲dbから1譜面の情報を検索する
         """
         ret = None
-        fumen_list = ['nov', 'adv', 'exh', 'APPEND']
+        fumen_list = ['NOV', 'ADV', 'EXH', 'APPEND']
         logger.debug(f"title:{title}, fumen:{fumen}")
-        fumen_idx  = fumen_list.index(fumen)
+        fumen_idx  = fumen_list.index(fumen.upper())
         for m in self.master_db:
             if m.get('title') == title:
                 if fumen_idx < len(m.get('charts')):
@@ -1078,8 +1081,9 @@ class ManageMaya2:
         end = '\n'
 
         # header
-        checksum = '?'*16
-        fp.write(f"{player_id},{player_name},{volforce},{checksum}{end}")
+        fp.write(f"{player_id},{player_name},{volforce}{end}")
+
+        lines = []
 
         for song in logger.best_allfumen:
             key = song.title
@@ -1095,7 +1099,9 @@ class ManageMaya2:
                     lamp = 'EX_COMP'
                 if lamp == 'CLEAR':
                     lamp = 'COMP'
-                fp.write(f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp},{checksum}{end}")
+                line = f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp}"
+                lines.append(line+{end})
+                fp.write(line)
                 #print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
             else:
                 cnt_ng += 1
@@ -1103,9 +1109,11 @@ class ManageMaya2:
 
         print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
 
-        import datetime
-        now = datetime.datetime.now()
-        now = now.replace(microsecond=0)
+        # footer; calc checksum
+        payload = '\r\n'.join(lines).encode(encoding='utf-8')
+        secret = maya2_key.encode(encoding='utf-8')
+        checksum = hmac.new(secret, payload, hashlib.sha256).hexdigest()
+        now = datetime.datetime.now().replace(microsecond=0)
         fp.write(f"{now},{cnt_ok},{checksum}{end}")
         fp.close()
 
