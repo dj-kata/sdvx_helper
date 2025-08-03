@@ -10,6 +10,7 @@ cp resources -a to_bin/
 cp resources -a $target/
 rm -rf out/*.xml
 rm -rf out/*.pkl
+rm -rf out/*.csv
 cp out -a to_bin/
 cp out -a $target/
 cp version.txt $target/
