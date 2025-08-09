@@ -1126,6 +1126,7 @@ class SDVXHelper:
                         logger.debug(f'diff = {diff}s')
                         if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
                             self.save_screenshot_general()
+                            self.sdvx_logger.gen_sdvx_battle()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
                     if self.chk_blastermax():

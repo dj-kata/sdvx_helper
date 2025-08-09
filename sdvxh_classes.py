@@ -353,6 +353,7 @@ class SDVXLogger:
             self.filename_stats = 'out/rta_stats.xml'
         if not self.rta_mode:
             self.load_alllog()
+        self.todaylog = [] # その日のプレーログを格納、sdvx_battle向けに使う
         self.titles = self.gen_summary.musiclist['titles']
         self.maya2 = ManageMaya2() # サーバが生きていれば応答するコネクタ
         self.update_best_allfumen()
@@ -570,6 +571,35 @@ class SDVXLogger:
                 f.write(f"        <lamp></lamp>\n")
                 f.write(f"        <date></date>\n")
                 f.write(f"    </Result>\n")
+            f.write("</Items>\n")
+
+    def gen_sdvx_battle(self):
+        """SDVX Battle向けのxmlを生成する。リザルト画面からしか呼ばれない。
+        この中でlistの更新もする。
+        """
+        if len(self.alllog) > 0 and self.alllog[-1] not in self.todaylog:
+            self.todaylog.append(self.alllog[-1])
+        with open('out/sdvx_battle.xml', 'w', encoding='utf-8') as f:
+            f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')
+            f.write("<Items>\n")
+            for s in reversed(self.todaylog):
+                logs, info = self.get_fumen_data(s.title, s.difficulty)
+                f.write("    <song>\n")
+                title_esc = s.title.replace('&', '&amp;').replace('<','&lt;').replace('>','&gt;').replace('"','&quot;').replace("'",'&apos;')
+                f.write(f"        <title>{title_esc}</title>\n")
+                f.write(f"        <difficulty>{s.difficulty}</difficulty>\n")
+                maya2info = self.maya2.search_fumeninfo(s.title, s.difficulty)
+                if maya2info is not None: # maya2のマスタ上に楽曲情報が存在する場合
+                    if maya2info['s_tier'] is not None:
+                        f.write(f"        <gradeS_tier>{maya2info['s_tier'][5:]}</gradeS_tier>\n")
+                    f.write(f"        <PUC_tier>{maya2info['p_tier']}</PUC_tier>\n")
+                    f.write(f"        <lv>{maya2info['level']}</lv>\n")
+                else:
+                    f.write(f"        <lv>{info.lv}</lv>\n")
+                f.write(f"        <score>{s.cur_score}</score>\n")
+                f.write(f"        <lamp>{s.lamp}</lamp>\n")
+                f.write(f"        <date>{s.date}</date>\n")
+                f.write(f"    </song>\n")
             f.write("</Items>\n")
 
     def gen_vf_onselect(self, title:str, difficulty:str):
@@ -1100,9 +1130,9 @@ class ManageMaya2:
                 if lamp == 'CLEAR':
                     lamp = 'COMP'
                 line = f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp}"
-                lines.append(line+{end})
+                lines.append(f"{line}{end}")
+                # print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
                 fp.write(line)
-                #print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
             else:
                 cnt_ng += 1
                 print(f'not found in maya2 db!! title:{song.title}, diff:{song.difficulty}')
