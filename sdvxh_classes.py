@@ -1035,7 +1035,10 @@ class SDVXLogger:
         return msg
 
     def upload_best(self, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
-        return self.maya2.upload_best(self, player_id, player_name, volforce)
+        if self.maya2.is_alive():
+            return self.maya2.upload_best(self, player_id, player_name, volforce)
+        else:
+            return False
     
 class ManageMaya2:
     def __init__(self, url = maya2_url):
