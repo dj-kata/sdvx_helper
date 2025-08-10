@@ -573,11 +573,14 @@ class SDVXLogger:
                 f.write(f"    </Result>\n")
             f.write("</Items>\n")
 
-    def gen_sdvx_battle(self):
+    def gen_sdvx_battle(self, update=True):
         """SDVX Battle向けのxmlを生成する。リザルト画面からしか呼ばれない。
         この中でlistの更新もする。
+
+        Args:
+            update (bool, optional): 最新のリザルトを取り込むかどうか。基本的には取り込むが、起動時のみ何もしない。
         """
-        if len(self.alllog) > 0 and self.alllog[-1] not in self.todaylog:
+        if update and len(self.alllog) > 0 and self.alllog[-1] not in self.todaylog:
             self.todaylog.append(self.alllog[-1])
         with open('out/sdvx_battle.xml', 'w', encoding='utf-8') as f:
             f.write(f'<?xml version="1.0" encoding="utf-8"?>\n')

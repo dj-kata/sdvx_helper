@@ -87,6 +87,7 @@ class SDVXHelper:
         self.save_settings() # 値が追加された場合のために、一度保存
         self.update_musiclist()
         self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
+        self.sdvx_logger.gen_sdvx_battle(False)
         self.vf_pre = self.sdvx_logger.total_vf # アプリ起動時のVF
         self.vf_cur = self.sdvx_logger.total_vf # 最新のVF
         self.connect_obs()
