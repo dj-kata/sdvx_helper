@@ -1114,9 +1114,9 @@ class ManageMaya2:
                     ret = m
         return ret
 
-    def upload_best(self, logger:SDVXLogger, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
+    def upload_best(self, sdvx_logger:SDVXLogger, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
-        if logger is None:
+        if sdvx_logger is None:
             return False
         
         cnt_ok = 0
@@ -1124,16 +1124,16 @@ class ManageMaya2:
         filename = 'out/maya2_payload.csv'
 
         fp = open(filename, 'w', encoding='utf-8')
-        end = '\n'
+        writer = csv.writer(fp, lineterminator="\n") # \r\n\nになるので対策
 
         # header
-        fp.write(f"{player_id},{player_name},{volforce}{end}")
+        writer.writerow([player_id,player_name,volforce])
 
-        lines = []
+        lines = [f"{player_id},{player_name},{volforce}"]
         with open('resources/title_conv_table.pkl', 'rb') as f:
             conv_table = pickle.load(f)
 
-        for song in logger.best_allfumen:
+        for song in sdvx_logger.best_allfumen:
             key = song.title
             # 表記揺れ対応
             if key in conv_table.keys():
@@ -1152,21 +1152,26 @@ class ManageMaya2:
                 if lamp == 'CLEAR':
                     lamp = 'COMP'
                 line = f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp}"
-                lines.append(f"{line}{end}")
+                lines.append(f"{line}")
                 # print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
-                fp.write(line)
+                writer.writerow([music.get('music_id'),chart.get('difficulty'),song.best_score,exscore,lamp])
             else:
                 cnt_ng += 1
                 print(f'not found in maya2 db!! title:{key}, diff:{song.difficulty}')
+                logger.debug(f'not found in maya2 db!! title:{key}, diff:{song.difficulty}')
 
         print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
+        logger.info(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
 
         # footer; calc checksum
-        payload = '\r\n'.join(lines).encode(encoding='utf-8')
+
+        payload = '\r\n'.join(lines)
+        #logger.debug(f"payload = \n{payload}")
         secret = maya2_key.encode(encoding='utf-8')
-        checksum = hmac.new(secret, payload, hashlib.sha256).hexdigest()
+        checksum = hmac.new(secret, payload.encode(encoding='utf-8'), hashlib.sha256).hexdigest()
+        logger.debug(f"checksum = {checksum}")
         now = datetime.datetime.now().replace(microsecond=0)
-        fp.write(f"{now},{cnt_ok},{checksum}{end}")
+        writer.writerow([now,cnt_ok,checksum])
         fp.close()
 
         # サーバへ送信
@@ -1177,7 +1182,7 @@ class ManageMaya2:
 
         contents = res.content
         soup = BeautifulSoup(contents, 'html.parser')
-        file = open('result.html', 'w', encoding='utf-8')
+        file = open('out/maya2_upload_result.html', 'w', encoding='utf-8')
         file.write(str(soup))
         file.close()
         return res
