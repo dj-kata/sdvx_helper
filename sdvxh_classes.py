@@ -1037,7 +1037,17 @@ class SDVXLogger:
         msg += '#sdvx_helper'
         return msg
 
-    def upload_best(self, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
+    def upload_best(self, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000')->bool:
+        """maya2serverに自己ベcsvのアップロードを行う。
+
+        Args:
+            player_id (str, optional): _description_. Defaults to 'SV-XXXX-XXXX'.
+            player_name (str, optional): _description_. Defaults to 'NONAME'.
+            volforce (str, optional): _description_. Defaults to '0.000'.
+
+        Returns:
+            _type_: _description_
+        """
         if self.maya2.is_alive():
             return self.maya2.upload_best(self, player_id, player_name, volforce)
         else:
@@ -1120,14 +1130,20 @@ class ManageMaya2:
         fp.write(f"{player_id},{player_name},{volforce}{end}")
 
         lines = []
+        with open('resources/title_conv_table.pkl', 'rb') as f:
+            conv_table = pickle.load(f)
 
         for song in logger.best_allfumen:
             key = song.title
+            # 表記揺れ対応
+            if key in conv_table.keys():
+                key = conv_table[key]
+                logger.info(f"{song.title} をmaya2向けに変換しました。-> {key}")
             fumen_idx = fumen_list.index(song.difficulty)
             lv = song.lv
-            chart = self.search_fumeninfo(song.title, song.difficulty)
+            chart = self.search_fumeninfo(key, song.difficulty)
             if chart is not None:
-                music = self.search_musicinfo(song.title)
+                music = self.search_musicinfo(key)
                 cnt_ok += 1
                 exscore=''
                 lamp=song.best_lamp.upper()
@@ -1141,7 +1157,7 @@ class ManageMaya2:
                 fp.write(line)
             else:
                 cnt_ng += 1
-                print(f'not found in maya2 db!! title:{song.title}, diff:{song.difficulty}')
+                print(f'not found in maya2 db!! title:{key}, diff:{song.difficulty}')
 
         print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
 
