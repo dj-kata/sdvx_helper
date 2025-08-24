@@ -1194,10 +1194,12 @@ class ManageMaya2:
         files = {'regist_score': (filename, file_binary)}
         url = f'{self.url}/test/import'
         header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
-        res = requests.post(url, files=files, headers=header)
-        print(res.json())
-
-        return res
+        if self.is_alive():
+            res = requests.post(url, files=files, headers=header)
+            print(res.json())
+            return res
+        else:
+            return False
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
     a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
@@ -1212,3 +1214,5 @@ if __name__ == '__main__':
     print(a.maya2.is_alive())
     print(a.maya2.search_fumeninfo('V'))
     res = a.maya2.upload_best(a)
+
+    print('hoge') 
