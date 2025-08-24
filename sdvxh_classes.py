@@ -1082,8 +1082,9 @@ class ManageMaya2:
         """
         try:
             payload = {}
-            r = requests.get(self.url+'/export/musics', params=payload)
-            js = json.loads(r.text)
+            header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
+            r = requests.get(self.url+'/export/musics', params=payload, headers=header)
+            js = r.json()
 
             musics = js['musics']
             self.master_db = musics
@@ -1124,41 +1125,55 @@ class ManageMaya2:
         filename = 'out/maya2_payload.csv'
 
         fp = open(filename, 'w', encoding='utf-8')
-        writer = csv.writer(fp, lineterminator="\n") # \r\n\nになるので対策
+        writer = csv.writer(fp, lineterminator="\r\n") # \r\n\nになるので対策
 
         # header
-        writer.writerow([player_id,player_name,volforce])
+        writer.writerow([player_name,volforce])
 
-        lines = [f"{player_id},{player_name},{volforce}"]
+        lines = [f"{player_name},{volforce}"]
         with open('resources/title_conv_table.pkl', 'rb') as f:
             conv_table = pickle.load(f)
 
+        # 一旦dictに必要な情報を登録
+        tmp_maya2 = {}
         for song in sdvx_logger.best_allfumen:
             key = song.title
             # 表記揺れ対応
             if key in conv_table.keys():
                 key = conv_table[key]
                 logger.info(f"{song.title} をmaya2向けに変換しました。-> {key}")
-            fumen_idx = fumen_list.index(song.difficulty)
-            lv = song.lv
             chart = self.search_fumeninfo(key, song.difficulty)
             if chart is not None:
                 music = self.search_musicinfo(key)
-                cnt_ok += 1
                 exscore=''
                 lamp=song.best_lamp.upper()
                 if lamp == 'HARD':
                     lamp = 'EX_COMP'
                 if lamp == 'CLEAR':
                     lamp = 'COMP'
-                line = f"{music.get('music_id')},{chart.get('difficulty')},{song.best_score},{exscore},{lamp}"
-                lines.append(f"{line}")
-                # print(f"Lv:{lv}, key:{key} ({song.difficulty}), id:{m.get('music_id')}, chk:{chk}")
-                writer.writerow([music.get('music_id'),chart.get('difficulty'),song.best_score,exscore,lamp])
+                key = f"{music.get('music_id')}___{chart.get('difficulty')}"
+                if key not in tmp_maya2.keys():
+                    tmp_maya2[key] = {'music_id':music.get('music_id'), 'difficulty':chart.get('difficulty'), 
+                                      'best_score':song.best_score, 'exscore':exscore, 'lamp':lamp}
+                else:
+                    print(tmp_maya2[key])
+                    tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.best_score)
+                    tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], exscore)
+                    lamps = ['FAILED', 'COMP', 'EX_COMP', 'UC', 'PUC']
+                    tmp_maya2[key]['lamp'] = lamps[max(lamps.index(lamp), lamps.index(tmp_maya2[key]['lamp']))]
+                    print(f'duplicated data was updated -> key:{key}, data:{tmp_maya2[key]}')
             else:
                 cnt_ng += 1
                 print(f'not found in maya2 db!! title:{key}, diff:{song.difficulty}')
                 logger.debug(f'not found in maya2 db!! title:{key}, diff:{song.difficulty}')
+
+        for k in tmp_maya2.keys():
+            cnt_ok += 1
+            dat = tmp_maya2[k]
+            line = f"{dat['music_id']},{dat['difficulty']},{dat['best_score']},{dat['exscore']},{dat['lamp']}"
+            line_list = [dat['music_id'],dat['difficulty'],dat['best_score'],dat['exscore'],dat['lamp']]
+            lines.append(line)
+            writer.writerow(line_list)
 
         print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
         logger.info(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
@@ -1178,13 +1193,10 @@ class ManageMaya2:
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
         url = f'{self.url}/test/import'
-        res = requests.post(url, files=files)
+        header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
+        res = requests.post(url, files=files, headers=header)
+        print(res.json())
 
-        contents = res.content
-        soup = BeautifulSoup(contents, 'html.parser')
-        file = open('out/maya2_upload_result.html', 'w', encoding='utf-8')
-        file.write(str(soup))
-        file.close()
         return res
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
@@ -1195,8 +1207,6 @@ if __name__ == '__main__':
     #for i,s in enumerate(a.best_allfumen):
     #   if 'Gun Shooo' in s.title:
     #        s.disp()
-    with open('out/rival_log.pkl', 'rb') as f:
-        b = pickle.load(f)
     #print(f"自己べ: {a.best_allfumen[-27].best_score}")
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
