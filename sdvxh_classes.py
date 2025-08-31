@@ -1037,7 +1037,7 @@ class SDVXLogger:
         msg += '#sdvx_helper'
         return msg
 
-    def upload_best(self, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000')->bool:
+    def upload_best(self, player_name:str='NONAME', volforce:str='0.000')->bool:
         """maya2serverに自己ベcsvのアップロードを行う。
 
         Args:
@@ -1049,7 +1049,7 @@ class SDVXLogger:
             _type_: _description_
         """
         if self.maya2.is_alive():
-            return self.maya2.upload_best(self, player_id, player_name, volforce)
+            return self.maya2.upload_best(self, player_name, volforce)
         else:
             return False
     
@@ -1083,7 +1083,7 @@ class ManageMaya2:
         try:
             payload = {}
             header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
-            r = requests.get(self.url+'/export/musics', params=payload, headers=header)
+            r = requests.get(self.url+'/api/testing/export/musics', params=payload, headers=header)
             js = r.json()
 
             musics = js['musics']
@@ -1115,7 +1115,7 @@ class ManageMaya2:
                     ret = m
         return ret
 
-    def upload_best(self, sdvx_logger:SDVXLogger, player_id:str='SV-XXXX-XXXX', player_name:str='NONAME', volforce:str='0.000'):
+    def upload_best(self, sdvx_logger:SDVXLogger, player_name:str='NONAME', volforce:str='0.000'):
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
             return False
@@ -1192,7 +1192,7 @@ class ManageMaya2:
         # サーバへ送信
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
-        url = f'{self.url}/test/import'
+        url = f'{self.url}/api/testing/import/scores'
         header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
