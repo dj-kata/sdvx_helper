@@ -91,6 +91,8 @@ class OnePlayData:
             coef_lamp = 1.1
         elif lamp == 'uc':
             coef_lamp = 1.05
+        elif lamp == 'exh':
+            coef_lamp = 1.04
         elif lamp == 'hard':
             coef_lamp = 1.02
         elif lamp == 'clear':
@@ -192,6 +194,8 @@ class MusicInfo:
             coef_lamp = 1.1
         elif lamp == 'uc':
             coef_lamp = 1.05
+        elif lamp == 'exh':
+            coef_lamp = 1.04
         elif lamp == 'hard':
             coef_lamp = 1.02
         elif lamp == 'clear':
@@ -275,6 +279,7 @@ class OneLevelStat:
         self.rank['d'] = 0
         self.lamp['puc'] = 0
         self.lamp['uc'] = 0
+        self.lamp['exh'] = 0
         self.lamp['hard'] = 0
         self.lamp['clear'] = 0
         self.lamp['failed'] = 0
@@ -513,7 +518,7 @@ class SDVXLogger:
             int: 削除した曲数
         """
 
-        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed']
+        lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
         target = []
         for i,d in enumerate(self.alllog):
             if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
@@ -725,7 +730,7 @@ class SDVXLogger:
             list(OnePlayData), MusicInfo: プレー履歴のList、その曲のbest等の情報
         """
         diff_table = ['NOV', 'ADV', 'EXH', 'APPEND']
-        lamp_table = ['', 'failed', 'clear', 'hard', 'uc', 'puc']
+        lamp_table = ['', 'failed', 'clear', 'hard', 'exh', 'uc', 'puc']
         logs = []
         best_score = 0
         best_lamp = ''
@@ -888,6 +893,7 @@ class SDVXLogger:
                 lamp = self.gen_summary.lamp
 
                 playdat = OnePlayData(ocr, cur, pre, lamp, diff, fmtnow)
+                playdat.disp()
                 if playdat not in self.alllog:
                     self.alllog.append(playdat)
                     logger.debug(f"added! -> {playdat.title}({playdat.difficulty}) {playdat.cur_score} {playdat.lamp}")
@@ -924,7 +930,7 @@ class SDVXLogger:
                 writer.writerow(['title', 'difficulty', 'Lv', 'score', 'lamp', 'volforce'])
                 for i,p in enumerate(self.best_allfumen):
                     diff = p.difficulty.replace('APPEND', '').upper()
-                    lamp = p.best_lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
+                    lamp = p.best_lamp.replace('exh', 'maxxive').replace('hard', 'exc').replace('clear', 'comp').upper()
                     writer.writerow([p.title, diff, p.lv, p.best_score, lamp, p.vf])
             return True
         except Exception:
@@ -943,7 +949,7 @@ class SDVXLogger:
                         lv = self.gen_summary.musiclist['titles'][p.title][3+list_diff.index(p.difficulty)]
                     vf = p.get_vf_single(lv)
                     diff = p.difficulty.replace('APPEND', '').upper()
-                    lamp = p.lamp.replace('hard', 'exc').replace('clear', 'comp').upper()
+                    lamp = p.lamp.replace('exh','maxxive').replace('hard', 'exc').replace('clear', 'comp').upper()
                     date = f"{p.date[0:4]}/{p.date[4:6]}/{p.date[6:8]} {p.date[9:11]}:{p.date[11:13]}:{p.date[13:15]}"
                     writer.writerow([p.title, diff, lv, p.cur_score, lamp, vf, date])
                     #print(p.title, p.difficulty, lv, vf)
@@ -979,8 +985,8 @@ class SDVXLogger:
             str: ツイート用文字列
         """
         #list: 分析結果(1要素:1Lv分のlist)
-        #1要素は[num, puc, uc, hard, clear, failed, minscore, maxscore, avescore, min_vf, max_vf, ave_vf]
-        list_lamp = ['puc', 'uc', 'hard', 'clear', 'failed']
+        #1要素は[num, puc, uc, exh, hard, clear, failed, minscore, maxscore, avescore, min_vf, max_vf, ave_vf]
+        list_lamp = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
         ret = [[0 for __ in range(12)] for _ in range(20)]
         for i in range(20):
             ret[i][6] = 10000000
@@ -1147,6 +1153,8 @@ class ManageMaya2:
                 music = self.search_musicinfo(key)
                 exscore=''
                 lamp=song.best_lamp.upper()
+                if lamp == 'EXH':
+                    lamp = 'MAXXIVE_COMP'
                 if lamp == 'HARD':
                     lamp = 'EX_COMP'
                 if lamp == 'CLEAR':

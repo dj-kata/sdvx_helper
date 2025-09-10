@@ -177,6 +177,8 @@ class SDVXHelper:
     def check_legacy_settings(self):
         """古くなった設定からの移行時に呼び出す関数。古いパラメータがある際に一度だけ呼び出す想定。
         """
+        if len(self.settings['webhook_enable_lamps']) == 5: # maxxive追加前
+            self.settings['webhook_enable_lamps'].insert(2, False)
         if 'top_is_right' in self.settings.keys(): # 1.0.29, 画面回転モードの判定
             if self.settings['top_is_right']:
                 self.settings['orientation_top'] = 'right'
@@ -510,6 +512,7 @@ class SDVXHelper:
                 sg.Checkbox('all', key='webhook_enable_alllamp', enable_events=True),
                 sg.Checkbox('PUC', key='webhook_enable_puc', default=True),
                 sg.Checkbox('UC', key='webhook_enable_uc',default=True),
+                sg.Checkbox('MAXXIVE', key='webhook_enable_exh', default=True),
                 sg.Checkbox('EXC', key='webhook_enable_hard', default=True),
                 sg.Checkbox('COMP', key='webhook_enable_clear', default=True),
                 sg.Checkbox('Failed', key='webhook_enable_failed'),
@@ -904,13 +907,13 @@ class SDVXHelper:
                     self.settings['webhook_urls'][idx] = val['webhook_urls']
                     self.settings['webhook_enable_pics'][idx] = val['webhook_enable_pics']
                     self.settings['webhook_enable_lvs'][idx] = [val[f'webhook_enable_lv{lv}'] for lv in range(1,21)]
-                    self.settings['webhook_enable_lamps'][idx] = [val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'hard', 'clear', 'failed')]
+                    self.settings['webhook_enable_lamps'][idx] = [val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed')]
                 else:
                     self.settings['webhook_names'].append(val['webhook_names'])
                     self.settings['webhook_urls'].append(val['webhook_urls'])
                     self.settings['webhook_enable_pics'].append(val['webhook_enable_pics'])
                     self.settings['webhook_enable_lvs'].append([val[f'webhook_enable_lv{lv}'] for lv in range(1,21)])
-                    self.settings['webhook_enable_lamps'].append([val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'hard', 'clear', 'failed')])
+                    self.settings['webhook_enable_lamps'].append([val[f'webhook_enable_{l}'] for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed')])
                 self.set_webhook_ui_default()
 
     def webhook_del(self, val:dict):
@@ -942,7 +945,7 @@ class SDVXHelper:
             self.window['webhook_enable_pics'].update(self.settings['webhook_enable_pics'][idx])
             for i in range(1,21):
                 self.window[f'webhook_enable_lv{i}'].update(self.settings['webhook_enable_lvs'][idx][i-1])
-            for i,l in enumerate(('puc', 'uc', 'hard', 'clear', 'failed')):
+            for i,l in enumerate(('puc', 'uc', 'exh', 'hard', 'clear', 'failed')):
                 self.window[f'webhook_enable_{l}'].update(self.settings['webhook_enable_lamps'][idx][i])
 
     def set_webhook_ui_default(self):
@@ -954,7 +957,7 @@ class SDVXHelper:
             self.window[f'webhook_enable_lv{i}'].update(False)
         for i in range(14,21):
             self.window[f'webhook_enable_lv{i}'].update(True)
-        for l in ('puc', 'uc', 'hard', 'clear'):
+        for l in ('puc', 'uc', 'exh', 'hard', 'clear'):
             self.window[f'webhook_enable_{l}'].update(True)
         self.window[f'webhook_enable_failed'].update(False)
 
@@ -965,7 +968,7 @@ class SDVXHelper:
             playdata (OnePlayData): 送るリザルトのデータ
         """
         diff_table = ['nov', 'adv', 'exh', 'APPEND']
-        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed', '']
+        lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed', '']
         lamp_idx = lamp_table.index(playdata.lamp)
         lv = '??'
         if playdata.title in self.sdvx_logger.titles.keys():
@@ -1065,7 +1068,7 @@ class SDVXHelper:
                         fmtnow = format(now, "%Y%m%d_%H%M%S")
                         best_sc = 0
                         best_lamp = 'failed'
-                        lamp_table = ['puc', 'uc', 'hard', 'clear', 'failed']
+                        lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
                         for d in self.sdvx_logger.best_allfumen:
                             if (d.title == title) and (d.difficulty.lower() == diff.lower()):
                                 best_sc = d.best_score
@@ -1348,7 +1351,7 @@ class SDVXHelper:
                 for i in range(1,21):
                     self.window[f"webhook_enable_lv{i}"].update(val[ev])
             elif ev == 'webhook_enable_alllamp':
-                for l in ('puc', 'uc', 'hard', 'clear', 'failed'):
+                for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
                     self.window[f"webhook_enable_{l}"].update(val[ev])
 
             ### Googleドライブ関連

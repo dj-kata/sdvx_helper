@@ -209,7 +209,7 @@ class ScoreViewer:
                     continue
             elif not self.window[f'lv{lv}'].get():
                 continue
-            lamp = s.best_lamp.upper().replace('CLEAR', 'COMP').replace('HARD','EXC')
+            lamp = s.best_lamp.upper().replace('CLEAR', 'COMP').replace('HARD','EXC').replace('EXH','MAXXIVE')
             difficulty = s.difficulty.upper().replace('APPEND', '')
             tmp = s.date.split('_')[0]
             #date = f"{s.date[:4]}/{s.date[4:6]}/{s.date[6:8]} {s.date[9:11]}:{s.date[11:13]}:{s.date[13:15]}"
@@ -341,7 +341,7 @@ class ScoreViewer:
             # 自己べも入れる
             for s in self.sdvx_logger.best_allfumen:
                 if s.title == title and s.difficulty == diff:
-                    lamp = s.best_lamp.replace('clear','COMP').replace('hard','exc').upper()
+                    lamp = s.best_lamp.replace('clear','COMP').replace('hard','exc').replace('exh', 'maxxive').upper()
                     rivals.append([self.settings['player_name'], s.best_score, lamp])
                     break
 

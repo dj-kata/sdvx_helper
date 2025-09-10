@@ -306,14 +306,14 @@ class GenSummary:
             rsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,0].sum()
             gsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,1].sum()
             bsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,2].sum()
-            #print(rsum, gsum, bsum)
-            if rsum < gsum:
+            if rsum+gsum+bsum > 800000:
+                lamp = 'exh'
+            elif rsum < gsum:
                 lamp = 'clear'
+            elif gsum > 200000:
+                lamp = 'class_clear'
             else:
-                if gsum > 200000:
-                    lamp = 'class_clear'
-                else:
-                    lamp = 'hard'
+                lamp = 'hard'
         elif self.comp_images(img.crop(self.get_detect_points('lamp')), Image.open('resources/lamp_failed.png')):
             lamp = 'failed'
 
@@ -607,13 +607,16 @@ if __name__ == '__main__':
     start = datetime.datetime(year=2023,month=10,day=15,hour=0)
     a = GenSummary(start)
     #a.generate()
-    #import glob
+    import glob
     #for f in glob.glob('tmp/sel_*png'):
     #    img = Image.open(f)
     #    print(f, a.get_score_on_select(img))
     #a.generate_today_all('hoge.png')
     #a.chk_ocr(60)
-    for f in ['debug/profession_exh.png', 'debug/gambol_inf.png', 'debug/gorira_adv.png', 'debug/unlimi_nov.png']:
-    #for f in ['debug/profession_exh.png']:
-        a.update_musicinfo(Image.open(f))
-        print(f, a.ocr_from_detect())
+    # for f in ['debug/profession_exh.png', 'debug/gambol_inf.png', 'debug/gorira_adv.png', 'debug/unlimi_nov.png']:
+    for f in glob.glob('debug/result/*'):
+        tmp = Image.open(f)
+        a.cut_result_parts(tmp)
+        cur,pre = a.get_score(tmp)
+        res_ocr = a.ocr(notify=True)
+        print(f, res_ocr, a.lamp)
