@@ -223,7 +223,9 @@ class GenSummary:
                 lamp = k
         if not lamp: # puc, uc以外はimagehashを使わずに判定
             a = np.array(img_lamp)[:,:,:3]
-            if a.sum() > 620000:
+            if a.sum() > 820000:
+                lamp = 'exh'
+            elif a.sum() > 620000:
                 lamp = 'hard'
             elif a.sum() < 400000:
                 lamp = 'failed'
@@ -608,15 +610,12 @@ if __name__ == '__main__':
     a = GenSummary(start)
     #a.generate()
     import glob
-    #for f in glob.glob('tmp/sel_*png'):
-    #    img = Image.open(f)
-    #    print(f, a.get_score_on_select(img))
-    #a.generate_today_all('hoge.png')
-    #a.chk_ocr(60)
-    # for f in ['debug/profession_exh.png', 'debug/gambol_inf.png', 'debug/gorira_adv.png', 'debug/unlimi_nov.png']:
     for f in glob.glob('debug/result/*'):
         tmp = Image.open(f)
         a.cut_result_parts(tmp)
         cur,pre = a.get_score(tmp)
         res_ocr = a.ocr(notify=True)
         print(f, res_ocr, a.lamp)
+    for f in glob.glob('debug/select/*png'):
+        img = Image.open(f)
+        print(f, a.get_score_on_select(img))
