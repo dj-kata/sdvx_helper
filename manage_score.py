@@ -34,7 +34,7 @@ par_btn = partial(sg.Button, pad=(3,0), font=FONT, enable_events=True, border_wi
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
 sg.theme('SystemDefault')
-lamp_table = ['FAILED', 'COMP', 'EXC', 'UC', 'PUC']
+lamp_table = ['FAILED', 'COMP', 'EXC', 'MAXXIVE', 'UC', 'PUC']
 
 # TODO
 ## Lv一覧の作成
