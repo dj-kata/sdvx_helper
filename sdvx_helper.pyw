@@ -842,9 +842,11 @@ class SDVXHelper:
         """
         img = self.img_rot.crop(self.get_detect_points('ondetect'))
         tmp = imagehash.average_hash(img)
+        rgbsum = np.array(img).sum()
         img = Image.open('resources/ondetect.png')
         hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 10
+        # ondetect.pngの画素値合計が3,845,302
+        ret = (abs(hash_target - tmp) < 2) and (rgbsum < 4000000)
         return ret
     
     def is_onlogo(self):
@@ -1092,7 +1094,7 @@ class SDVXHelper:
                 if not done_thissong:
                     if self.is_ondetect():
                         print(f"曲決定画面を検出")
-                        time.sleep(self.params['detect_wait'])
+                        # time.sleep(self.params['detect_wait']) # タイミングが変わっても検出できるようにするため廃止
                         self.get_capture_after_rotate()
                         self.gen_summary.update_musicinfo(self.img_rot)
                         self.obs.refresh_source('nowplaying.html')
