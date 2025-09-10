@@ -63,14 +63,25 @@ class OnePlayData:
     1つのプレーデータを表すクラス。
     リストに入れてソートすると日付順になる。
     """
-    def __init__(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
+    def __init__(self, title:str, cur_score:int, cur_exscore:int, pre_score:int, pre_exscore:int, lamp:str, difficulty:str, date:str):
         self.title = title
         self.cur_score = cur_score
+        self.cur_exscore = cur_exscore
         self.pre_score = pre_score
+        self.pre_exscore = pre_exscore
         self.lamp = lamp
         self.difficulty = difficulty
         self.date = date
         self.diff = cur_score - pre_score
+
+    def __setstate__(self, state):
+        # pickleロード時にメンバが存在しない場合への対応
+        self.__dict__.update(state)
+        if 'cur_exscore' not in self.__dict__:
+            self.cur_exscore = 0
+        if 'pre_exscore' not in self.__dict__:
+            self.pre_exscore = 0
+
 
     def get_vf_single(self, lv):
         """
@@ -148,7 +159,7 @@ class OnePlayData:
         return self.date < other.date
 
     def disp(self): # debug
-        print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), lamp:{self.lamp}, date:{self.date}")
+        print(f"{self.title}({self.difficulty}), cur:{self.cur_score}, pre:{self.pre_score}({self.diff:+}), exscore:{self.pre_exscore}->{self.cur_exscore}, lamp:{self.lamp}, date:{self.date}")
 
 class MusicInfo:
     """
@@ -160,19 +171,26 @@ class MusicInfo:
 
     ソートはVF順に並ぶようにしている。
     """
-    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_lamp:str, date:str='', s_tier:str='', p_tier:str=''):
+    def __init__(self, title:str, artist:str, bpm:str, difficulty:str, lv, best_score:int, best_exscore:int, best_lamp:str, date:str='', s_tier:str='', p_tier:str=''):
         self.title = title
         self.artist = artist
         self.bpm = bpm
         self.difficulty = difficulty
         self.lv = lv
         self.best_score = best_score
+        self.best_exscore = best_exscore
         self.best_lamp = best_lamp
         self.rank = score_rank.novalue
         self.date = date
         self.s_tier = s_tier
         self.p_tier = p_tier
         self.get_vf_single()
+
+    def __setstate__(self, state):
+        # pickleロード時にメンバが存在しない場合への対応
+        self.__dict__.update(state)
+        if 'best_exscore' not in self.__dict__:
+            self.best_exscore = 0
 
     def disp(self):
         msg = f"{self.title}({self.difficulty}) Lv:{self.lv}"
@@ -459,10 +477,11 @@ class SDVXLogger:
                     if r[1] == '':
                         difficulty = 'APPEND'
                     best_score = int(r[3])
+                    exscore = 0
                     best_lamp = r[4]
                     vf = int(r[5])
                     try:
-                        info = MusicInfo(r[0], '', '', difficulty, '??', best_score, best_lamp)
+                        info = MusicInfo(r[0], '', '', difficulty, '??', best_score, exscore, best_lamp)
                         info.vf = vf
                         tmp.append(info)
                     except Exception:
@@ -482,12 +501,12 @@ class SDVXLogger:
         with open(ALLLOG_FILE, 'wb') as f:
             pickle.dump(self.alllog, f)
 
-    def push(self, title:str, cur_score:int, pre_score:int, lamp:str, difficulty:str, date:str):
+    def push(self, title:str, cur_score:int, cur_exscore:int, pre_score:int, pre_exscore:int, lamp:str, difficulty:str, date:str):
         """
             新規データのpush
             その曲のプレーログ一覧を返す
         """
-        tmp = OnePlayData(title=title, cur_score=cur_score, pre_score=pre_score, lamp=lamp, difficulty=difficulty, date=date)
+        tmp = OnePlayData(title=title, cur_score=cur_score, cur_exscore=cur_exscore, pre_score=pre_score, pre_exscore=pre_exscore, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
             self.alllog.append(tmp)
 
@@ -505,7 +524,7 @@ class SDVXLogger:
         self.pre_onselect_difficulty = ''
         return tmp
 
-    def pop_illegal_logs(self, title:str, difficulty:str, score:int, lamp:str):
+    def pop_illegal_logs(self, title:str, difficulty:str, score:int, exscore:int, lamp:str):
         """1曲のログについて、指定されたスコア・ランプを超えるものを全て削除する
 
         Args:
@@ -522,9 +541,10 @@ class SDVXLogger:
         target = []
         for i,d in enumerate(self.alllog):
             if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
-                if (d.cur_score > score) or (lamp_table.index(d.lamp) < lamp_table.index(lamp)):
+                if (d.cur_score > score) or (d.cur_exscore > exscore) or (lamp_table.index(d.lamp) < lamp_table.index(lamp)):
                     target.append(i)
                     print(f'不正データ?: {d.cur_score:,}, {d.lamp}, ({d.date})')
+                    print(f"judge: {(d.cur_score > score)}, {d.cur_exscore > exscore}, {lamp_table.index(d.lamp) < lamp_table.index(lamp)}, {d.lamp}, {lamp}")
         for i in reversed(target): # 後ろからpopしていく
             self.alllog.pop(i)
         return len(target) # 削除した曲数
@@ -558,6 +578,7 @@ class SDVXLogger:
                         if tmp != None:
                             f.write(f"    <gradeS_tier>{tmp}</gradeS_tier>\n")
                 f.write(f"    <best_score>{info.best_score}</best_score>\n")
+                f.write(f"    <best_exscore>{info.best_exscore}</best_exscore>\n")
                 f.write(f"    <best_lamp>{info.best_lamp}</best_lamp>\n")
                 vf_12 = int(info.vf/10)
                 vf_3 = info.vf % 10
@@ -566,6 +587,7 @@ class SDVXLogger:
                 for p in logs:
                     f.write(f"    <Result>\n")
                     f.write(f"        <score>{p.cur_score}</score>\n")
+                    f.write(f"        <exscore>{p.cur_exscore}</exscore>\n")
                     f.write(f"        <lamp>{p.lamp}</lamp>\n")
                     mod_date = f"{p.date[:4]}-{p.date[4:6]}-{p.date[6:8]}"
                     f.write(f"        <date>{mod_date}</date>\n")
@@ -573,6 +595,7 @@ class SDVXLogger:
             else: # invalid
                 f.write(f"    <Result>\n")
                 f.write(f"        <score></score>\n")
+                f.write(f"        <exscore></exscore>\n")
                 f.write(f"        <lamp></lamp>\n")
                 f.write(f"        <date></date>\n")
                 f.write(f"    </Result>\n")
@@ -605,6 +628,7 @@ class SDVXLogger:
                 else:
                     f.write(f"        <lv>{info.lv}</lv>\n")
                 f.write(f"        <score>{s.cur_score}</score>\n")
+                f.write(f"        <exscore>{s.cur_exscore}</exscore>\n")
                 f.write(f"        <lamp>{s.lamp}</lamp>\n")
                 f.write(f"        <date>{s.date}</date>\n")
                 f.write(f"    </song>\n")
@@ -649,6 +673,7 @@ class SDVXLogger:
                             f.write(f"        <gradeS_tier>{tmp}</gradeS_tier>\n")
                 for d in dat:
                     f.write(f"        <best_score>{d.best_score}</best_score>\n")
+                    f.write(f"        <best_exscore>{d.best_exscore}</best_exscore>\n")
                     f.write(f"        <best_lamp>{d.best_lamp}</best_lamp>\n")
                     vf_12 = int(d.vf/10)
                     vf_3 = d.vf % 10
@@ -733,6 +758,7 @@ class SDVXLogger:
         lamp_table = ['', 'failed', 'clear', 'hard', 'exh', 'uc', 'puc']
         logs = []
         best_score = 0
+        best_exscore = 0
         best_lamp = ''
         last_played_date = '0000/00/00'
         for p in reversed(self.alllog):
@@ -743,6 +769,7 @@ class SDVXLogger:
                     p.lamp = 'clear'
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
                 best_score = p.cur_score if (p.cur_score > best_score) and (p.cur_score <= 10000000) else best_score
+                best_exscore = p.cur_exscore if (p.cur_exscore > best_exscore) else best_exscore
                 # 以前のbest情報の読み取り精度が悪いため、現在のスコアからの登録のみ
                 #best_score = p.pre_score if (p.pre_score > best_score) and (p.pre_score <= 10000000) else best_score
                 if p.cur_score > 7000000: # 最低スコアを設定 TODO
@@ -757,7 +784,7 @@ class SDVXLogger:
             artist = ''
             bpm = ''
             lv = '??'
-        info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_lamp, last_played_date)
+        info = MusicInfo(title, artist, bpm, difficulty, lv, best_score, best_exscore, best_lamp, last_played_date)
         return logs, info
     
     def update_best_onesong(self, title, diff):
@@ -987,10 +1014,10 @@ class SDVXLogger:
         #list: 分析結果(1要素:1Lv分のlist)
         #1要素は[num, puc, uc, exh, hard, clear, failed, minscore, maxscore, avescore, min_vf, max_vf, ave_vf]
         list_lamp = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
-        ret = [[0 for __ in range(12)] for _ in range(20)]
+        ret = [[0 for __ in range(13)] for _ in range(20)]
         for i in range(20):
-            ret[i][6] = 10000000
-            ret[i][9] = 1000.0
+            ret[i][7] = 10000000
+            ret[i][10] = 1000.0
         for i,p in enumerate(self.best_allfumen):
             p.disp()
             idx = p.lv - 1
@@ -999,21 +1026,21 @@ class SDVXLogger:
             # ランプ
             ret[idx][1+list_lamp.index(p.best_lamp)] += 1
             # min
-            ret[idx][6] = min(ret[idx][6], p.best_score)
-            ret[idx][9] = min(ret[idx][9], p.vf)
+            ret[idx][7] = min(ret[idx][10], p.best_score)
+            ret[idx][10] = min(ret[idx][10], p.vf)
             # max
-            ret[idx][7] = max(ret[idx][7], p.best_score)
-            ret[idx][10] = max(ret[idx][10], p.vf)
+            ret[idx][8] = max(ret[idx][8], p.best_score)
+            ret[idx][11] = max(ret[idx][11], p.vf)
             # ave用加算
-            ret[idx][8] += p.best_score
-            ret[idx][11] += p.vf
+            ret[idx][9] += p.best_score
+            ret[idx][12] += p.vf
             if i >= 49:
                 break
         # ave計算
         for lv in range(20):
             if ret[lv][0] > 0:
-                ret[lv][8] /= ret[lv][0]
-                ret[lv][11] /= ret[lv][0]
+                ret[lv][9] /= ret[lv][0]
+                ret[lv][12] /= ret[lv][0]
         # ツイート用文字列作成
         vfdiff = f' (+{self.total_vf - self.vf_pre:.3f})' if self.total_vf > self.vf_pre else ''
         msg = f'VF: {self.total_vf:.3f}{vfdiff}\n\n'
@@ -1021,8 +1048,8 @@ class SDVXLogger:
             if st[0] > 0:
                 lv = i+1
                 msg += f"LV{lv} - "
-                msg += f'{int(st[6]/10000)}-{int(st[7]/10000)}(ave:{int(st[8]/10000)}), '
-                msg += f'{st[9]/10:.1f}-{st[10]/10:.1f}(ave:{st[11]/10:.1f}), '
+                msg += f'{int(st[7]/10000)}-{int(st[8]/10000)}(ave:{int(st[9]/10000)}), '
+                msg += f'{st[10]/10:.1f}-{st[11]/10:.1f}(ave:{st[12]/10:.1f}), '
                 #msg += f'ave:{int(st[8]/10000)} ({st[11]/10:.1f}),  '
                 #msg += f'ave:{int(st[8]/10000)} '
                 # lamp
@@ -1221,6 +1248,6 @@ if __name__ == '__main__':
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
     print(a.maya2.search_fumeninfo('V'))
-    res = a.maya2.upload_best(a)
+    # res = a.maya2.upload_best(a)
 
     print('hoge') 

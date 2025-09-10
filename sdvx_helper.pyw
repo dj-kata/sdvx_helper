@@ -198,6 +198,7 @@ class SDVXHelper:
         tmp = self.get_capture_after_rotate()
         self.gen_summary.cut_result_parts(tmp)
         cur,pre = self.gen_summary.get_score(tmp)
+        cur_ex,pre_ex = self.gen_summary.get_exscore(tmp)
         res_ocr = self.gen_summary.ocr(notify=True)
         if res_ocr != False and self.detect_mode == detect_mode.result: # OCRで曲名認識に成功
             title = res_ocr
@@ -213,14 +214,15 @@ class SDVXHelper:
         except:
             #print(traceback.format_exc())
             pass
-        tmp_playdata = OnePlayData(title='???', cur_score=cur, pre_score=pre, lamp=lamp, difficulty=difficulty, date=fmtnow)
+        tmp_playdata = OnePlayData(title='???', cur_score=cur, cur_exscore=cur_ex, pre_score=pre, pre_exscore=pre_ex, lamp=lamp, difficulty=difficulty, date=fmtnow)
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
-            tmp_playdata = self.sdvx_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+
+            tmp_playdata = self.sdvx_logger.push(res_ocr, cur, cur_ex, pre, pre_ex, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
             # RTA用
             if self.rta_mode:
-                self.rta_logger.push(res_ocr, cur, pre, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
+                self.rta_logger.push(res_ocr, cur, cur_ex, pre, pre_ex, self.gen_summary.lamp, self.gen_summary.difficulty, fmtnow)
                 self.rta_vf_cur = self.rta_logger.total_vf
                 if Decimal(str(self.rta_vf_cur))>=Decimal(self.settings['rta_target_vf']):
                     self.rta_finished = True
@@ -1006,7 +1008,53 @@ class SDVXHelper:
     def import_score_on_select_with_dialog(self):
         """ボタンを押したときだけ選曲画面から自己べを取り込む。合ってるかどうかの確認もやる。
         """
-        self.window.write_event_value('-import_score_on_select-', " ")
+        self.import_score_on_select_core(True)
+
+    def import_score_on_select_core(self, ask:bool=False):
+        if self.detect_mode == detect_mode.select:
+            title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
+                self.img_rot.crop(self.get_detect_points('select_jacket')),
+                self.img_rot.crop(self.get_detect_points('select_nov')),
+                self.img_rot.crop(self.get_detect_points('select_adv')),
+                self.img_rot.crop(self.get_detect_points('select_exh')),
+                self.img_rot.crop(self.get_detect_points('select_APPEND')),
+            )
+            sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
+            exsc = self.gen_summary.get_exscore_on_select(self.img_rot)
+            now = datetime.datetime.now()
+            import_ok = True
+            is_best = True # 自己べかどうか。popの条件をimport_okだけにしたいので分けている
+            lamp_table = ['', 'failed', 'clear', 'hard', 'exh', 'uc', 'puc']
+            for d in self.sdvx_logger.best_allfumen:
+                if (d.title == title) and (d.difficulty == diff):
+                    if (d.best_score >= sc) and (d.best_exscore >= exsc) and (lamp_table.index(d.best_lamp) >= lamp_table.index(lamp)):
+                        is_best = False
+                    break
+            if is_arcade and (not self.settings['import_arcade_score']):
+                import_ok = False
+            if import_ok:
+                # そのスコアを超えていをものを自動で削除
+                # print(title, diff, diff_hash)
+                self.sdvx_logger.pop_illegal_logs(title, diff, sc, exsc, lamp)
+                if is_best:
+
+                    self.last_autosave_time = now
+                    fmtnow = format(now, "%Y%m%d_%H%M%S")
+                    if sc <= 10000000:
+                        if ask: # F7キーを押した場合
+                            ans = sg.popup_yes_no(f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}', icon=self.ico)
+                        else: # 自動取取の場合
+                            ans = 'Yes'
+                        if ans == "Yes":
+                            print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, ex:{exsc:,}, {lamp}")
+                            self.sdvx_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
+                            if self.rta_mode:
+                                self.rta_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
+                            self.check_rival_update() # お手紙ビューを更新
+                    else:
+                        print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
+        else:
+            print(f'選曲画面ではないのでスキップします。')
 
     def detect(self):
         """認識処理を行う。無限ループになっており、メインスレッドから別スレッドで起動される。
@@ -1060,30 +1108,7 @@ class SDVXHelper:
                 )
                 # 選曲画面から自己べを取り込む
                 if self.settings['import_from_select']:
-                    sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
-                    import_ok = True
-                    if is_arcade and (not self.settings['import_arcade_score']):
-                        import_ok = False
-                    if import_ok:
-                        now = datetime.datetime.now()
-                        self.last_autosave_time = now
-                        fmtnow = format(now, "%Y%m%d_%H%M%S")
-                        best_sc = 0
-                        best_lamp = 'failed'
-                        lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
-                        for d in self.sdvx_logger.best_allfumen:
-                            if (d.title == title) and (d.difficulty.lower() == diff.lower()):
-                                best_sc = d.best_score
-                                best_lamp = d.best_lamp
-                        # 本ツール内のbestと合っていない場合(取り込み漏れorエラー動作)は選曲画面のスコアを登録
-                        #if (sc!=best_sc) or (lamp_table.index(lamp) != lamp_table.index(best_lamp)):
-                        if sc <= 10000000:
-                            if (sc>best_sc) or (lamp_table.index(lamp) < lamp_table.index(best_lamp)):
-                                print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
-                                self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
-                                if self.rta_mode:
-                                    self.rta_logger.push(title, sc, 0, lamp, diff, fmtnow)
-                                self.check_rival_update() # お手紙ビューを更新
+                    self.import_score_on_select_core(False)
                 if diff_hash < 8:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
@@ -1406,30 +1431,7 @@ class SDVXHelper:
                     else:
                         sg.popup_error(f'CSV出力失敗')
             elif ev == '-import_score_on_select-':
-                if self.detect_mode == detect_mode.select:
-                    title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
-                        self.img_rot.crop(self.get_detect_points('select_jacket')),
-                        self.img_rot.crop(self.get_detect_points('select_nov')),
-                        self.img_rot.crop(self.get_detect_points('select_adv')),
-                        self.img_rot.crop(self.get_detect_points('select_exh')),
-                        self.img_rot.crop(self.get_detect_points('select_APPEND')),
-                    )
-                    sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
-                    now = datetime.datetime.now()
-                    self.last_autosave_time = now
-                    fmtnow = format(now, "%Y%m%d_%H%M%S")
-                    if sc <= 10000000:
-                        ans = sg.popup_yes_no(f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}', icon=self.ico)
-                        if ans == "Yes":
-                            print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, {lamp}")
-                            self.sdvx_logger.push(title, sc, 0, lamp, diff, fmtnow)
-                            if self.rta_mode:
-                                self.rta_logger.push(title, sc, 0, lamp, diff, fmtnow)
-                            self.check_rival_update() # お手紙ビューを更新
-                    else:
-                        print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
-                else:
-                    print(f'選曲画面ではないのでスキップします。')
+                self.import_score_on_select_core()
 
 if __name__ == '__main__':
     a = SDVXHelper()

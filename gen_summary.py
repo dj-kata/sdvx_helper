@@ -56,13 +56,18 @@ class GenSummary:
     def load_hashes(self):
         self.score_hash_small = []
         self.select_score_hash_small = []
+        self.select_exscore_hash = []
         self.select_lamp_hash = {}
         self.score_hash_large = []
+        self.exscore_hash   = []
         self.bestscore_hash   = []
+        self.bestexscore_hash   = []
         for i in range(10):
             self.score_hash_small.append(imagehash.average_hash(Image.open(f'resources/result_score_s{i}.png')))
             self.select_score_hash_small.append(imagehash.average_hash(Image.open(f'resources/select_score_s{i}.png')))
+            self.select_exscore_hash.append(imagehash.average_hash(Image.open(f'resources/select_exscore_{i}.png')))
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
+            self.exscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_exscore_{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
         for k in ['puc', 'uc']:
             self.select_lamp_hash[k] = imagehash.average_hash(Image.open(f'resources/select_lamp_{k}.png'))
@@ -116,7 +121,15 @@ class GenSummary:
     # スコアの抽出
     # PIL.Imageを受け取ってintのスコアを返す
     # resources/result_score_{l,s}{0-9}.pngはグレースケールなので注意    
-    def get_score(self, img):
+    def get_score(self, img) -> tuple:
+        """リザルト画像からスコアを読み取って返す。
+
+        Args:
+            img (PIL.Image): リザルト画面を想定
+
+        Returns:
+            tuple: cur, pre
+        """
         img_gray = img.convert('L')
         tmp = []
         tmp.append(img_gray.crop(self.get_detect_points('result_score_large_0')))
@@ -177,6 +190,66 @@ class GenSummary:
 
         return cur_score, pre_score
     
+    def get_exscore(self, img) -> tuple:
+        """リザルト画像からEXスコアを読み取って返す。
+
+        Args:
+            img (PIL.Image): リザルト画面を想定
+
+        Returns:
+            tuple: cur, pre
+        """
+        img_gray = img.convert('L')
+        tmp = []
+        tmp.append(img_gray.crop(self.get_detect_points('result_exscore_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_exscore_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_exscore_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_exscore_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_exscore_4')))
+        # for j,t in enumerate(tmp):
+        #     hash = imagehash.average_hash(t)
+        #     t.save(f"result_exscore_{hash}.png")
+        out = []
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            minid = -1
+            minval = 999999
+            for i,h in enumerate(self.exscore_hash):
+                val = abs(h - hash)
+                minid = i if val<minval else minid
+                minval = val if val<minval else minval
+            out.append(minid)
+        cur_score = int(''.join(map(str, out)))
+        pre_score = 0
+        # # bestスコアの処理
+        # tmp = []
+        # out = []
+        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_0')))
+        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_1')))
+        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_2')))
+        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_3')))
+        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_4')))
+        # for j,t in enumerate(tmp):
+        #    hash = imagehash.average_hash(t)
+        #    t.save(f"result_bestexscore_{hash}.png")
+        # for j,t in enumerate(tmp):
+        #    hash = imagehash.average_hash(t)
+        #    minid = -1
+        #    minval = 999999
+        #    for i,h in enumerate(self.bestexscore_hash):
+        #        val = abs(h - hash)
+        #        minid = i if val<minval else minid
+        #        minval = val if val<minval else minval
+        #    if minid in (9,8): # 8,9の判定を間違えやすいので、左下の色を見て判別
+        #        if np.array(t)[10][1] < 100:
+        #            minid = 9
+        #        else:
+        #            minid = 8
+        #    out.append(minid)
+        # pre_score = int(''.join(map(str, out)))
+
+        return cur_score, pre_score
+    
     def get_score_on_select(self, img):
         """選曲画面における自己べスコア、ランプの取得
 
@@ -222,15 +295,23 @@ class GenSummary:
             if abs(hash - self.select_lamp_hash[k]) < 4:
                 lamp = k
         if not lamp: # puc, uc以外はimagehashを使わずに判定
-            a = np.array(img_lamp)[:,:,:3]
-            if a.sum() > 820000:
+            a = np.array(img_lamp)
+            r=a[:,:,0]
+            g=a[:,:,1]
+            b=a[:,:,2]
+            if (a.sum() > 700000) and (g.sum() > 200000):
                 lamp = 'exh'
-            elif a.sum() > 620000:
+            elif (r.sum() > 200000) and (b.sum() > 200000):
                 lamp = 'hard'
+            elif (r.sum() < 200000) and (g.sum() > 220000) and (b.sum() > 180000):
+                lamp = 'clear'
             elif a.sum() < 400000:
                 lamp = 'failed'
+            elif a.sum() < 100000:
+                lamp = 'noplay'
             else:
-                lamp = 'clear'
+                lamp = None
+            # print('hoge, ', a.sum(), r.sum(), g.sum(), b.sum(), lamp)
 
         # アーケード版かどうかの判定
         is_arcade = True
@@ -238,6 +319,41 @@ class GenSummary:
         is_arcade = np.array(img_arcade).sum() > 100000
 
         return score, lamp, is_arcade
+
+    def get_exscore_on_select(self, img):
+        """選曲画面における自己べEXスコアの取得
+
+        Args:
+            img (PIL.Image): キャプチャ画像
+
+        Returns:
+            int: EXスコア
+        """
+        score = 0
+        lamp = False
+        img_gray = img.convert('L')
+        tmp = []
+        tmp.append(img_gray.crop(self.get_detect_points('select_exscore_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_exscore_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_exscore_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_exscore_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('select_exscore_4')))
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            t.save(f"select_exscore_{hash}.png")
+        out = []
+        for j,t in enumerate(tmp):
+            hash = imagehash.average_hash(t)
+            minid = -1
+            minval = 999999
+            for i,h in enumerate(self.select_exscore_hash):
+                val = abs(h - hash)
+                minid = i if val<minval else minid
+                minval = val if val<minval else minval
+            out.append(minid)
+        score = int(''.join(map(str, out)))
+
+        return score
 
     def comp_images(self, img1, img2, threshold=10):
         val1 = imagehash.average_hash(img1)
@@ -308,7 +424,7 @@ class GenSummary:
             rsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,0].sum()
             gsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,1].sum()
             bsum = np.array(img.crop(self.get_detect_points('gauge')))[:,:,2].sum()
-            if rsum+gsum+bsum > 800000:
+            if rsum+gsum+bsum > 780000:
                 lamp = 'exh'
             elif rsum < gsum:
                 lamp = 'clear'
@@ -614,8 +730,10 @@ if __name__ == '__main__':
         tmp = Image.open(f)
         a.cut_result_parts(tmp)
         cur,pre = a.get_score(tmp)
+        curex,preex = a.get_exscore(tmp)
         res_ocr = a.ocr(notify=True)
-        print(f, res_ocr, a.lamp)
+        print(f, res_ocr, a.lamp, cur, curex)
     for f in glob.glob('debug/select/*png'):
         img = Image.open(f)
         print(f, a.get_score_on_select(img))
+        print(f, a.get_exscore_on_select(img))

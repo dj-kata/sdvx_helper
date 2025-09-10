@@ -294,6 +294,8 @@ class ScoreViewer:
             if lamp == 'PUC':
                 bgc = '#ffff66'
             elif lamp == 'UC':
+                bgc = '#dddddd'
+            elif lamp == 'MAXXIVE':
                 bgc = '#ffaaaa'
             elif lamp == 'EXC':
                 bgc = '#ffccff'
