@@ -338,9 +338,9 @@ class GenSummary:
         tmp.append(img_gray.crop(self.get_detect_points('select_exscore_2')))
         tmp.append(img_gray.crop(self.get_detect_points('select_exscore_3')))
         tmp.append(img_gray.crop(self.get_detect_points('select_exscore_4')))
-        for j,t in enumerate(tmp):
-            hash = imagehash.average_hash(t)
-            t.save(f"select_exscore_{hash}.png")
+        # for j,t in enumerate(tmp):
+        #     hash = imagehash.average_hash(t)
+        #     t.save(f"select_exscore_{hash}.png")
         out = []
         for j,t in enumerate(tmp):
             hash = imagehash.average_hash(t)
