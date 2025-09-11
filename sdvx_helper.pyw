@@ -263,6 +263,8 @@ class SDVXHelper:
     def load_rivallog(self):
         """前回起動時に保存していたライバルの自己べ情報を読み込む
         """
+        # self.rival_log: SDVXHelper内に持つライバルのスコア
+        # self.sdvx_logger.rival_score: GoogleDriveから取得したもの
         try:
             with open('out/rival_log.pkl', 'rb') as f:
                 self.rival_log = pickle.load(f)
@@ -273,7 +275,7 @@ class SDVXHelper:
         for i,p in enumerate(self.sdvx_logger.rival_names): # rival_log['名前']=MusicInfoのリスト
             if p not in self.rival_log.keys():
                 self.rival_log[p] = []
-            logger.debug(f"rival: {p} - {len(self.sdvx_logger.rival_score[p])}件")
+            # logger.debug(f"rival: {p} - {len(self.sdvx_logger.rival_score[p])}件")
 
     def save_rivallog(self):
         """ライバルの自己べ情報を保存する
@@ -1020,6 +1022,9 @@ class SDVXHelper:
                 self.img_rot.crop(self.get_detect_points('select_APPEND')),
             )
             sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
+            if lamp is None:
+                print('ランプ取得失敗')
+                return False
             exsc = self.gen_summary.get_exscore_on_select(self.img_rot)
             now = datetime.datetime.now()
             import_ok = True
@@ -1033,15 +1038,14 @@ class SDVXHelper:
             if is_arcade and (not self.settings['import_arcade_score']):
                 import_ok = False
             if import_ok:
-                # そのスコアを超えていをものを自動で削除
                 # print(title, diff, diff_hash)
-                self.sdvx_logger.pop_illegal_logs(title, diff, sc, exsc, lamp)
                 if is_best:
-
                     self.last_autosave_time = now
                     fmtnow = format(now, "%Y%m%d_%H%M%S")
                     if sc <= 10000000:
                         if ask: # F7キーを押した場合
+                            # そのスコアを超えていをものを自動で削除
+                            # self.sdvx_logger.pop_illegal_logs(title, diff, sc, exsc, lamp)
                             ans = sg.popup_yes_no(f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}', icon=self.ico)
                         else: # 自動取取の場合
                             ans = 'Yes'
@@ -1053,8 +1057,10 @@ class SDVXHelper:
                             self.check_rival_update() # お手紙ビューを更新
                     else:
                         print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
+                        return False
         else:
             print(f'選曲画面ではないのでスキップします。')
+            return False
 
     def detect(self):
         """認識処理を行う。無限ループになっており、メインスレッドから別スレッドで起動される。
