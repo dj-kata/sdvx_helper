@@ -218,6 +218,7 @@
             }
             .clear{color: #77ff77;}
             .hard{color: #ffc115;}
+            .maxxive{color: #dddddd;}
             .uc{color: #ff7777;}
             .puc{color: #ffff99;}
         </style>
@@ -301,6 +302,10 @@
                         //lamp = '<span class="hard">EXC</span>'
                         lamp = '<img src="../resources/log_lamp_hard.png" height="80">'
                     }
+                    else if (lamp == "exh"){
+                        //lamp = '<span class="hard">EXC</span>'
+                        lamp = '<img src="../resources/log_lamp_exh.png" height="80">'
+                    }
                     else if (lamp == "uc"){
                         //lamp = '<span class="uc">UC</span>'
                         lamp = '<img src="../resources/log_lamp_uc.png" height="80">'
@@ -339,6 +344,9 @@
                 }
                 else if (best_lamp == "clear"){
                     best_lamp = '<span class="clear">COMP</span>'
+                }
+                else if (best_lamp == "exh"){
+                    best_lamp = '<span class="exh">MAXXIVE</span>'
                 }
                 else if (best_lamp == "hard"){
                     best_lamp = '<span class="hard">EXC</span>'

@@ -390,6 +390,11 @@
                 border: 2px fff;
                 width: 0%;
             }
+            .exh{
+                background-color: #dddddd;
+                border: 2px fff;
+                width: 0%;
+            }
             .hard{
                 background-color: #c477ff;
                 border: 2px fff;
@@ -474,6 +479,7 @@
                     var puc           = Number($(item).find('puc').text());
                     var uc            = Number($(item).find('uc').text());
                     var hard          = Number($(item).find('hard').text());
+                    var exh          = Number($(item).find('exh').text());
                     var clear         = Number($(item).find('clear').text());
                     var failed        = Number($(item).find('failed').text());
                     var noplay        = Number($(item).find('noplay').text());
@@ -487,13 +493,14 @@
                     var rank_b      = Number($(item).find('b').text());
                     var rank_c      = Number($(item).find('c').text());
                     var rank_d      = Number($(item).find('d').text());
-                    var total_lamp = puc+uc+hard+clear+failed+noplay;
+                    var total_lamp = puc+uc+exh+hard+clear+failed+noplay;
                     var total_score = total_lamp;
                     var rank_under_aaa = total_score - rank_s - rank_aaa_plus - rank_aaa;
     		        $('.lv'+lv).find('lv').html("<lv"+lv+">"+lv+"</lv"+lv+">");
     		        $('.lv'+lv).find('average').text(average.toLocaleString());
     		        $('.lv'+lv).find('puc').text(puc);
     		        $('.lv'+lv).find('uc').text(uc);
+    		        $('.lv'+lv).find('exh').text(exh);
     		        $('.lv'+lv).find('hard').text(hard);
     		        $('.lv'+lv).find('clear').text(clear);
     		        $('.lv'+lv).find('rank_s').text(rank_s);
@@ -512,6 +519,7 @@
     		        $('.lv' + lv +'lamp').find('.failed').css('width',   100*failed / total_lamp+'%');
     		        $('.lv' + lv +'lamp').find('.clear').css('width',    100*clear  / total_lamp+'%');
     		        $('.lv' + lv +'lamp').find('.hard').css('width',     100*hard   / total_lamp+'%');
+    		        $('.lv' + lv +'lamp').find('.exh').css('width',     100*exh   / total_lamp+'%');
     		        $('.lv' + lv +'lamp').find('.uc').css('width',       100*uc     / total_lamp+'%');
     		        $('.lv' + lv +'lamp').find('.puc').css('width',      100*puc    / total_lamp+'%');
     		        $('.lv' + lv +'score').find('.rank_s').css('width',        100*rank_s / total_score+'%');
@@ -566,11 +574,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv14lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -591,11 +601,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv15lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -616,11 +628,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv16lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -641,11 +655,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv17lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -666,11 +682,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv18lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -691,11 +709,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv19lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
@@ -716,11 +736,13 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp; 
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp; 
-                    <font color="#cf77ff">EXC:</font><hard></hard>,&nbsp; 
-                    <font color="#77ff77">COMP:</font><clear></clear>,&nbsp; 
+                    <font color="#dddddd">M:</font><exh></exh>,&nbsp; 
+                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp; 
+                    <font color="#77ff77">C:</font><clear></clear>,&nbsp; 
                     <div class="lv20lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
+                        <div class="exh"></div>
                         <div class="hard"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
