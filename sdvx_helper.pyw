@@ -187,6 +187,16 @@ class SDVXHelper:
             self.settings.pop('top_is_right')
             print('old parameter is updated.\n(top_is_right -> orientation_top)')
 
+    def update_gui_value(self, key, value=None, values=None):
+        # print(key, type(self.window[key]), value, values)
+        try:
+            if values is not None:
+                self.window[key].update(values=values)
+            else:
+                self.window[key].update(value)
+        except Exception:
+            logger.error(traceback.format_exc())
+
     def save_screenshot_general(self):
         """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
         """
@@ -605,7 +615,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.obs_control
         self.window = sg.Window(f"SDVX helper - OBS制御設定", layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.settings['obs_scene_collection'] != '':
-            self.window['scene_collection'].update(value=self.settings['obs_scene_collection'])
+            self.update_gui_value('scene_collection', self.settings['obs_scene_collection'])
 
     def gui_setting(self):
         """設定画面のGUIを起動する。
@@ -691,7 +701,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.main
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
         if self.connect_obs():
-            self.window['txt_obswarning'].update('')
+            self.update_gui_value('txt_obswarning', '')
 
     def start_detect(self):
         """認識スレッドを開始する。
@@ -729,7 +739,7 @@ class SDVXHelper:
         try:
             self.obs = OBSSocket(self.settings['host'], self.settings['port'], self.settings['passwd'], self.settings['obs_source'], self.imgpath)
             if self.gui_mode == gui_mode.main:
-                self.window['txt_obswarning'].update('')
+                self.update_gui_value('txt_obswarning','')
                 print('OBSに接続しました')
             return True
         except:
@@ -737,7 +747,7 @@ class SDVXHelper:
             self.obs = False
             print('obs socket error!')
             if self.gui_mode == gui_mode.main:
-                self.window['txt_obswarning'].update('error! OBS接続不可')
+                self.update_gui_value('txt_obswarning','error! OBS接続不可')
                 print('Error!! OBSとの接続に失敗しました。')
             return False
 
@@ -752,7 +762,7 @@ class SDVXHelper:
             bool: 正常終了していればTrue
         """
         if self.gui_mode == gui_mode.main:
-            self.window['txt_mode'].update(self.detect_mode.name)
+            self.update_gui_value('txt_mode', self.detect_mode.name)
         if self.obs == False:
             logger.debug('cannot connect to OBS -> exit')
             return False
@@ -946,26 +956,26 @@ class SDVXHelper:
         if len(val['list_webhook']) > 0:
             key = val['list_webhook'][0]
             idx = self.settings['webhook_names'].index(key)
-            self.window['webhook_names'].update(key)
-            self.window['webhook_urls'].update(self.settings['webhook_urls'][idx])
-            self.window['webhook_enable_pics'].update(self.settings['webhook_enable_pics'][idx])
+            self.update_gui_value('webhook_names', key)
+            self.update_gui_value('webhook_urls', self.settings['webhook_urls'][idx])
+            self.update_gui_value('webhook_enable_pics', self.settings['webhook_enable_pics'][idx])
             for i in range(1,21):
-                self.window[f'webhook_enable_lv{i}'].update(self.settings['webhook_enable_lvs'][idx][i-1])
+                self.update_gui_value(f'webhook_enable_lv{i}', self.settings['webhook_enable_lvs'][idx][i-1])
             for i,l in enumerate(('puc', 'uc', 'exh', 'hard', 'clear', 'failed')):
-                self.window[f'webhook_enable_{l}'].update(self.settings['webhook_enable_lamps'][idx][i])
+                self.update_gui_value(f'webhook_enable_{l}', self.settings['webhook_enable_lamps'][idx][i])
 
     def set_webhook_ui_default(self):
-        self.window['list_webhook'].update(self.settings['webhook_names'])
-        self.window['webhook_names'].update('')
-        self.window['webhook_urls'].update('')
-        self.window['webhook_enable_pics'].update(True)
+        self.update_gui_value('list_webhook', self.settings['webhook_names'])
+        self.update_gui_value('webhook_names', '')
+        self.update_gui_value('webhook_urls', '')
+        self.update_gui_value('webhook_enable_pics', True)
         for i in range(1,14):
-            self.window[f'webhook_enable_lv{i}'].update(False)
+            self.update_gui_value(f'webhook_enable_lv{i}', False)
         for i in range(14,21):
-            self.window[f'webhook_enable_lv{i}'].update(True)
+            self.update_gui_value(f'webhook_enable_lv{i}', True)
         for l in ('puc', 'uc', 'exh', 'hard', 'clear'):
-            self.window[f'webhook_enable_{l}'].update(True)
-        self.window[f'webhook_enable_failed'].update(False)
+            self.update_gui_value(f'webhook_enable_{l}', True)
+        self.update_gui_value(f'webhook_enable_failed', False)
 
     def send_custom_webhook(self, playdata:OnePlayData):
         """カスタムWebhookへの送出を行う
@@ -1073,7 +1083,7 @@ class SDVXHelper:
             return False
         if self.settings['obs_source'] == '':
             print("\nゲーム画面用ソースが設定されていません。\nメニュー->OBS制御設定からゲーム画面の指定を行ってください。")
-            self.window['txt_obswarning'].update('error! ゲーム画面未設定')
+            self.update_gui_value('txt_obswarning', 'error! ゲーム画面未設定')
             return False
         obsv = self.obs.ws.get_version()
         if obsv != None:
@@ -1150,7 +1160,7 @@ class SDVXHelper:
                     self.last_play0_time = datetime.datetime.now()
                     self.control_obs_sources('play0')
                     self.plays += 1
-                    self.window['txt_plays'].update(str(self.plays))
+                    self.update_gui_value('txt_plays', str(self.plays))
                     plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
                     self.obs.change_text(self.settings['obs_txt_plays'], plays_str)
                     done_thissong = False # 曲が始まるタイミングでクリア
@@ -1295,23 +1305,23 @@ class SDVXHelper:
             elif ev == 'combo_scene': # シーン選択時にソース一覧を更新
                 if self.obs != False:
                     sources = self.obs.get_sources(val['combo_scene'])
-                    self.window['combo_source'].update(values=sources)
+                    self.update_gui_value('combo_source', values=sources)
             elif ev == 'set_obs_source':
                 tmp = val['combo_source'].strip()
                 if tmp != "":
                     self.settings['obs_source'] = tmp
-                    self.window['obs_source'].update(tmp)
+                    self.update_gui_value('obs_source', tmp)
             elif ev.startswith('set_scene_'): # 各画面のシーンsetボタン押下時
                 tmp = val['combo_scene'].strip()
                 self.settings[ev.replace('set_scene', 'obs_scene')] = tmp
-                self.window[ev.replace('set_scene', 'obs_scene')].update(tmp)
+                self.update_gui_value(ev.replace('set_scene', 'obs_scene'), tmp)
             elif ev.startswith('add_enable_') or ev.startswith('add_disable_'):
                 tmp = val['combo_source'].strip()
                 key = ev.replace('add', 'obs')
                 if tmp != "":
                     if tmp not in self.settings[key]:
                         self.settings[key].append(tmp)
-                        self.window[key].update(self.settings[key])
+                        self.update_gui_value(key, self.settings[key])
             elif ev.startswith('del_enable_') or ev.startswith('del_disable_'):
                 key = ev.replace('del', 'obs')
                 if len(val[key]) > 0:
@@ -1319,7 +1329,7 @@ class SDVXHelper:
                     if tmp != "":
                         if tmp in self.settings[key]:
                             self.settings[key].pop(self.settings[key].index(tmp))
-                            self.window[key].update(self.settings[key])
+                            self.update_gui_value(key, self.settings[key])
             elif ev == 'scene_collection': # シーンコレクションを選択
                 self.settings['obs_scene_collection'] = val[ev]
                 self.obs.set_scene_collection(val[ev]) # そのシーンコレクションに切り替え
@@ -1329,17 +1339,17 @@ class SDVXHelper:
                 tmp.reverse()
                 for s in tmp:
                     obs_scenes.append(s['sceneName'])
-                self.window['combo_scene'].update(values=obs_scenes) # シーン一覧を更新
+                self.update_gui_value('combo_scene', values=obs_scenes) # シーン一覧を更新
             elif ev == 'btn_autosave_dir':
                 tmp = filedialog.askdirectory()
                 if tmp != '':
                     self.settings['autosave_dir'] = tmp
-                    self.window['txt_autosave_dir'].update(tmp)
+                    self.update_gui_value('txt_autosave_dir', tmp)
             elif ev == 'btn_my_googledrive':
                 tmp = filedialog.askdirectory()
                 if tmp != '':
                     self.settings['my_googledrive'] = tmp
-                    self.window['txt_my_googledrive'].update(tmp)
+                    self.update_gui_value('txt_my_googledrive', tmp)
 
             elif ev == 'アップデートを確認':
                 ver = self.get_latest_version()
@@ -1382,10 +1392,10 @@ class SDVXHelper:
                 self.webhook_read(val)
             elif ev == 'webhook_enable_alllv':
                 for i in range(1,21):
-                    self.window[f"webhook_enable_lv{i}"].update(val[ev])
+                    self.update_gui_txt(f"webhook_enable_lv{i}", val[ev])
             elif ev == 'webhook_enable_alllamp':
                 for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
-                    self.window[f"webhook_enable_{l}"].update(val[ev])
+                    self.update_gui_txt(f"webhook_enable_{l}", val[ev])
 
             ### Googleドライブ関連
             elif ev == 'add_rival':
@@ -1402,14 +1412,14 @@ class SDVXHelper:
                 if name != '' and url != '' and len(url) == 33:
                     self.settings['rival_names'].append(name)
                     self.settings['rival_googledrive'].append(url)
-                    self.window['rival_name'].update('')
-                    self.window['rival_googledrive'].update('')
-                self.window['rival_names'].update([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+                    self.update_gui_txt('rival_name', '')
+                    self.update_gui_txt('rival_googledrive', '')
+                self.update_gui_txt('rival_names', [[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
             elif ev == 'del_rival':
                 for idx in val['rival_names']:
                     self.settings['rival_names'].pop(idx)
                     self.settings['rival_googledrive'].pop(idx)
-                self.window['rival_names'].update([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+                self.update_gui_txt('rival_names', [[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
             elif ev == 'open_rival':
                 for idx in val['rival_names']:
                     id = self.settings['rival_googledrive'][idx]
