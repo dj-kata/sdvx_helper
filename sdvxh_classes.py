@@ -1132,6 +1132,10 @@ class ManageUploadedScores:
     def __init__(self):
         self.load()
 
+    def push(self, data:OneUploadedScore):
+        self.scores.append(data)
+        return len(self.scores)
+
     def load(self):
         try:
             with open('out/uploaded_scores.pkl', 'rb') as fp:
@@ -1346,6 +1350,21 @@ class ManageMaya2:
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
             logger.debug(res.json())
+
+            # 送信済みリストを更新
+            session_id = 'TODO'
+            mng = ManageUploadedScores()
+            for v in tmp_maya2.values():
+                tmp = OneUploadedScore(
+                    session_id=session_id,
+                    music_id = v['music_id'],
+                    difficulty=v['difficulty'],
+                    score=v['best_score'],
+                    exscore=v['exscore'],
+                    lamp=v['lamp']
+                )
+                mng.push(tmp)
+            mng.save()
             return res
         else:
             return False
