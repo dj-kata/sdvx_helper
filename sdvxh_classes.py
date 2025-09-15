@@ -8,7 +8,7 @@ from functools import total_ordering
 from collections import defaultdict
 from scipy.stats import rankdata
 from connect_maya2 import *
-from params_secret import maya2_key
+from params_secret import *
 import datetime
 import hashlib, hmac
 
@@ -378,7 +378,8 @@ class SDVXLogger:
             self.load_alllog()
         self.todaylog = [] # その日のプレーログを格納、sdvx_battle向けに使う
         self.titles = self.gen_summary.musiclist['titles']
-        self.maya2 = ManageMaya2() # サーバが生きていれば応答するコネクタ
+        maya2_url = maya2_url_testing if self.params.get('maya2_testing') else maya2_url_v1
+        self.maya2 = ManageMaya2(maya2_url) # サーバが生きていれば応答するコネクタ
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
@@ -1087,7 +1088,7 @@ class SDVXLogger:
             return False
     
 class ManageMaya2:
-    def __init__(self, url = maya2_url):
+    def __init__(self, url):
         self.url = url
         self.master_db = []
         if self.is_alive():

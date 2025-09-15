@@ -1,7 +1,7 @@
 # maya2サーバとの通信関連の処理を一通りまとめておく
 # 表記揺れの吸収もここでやる予定
 from sdvxh_classes import *
-from params_secret import maya2_url
+from params_secret import *
 import requests
 import logging, logging.handlers
 import traceback
@@ -23,7 +23,7 @@ hdl.setFormatter(hdl_formatter)
 logger.addHandler(hdl)
 
 class ManageMaya2:
-    def __init__(self, url = maya2_url):
+    def __init__(self, url):
         self.url = url
         self.master_db = []
         if self.is_alive():

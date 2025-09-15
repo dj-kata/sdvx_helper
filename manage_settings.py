@@ -66,6 +66,9 @@ default_val = {
     'save_jacketimg':True, # OCR時にジャケット画像を保存する(保存先はjackets/内。VFビュー用。)
     'update_rival_on_result':False, # リザルト画面のたびにライバル関連データを更新するかどうか
 
+    # maya2連携関連
+    'maya2_token': '',
+
     # debug
     'send_webhook':True, # OCR失敗時にwebhookで自動報告するかどうか
     'dbg_enable_output':True # GUIのoutput部分を表示するかどうか。Falseにすると標準出力される。

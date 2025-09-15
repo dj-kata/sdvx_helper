@@ -472,6 +472,7 @@ class SDVXHelper:
             self.settings['import_from_select'] = val['import_from_select']
             self.settings['import_arcade_score'] = val['import_arcade_score']
             self.settings['autosave_prewait'] = val['autosave_prewait']
+            self.settings['maya2_token'] = val['maya2_token']
 
     def build_layout_one_scene(self, name, LR=None):
         """OBS制御設定画面におけるシーン1つ分のGUIを出力する。
@@ -671,6 +672,13 @@ class SDVXHelper:
             [sg.Frame('ゲームモード等の設定', layout=layout_gamemode, title_color='#000044')],
             [sg.Frame('その他設定', layout=layout_etc, title_color='#000044')],
         ]
+        if self.params.get('maya2_enable'):
+            layout_maya2 = [
+                [sg.Text('アクセストークン'), sg.Input(self.settings['maya2_token'], size=(60,1), key='maya2_token')],
+                [sg.Button('全てのログをサーバへ送信(初回用)', key='maya2_sendall')]
+            ]
+            layout.append([sg.Frame('maya2連携設定', layout=layout_maya2, title_color='#000044')])
+
         self.gui_mode = gui_mode.setting
         self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
 
