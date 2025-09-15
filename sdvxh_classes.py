@@ -606,11 +606,11 @@ class SDVXLogger:
     def push_today_updates(self):
         """SDVXLogger.today_updatesを更新するために叩く。maya2連携における終了時のリザルト送信用。
         """
-        if len(self.alllog) > 0 and self.alllog[-1] not in self.todaylog:
+        if len(self.alllog) > 0 and self.alllog[-1] not in self.today_updates:
             lamp_table = ['', 'failed', 'clear', 'hard', 'exh', 'uc', 'puc']
             tmp = self.alllog[-1]
             pre_best = None
-            for d in self.best_allfumen:
+            for d in self.best_on_start:
                 if (d.title == tmp.title) and (d.difficulty == tmp.difficulty):
                     pre_best = d
                     break
@@ -620,6 +620,9 @@ class SDVXLogger:
             elif (pre_best.best_score < tmp.cur_score) or (pre_best.best_exscore < tmp.cur_exscore) or (lamp_table.index(pre_best.best_lamp) < lamp_table.index(tmp.lamp)):
                 push_ok = True
 
+            pre_best.disp()
+            tmp.disp()
+            print('maya2 send flg:', push_ok)
             if push_ok:
                 logger.info(f"today_updates.append: {tmp.title}, {tmp.difficulty}, lamp:{tmp.lamp}, score:{tmp.cur_score}, ex:{tmp.cur_exscore}")
                 duplicate = False
@@ -844,6 +847,7 @@ class SDVXLogger:
         """
         fumenlist = []
         ret = []
+        self.best_on_start = [] # 起動時のbestを格納、maya2で差分を取得するために用意
         # 譜面一覧を作成。ここで重複しないようにしている。
         for l in self.alllog:
             if [l.title, l.difficulty] not in fumenlist:
@@ -853,6 +857,7 @@ class SDVXLogger:
             _, info = self.get_fumen_data(title, diff)
             if info != False:
                 ret.append(info)
+                self.best_on_start.append(info)
         # VF順にソート
         ret.sort(reverse=True)
         self.best_allfumen = ret
@@ -1346,7 +1351,6 @@ class ManageMaya2:
             url = maya2_url_v1+'/api/v1/import/scores'
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
-        res = requests.post(url, files=files, headers=header)
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
             logger.debug(res.json())
