@@ -472,7 +472,8 @@ class SDVXHelper:
             self.settings['import_from_select'] = val['import_from_select']
             self.settings['import_arcade_score'] = val['import_arcade_score']
             self.settings['autosave_prewait'] = val['autosave_prewait']
-            self.settings['maya2_token'] = val['maya2_token']
+            if self.params.get('maya2_enable'):
+                self.settings['maya2_token'] = val['maya2_token']
 
     def build_layout_one_scene(self, name, LR=None):
         """OBS制御設定画面におけるシーン1つ分のGUIを出力する。
