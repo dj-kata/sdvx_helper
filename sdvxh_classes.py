@@ -621,6 +621,7 @@ class SDVXLogger:
                 push_ok = True
 
             if push_ok:
+                logger.info(f"today_updates.append: {tmp.title}, {tmp.difficulty}, lamp:{tmp.lamp}, score:{tmp.cur_score}, ex:{tmp.cur_exscore}")
                 self.today_updates.append(tmp)
 
     def gen_sdvx_battle(self, update=True):
@@ -1149,7 +1150,10 @@ class ManageMaya2:
         """
         payload = {}
         try:
-            r = requests.get(self.url+'/', params=payload)
+            if self.params.get('maya2_testing'):
+                r = requests.get(maya2_url_testing+'/', params=payload)
+            else:
+                r = requests.get(maya2_url_v1+'/', params=payload)
         except Exception:
             logger.error(traceback.format_exc())
             logger.info('server: dead')
@@ -1206,6 +1210,10 @@ class ManageMaya2:
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
             return False
+        target = sdvx_logger.best_allfumen if upload_all else sdvx_logger.today_updates
+        if len(target) == 0:
+            print('送信データがありません。')
+            return False
         
         cnt_ok = 0
         cnt_ng = 0
@@ -1223,7 +1231,6 @@ class ManageMaya2:
 
         # 一旦dictに必要な情報を登録
         tmp_maya2 = {}
-        target = sdvx_logger.best_allfumen if upload_all else sdvx_logger.today_updates
         for song in target:
             key = song.title
             # 表記揺れ対応
@@ -1238,11 +1245,13 @@ class ManageMaya2:
                 else:
                     lamp=song.lamp.upper()
                 if lamp == 'EXH':
-                    lamp = 'MAXXIVE_COMP'
+                    lamp = 'MXM_COMP'
                 if lamp == 'HARD':
                     lamp = 'EX_COMP'
                 if lamp == 'CLEAR':
                     lamp = 'COMP'
+                if lamp == 'FAILED':
+                    lamp = 'PLAYED'
                 key = f"{music.get('music_id')}___{chart.get('difficulty')}"
                 if key not in tmp_maya2.keys():
                     if upload_all:
@@ -1274,7 +1283,7 @@ class ManageMaya2:
             line = f"{dat['music_id']},{dat['difficulty']},{dat['best_score']},{dat['exscore']},{dat['lamp']}"
             line_list = [dat['music_id'],dat['difficulty'],dat['best_score'],dat['exscore'],dat['lamp']]
             lines.append(line)
-            writer.writerow(line_list)
+            writer.writerow(line.split(','))
 
         print(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
         logger.info(f"total result: OK:{cnt_ok}, NG:{cnt_ng}")
@@ -1282,28 +1291,33 @@ class ManageMaya2:
         # footer; calc checksum
 
         payload = '\r\n'.join(lines)
-        #logger.debug(f"payload = \n{payload}")
         secret = maya2_key.encode(encoding='utf-8')
         checksum = hmac.new(secret, payload.encode(encoding='utf-8'), hashlib.sha256).hexdigest()
         logger.debug(f"checksum = {checksum}")
         now = datetime.datetime.now().replace(microsecond=0)
-        writer.writerow([now,cnt_ok,checksum])
         fp.close()
+        with open(filename, 'a', encoding='utf-8', newline='') as fp:
+            writer = csv.writer(fp, lineterminator="") # 最終行は改行しない
+            writer.writerow([now,cnt_ok,checksum])
 
         # サーバへ送信
+        header = {'X-Auth-Token': self.token}
+        if self.params.get('maya2_testing'):
+            url = maya2_url_testing+'/api/testing/import/scores'
+        else:
+            url = maya2_url_v1+'/api/v1/import/scores'
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
-        url = f'{self.url}/api/testing/import/scores'
-        header = {'X-Auth-Token':token} # TODO 本番用の作り込み
+        res = requests.post(url, files=files, headers=header)
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
-            print(res.json())
+            logger.debug(res.json())
             return res
         else:
             return False
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
-    a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
+    #a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
     #for i,s in enumerate(a.best_allfumen):
     #    if i<50:
     #        s.disp()
@@ -1314,6 +1328,4 @@ if __name__ == '__main__':
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
     print(a.maya2.search_fumeninfo('V'))
-    # res = a.maya2.upload_best(a)
-
-    print('hoge') 
+    res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
