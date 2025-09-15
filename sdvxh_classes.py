@@ -379,8 +379,8 @@ class SDVXLogger:
         self.todaylog = [] # その日のプレーログを格納、sdvx_battle向けに使う
         self.today_updates = [] # maya2連携で更新データだけ送るために使う
         self.titles = self.gen_summary.musiclist['titles']
-        maya2_url = maya2_url_testing if self.params.get('maya2_testing') else maya2_url_v1
-        self.maya2 = ManageMaya2(maya2_url) # サーバが生きていれば応答するコネクタ
+        maya2_token = self.settings.get('maya2_token')
+        self.maya2 = ManageMaya2(maya2_token) # サーバが生きていれば応答するコネクタ
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
@@ -1109,11 +1109,40 @@ class SDVXLogger:
             return False
     
 class ManageMaya2:
-    def __init__(self, url):
-        self.url = url
+    def __init__(self, token=None):
+        self.update_token(token)
         self.master_db = []
+        self.load_settings()
         if self.is_alive():
             self.get_musiclist()
+
+    def update_token(self, token):
+        self.token = token
+
+    def load_settings(self):
+        """ユーザ設定(self.settings)をロードしてself.settingsにセットする。一応返り値にもする。
+
+        Returns:
+            dict: ユーザ設定
+        """
+        ret = {}
+        try:
+            with open(SETTING_FILE) as f:
+                ret = json.load(f)
+                print(f"設定をロードしました。\n")
+        except Exception as e:
+            logger.debug(traceback.format_exc())
+            print(f"有効な設定ファイルなし。デフォルト値を使います。")
+
+        ### 後から追加した値がない場合にもここでケア
+        for k in default_val.keys():
+            if not k in ret.keys():
+                print(f"{k}が設定ファイル内に存在しません。デフォルト値({default_val[k]}を登録します。)")
+                ret[k] = default_val[k]
+        self.settings = ret
+        with open(self.settings['params_json'], 'r') as f:
+            self.params = json.load(f)
+        return ret
 
     def is_alive(self):
         """サーバ側が生きているかどうかを確認
@@ -1136,15 +1165,18 @@ class ManageMaya2:
         """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
         """
         try:
-            payload = {}
-            header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
-            r = requests.get(self.url+'/api/testing/export/musics', params=payload, headers=header)
+            header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
+            if self.params.get('maya2_testing'):
+                r = requests.post(maya2_url_testing+'/api/testing/export/musics', headers=header)
+            else:
+                r = requests.post(maya2_url_v1+'/api/v1/export/musics', headers=header)
             js = r.json()
 
             musics = js['musics']
             self.master_db = musics
         except Exception:
             print(traceback.format_exc())
+            self.master_db = None
             return False
         return True
 
