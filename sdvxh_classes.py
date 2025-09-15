@@ -1257,7 +1257,7 @@ class ManageMaya2:
         cnt_ng = 0
         filename = 'out/maya2_payload.csv'
 
-        fp = open(filename, 'w', encoding='utf-8')
+        fp = open(filename, 'w', encoding='utf-8', newline='')
         writer = csv.writer(fp, lineterminator="\r\n") # \r\n\nになるので対策
 
         # header
@@ -1350,6 +1350,7 @@ class ManageMaya2:
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
             logger.debug(res.json())
+            print(res.json())
 
             # 送信済みリストを更新
             session_id = 'TODO'
