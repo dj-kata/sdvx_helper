@@ -1183,6 +1183,7 @@ class SDVXHelper:
                         if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
                             self.save_screenshot_general()
                             self.sdvx_logger.gen_sdvx_battle()
+                            self.sdvx_logger.push_today_updates()
                             self.sdvx_logger.save_alllog()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
@@ -1248,7 +1249,7 @@ class SDVXHelper:
                 if self.gui_mode == gui_mode.main: # メインウィンドウを閉じた場合
                     self.save_settings()
                     # maya2serverへのアップロード
-                    self.sdvx_logger.upload_best(volforce=self.vf_cur)
+                    self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=False, token=self.settings['maya2_token'])
                     self.control_obs_sources('quit')
                     summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
@@ -1405,6 +1406,8 @@ class SDVXHelper:
             elif ev == 'webhook_enable_alllamp':
                 for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
                     self.update_gui_txt(f"webhook_enable_{l}", val[ev])
+            elif ev == 'maya2_sendall':
+                self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
 
             ### Googleドライブ関連
             elif ev == 'add_rival':

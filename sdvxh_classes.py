@@ -377,6 +377,7 @@ class SDVXLogger:
         if not self.rta_mode:
             self.load_alllog()
         self.todaylog = [] # その日のプレーログを格納、sdvx_battle向けに使う
+        self.today_updates = [] # maya2連携で更新データだけ送るために使う
         self.titles = self.gen_summary.musiclist['titles']
         maya2_url = maya2_url_testing if self.params.get('maya2_testing') else maya2_url_v1
         self.maya2 = ManageMaya2(maya2_url) # サーバが生きていれば応答するコネクタ
@@ -601,6 +602,26 @@ class SDVXLogger:
                 f.write(f"        <date></date>\n")
                 f.write(f"    </Result>\n")
             f.write("</Items>\n")
+
+    def push_today_updates(self):
+        """SDVXLogger.today_updatesを更新するために叩く。maya2連携における終了時のリザルト送信用。
+        """
+        if len(self.alllog) > 0 and self.alllog[-1] not in self.todaylog:
+            lamp_table = ['', 'failed', 'clear', 'hard', 'exh', 'uc', 'puc']
+            tmp = self.alllog[-1]
+            pre_best = None
+            for d in self.best_allfumen:
+                if (d.title == tmp.title) and (d.difficulty == tmp.difficulty):
+                    pre_best = d
+                    break
+            push_ok = False
+            if pre_best is None:
+                push_ok = True
+            elif (pre_best.best_score < tmp.cur_score) or (pre_best.best_exscore < tmp.cur_exscore) or (lamp_table.index(pre_best.best_lamp) < lamp_table.index(tmp.lamp)):
+                push_ok = True
+
+            if push_ok:
+                self.today_updates.append(tmp)
 
     def gen_sdvx_battle(self, update=True):
         """SDVX Battle向けのxmlを生成する。リザルト画面からしか呼ばれない。
@@ -1071,7 +1092,7 @@ class SDVXLogger:
         msg += '#sdvx_helper'
         return msg
 
-    def upload_best(self, player_name:str='NONAME', volforce:str='0.000')->bool:
+    def upload_best(self, player_name:str='NONAME', volforce:str='0.000', upload_all:bool=False, token:str=None)->bool:
         """maya2serverに自己ベcsvのアップロードを行う。
 
         Args:
@@ -1083,7 +1104,7 @@ class SDVXLogger:
             _type_: _description_
         """
         if self.maya2.is_alive():
-            return self.maya2.upload_best(self, player_name, volforce)
+            return self.maya2.upload_best(self, player_name, volforce, upload_all, token)
         else:
             return False
     
@@ -1149,7 +1170,7 @@ class ManageMaya2:
                     ret = m
         return ret
 
-    def upload_best(self, sdvx_logger:SDVXLogger, player_name:str='NONAME', volforce:str='0.000'):
+    def upload_best(self, sdvx_logger:SDVXLogger, player_name:str='NONAME', volforce:str='0.000', upload_all:bool=False, token:str=None):
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
             return False
@@ -1170,7 +1191,8 @@ class ManageMaya2:
 
         # 一旦dictに必要な情報を登録
         tmp_maya2 = {}
-        for song in sdvx_logger.best_allfumen:
+        target = sdvx_logger.best_allfumen if upload_all else sdvx_logger.today_updates
+        for song in target:
             key = song.title
             # 表記揺れ対応
             if key in conv_table.keys():
@@ -1179,8 +1201,10 @@ class ManageMaya2:
             chart = self.search_fumeninfo(key, song.difficulty)
             if chart is not None:
                 music = self.search_musicinfo(key)
-                exscore=''
-                lamp=song.best_lamp.upper()
+                if upload_all:
+                    lamp=song.best_lamp.upper()
+                else:
+                    lamp=song.lamp.upper()
                 if lamp == 'EXH':
                     lamp = 'MAXXIVE_COMP'
                 if lamp == 'HARD':
@@ -1189,12 +1213,21 @@ class ManageMaya2:
                     lamp = 'COMP'
                 key = f"{music.get('music_id')}___{chart.get('difficulty')}"
                 if key not in tmp_maya2.keys():
-                    tmp_maya2[key] = {'music_id':music.get('music_id'), 'difficulty':chart.get('difficulty'), 
-                                      'best_score':song.best_score, 'exscore':exscore, 'lamp':lamp}
+                    if upload_all:
+                        tmp_maya2[key] = {'music_id':music.get('music_id'), 'difficulty':chart.get('difficulty'), 
+                                            'best_score':song.best_score, 'exscore':song.best_exscore, 'lamp':lamp}
+                    else:
+                        tmp_maya2[key] = {'music_id':music.get('music_id'), 'difficulty':chart.get('difficulty'), 
+                                            'best_score':song.cur_score, 'exscore':song.cur_exscore, 'lamp':lamp}
                 else:
                     print(tmp_maya2[key])
-                    tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.best_score)
-                    tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], exscore)
+                    if upload_all:
+                        tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.best_score)
+                        tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], song.best_exscore)
+                    else:
+                        tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.cur_score)
+                        tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], song.cur_exscore)
+
                     lamps = ['FAILED', 'COMP', 'EX_COMP', 'UC', 'PUC']
                     tmp_maya2[key]['lamp'] = lamps[max(lamps.index(lamp), lamps.index(tmp_maya2[key]['lamp']))]
                     print(f'duplicated data was updated -> key:{key}, data:{tmp_maya2[key]}')
@@ -1229,7 +1262,7 @@ class ManageMaya2:
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
         url = f'{self.url}/api/testing/import/scores'
-        header = {'X-Auth-Token':'token'} # TODO 本番用の作り込み
+        header = {'X-Auth-Token':token} # TODO 本番用の作り込み
         if self.is_alive():
             res = requests.post(url, files=files, headers=header)
             print(res.json())
