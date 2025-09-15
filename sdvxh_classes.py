@@ -622,7 +622,16 @@ class SDVXLogger:
 
             if push_ok:
                 logger.info(f"today_updates.append: {tmp.title}, {tmp.difficulty}, lamp:{tmp.lamp}, score:{tmp.cur_score}, ex:{tmp.cur_exscore}")
-                self.today_updates.append(tmp)
+                duplicate = False
+                for i,s in enumerate(self.today_updates): # 既に本日プレイ済みの曲ならマージする
+                    if (s.title == tmp.title) and (s.difficulty == tmp.difficulty):
+                        duplicate = True
+                        self.today_updates[i].cur_score = max(self.today_updates[i].score, tmp.cur_score)
+                        self.today_updates[i].cur_exscore = max(self.today_updates[i].exscore, tmp.cur_exscore)
+                        self.today_updates[i].lamp = lamp_table[max(lamp_table.index(self.today_updates[i].lamp),lamp_table.index(tmp.lamp))]
+                        logger.info(f"merged!, i={i}, title:{s.title}, difficulty:{s.difficulty}, score:{self.today_updates[i].score}, exscore:{self.today_updates[i].exscore}, lamp:{self.today_updates[i].lamp}")
+                if not duplicate:
+                    self.today_updates.append(tmp)
 
     def gen_sdvx_battle(self, update=True):
         """SDVX Battle向けのxmlを生成する。リザルト画面からしか呼ばれない。
@@ -1108,7 +1117,32 @@ class SDVXLogger:
             return self.maya2.upload_best(self, player_name, volforce, upload_all, token)
         else:
             return False
+
+class OneUploadedScore:
+    def __init__(self, session_id:str=None, music_id:str=None, difficulty:str=None, score:int=None, exscore:int=None, lamp:str=None): 
+        self.session_id = session_id
+        self.music_id = music_id
+        self.difficulty = difficulty
+        self.score = score
+        self.exscore = exscore
+        self.lamp = lamp
+class ManageUploadedScores:
+    """maya2サーバへ送信済みのスコアを管理する
+    """
+    def __init__(self):
+        self.load()
+
+    def load(self):
+        try:
+            with open('out/uploaded_scores.pkl', 'rb') as fp:
+                self.scores = pickle.load(fp)
+        except Exception:
+            self.scores = []
     
+    def save(self):
+        with open('out/uploaded_score.pkl', 'wb') as fp:
+            pickle.dump(self.scores, fp)
+
 class ManageMaya2:
     def __init__(self, token=None):
         self.update_token(token)
