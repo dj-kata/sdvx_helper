@@ -78,11 +78,6 @@ class SDVXHelper:
         self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
         self.imgpath = os.getcwd()+'/out/capture.png'
 
-        keyboard.add_hotkey('F6', self.save_screenshot_general)
-        keyboard.add_hotkey('F7', self.import_score_on_select_with_dialog)
-        keyboard.add_hotkey('F8', self.update_rival)
-        keyboard.add_hotkey('F3', self.start_rta_mode)
-
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
         self.update_musiclist()
@@ -1066,7 +1061,8 @@ class SDVXHelper:
                         if ask: # F7キーを押した場合
                             # そのスコアを超えていをものを自動で削除
                             # self.sdvx_logger.pop_illegal_logs(title, diff, sc, exsc, lamp)
-                            ans = sg.popup_yes_no(f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}', icon=self.ico)
+                            msg = f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}'
+                            ans = sg.popup_yes_no(msg, icon=self.ico)
                         else: # 自動取取の場合
                             ans = 'Yes'
                         if ans == "Yes":
@@ -1078,6 +1074,8 @@ class SDVXHelper:
                     else:
                         print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
                         return False
+                else:
+                    print('自己ベストではないのでスキップします。')
         else:
             print(f'選曲画面ではないのでスキップします。')
             return False
@@ -1134,7 +1132,8 @@ class SDVXHelper:
                 )
                 # 選曲画面から自己べを取り込む
                 if self.settings['import_from_select']:
-                    self.import_score_on_select_core(False)
+                    # self.import_score_on_select_core(False)
+                    self.window.write_event_value('-import_score_on_select-', " ")
                 if diff_hash < 8:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
@@ -1221,6 +1220,11 @@ class SDVXHelper:
         self.gen_summary.generate()
         self.starttime = now
         self.gui_main()
+        keyboard.add_hotkey('F6', self.save_screenshot_general)
+        keyboard.add_hotkey('F7', lambda: self.window.write_event_value('-import_score_on_select_with_dialog-', ' '))
+        keyboard.add_hotkey('F8', self.update_rival)
+        keyboard.add_hotkey('F3', self.start_rta_mode)
+
         if self.settings['get_rival_score']:
             try:
                 self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
@@ -1461,6 +1465,8 @@ class SDVXHelper:
                         sg.popup_error(f'CSV出力失敗')
             elif ev == '-import_score_on_select-':
                 self.import_score_on_select_core()
+            elif ev == '-import_score_on_select_with_dialog-':
+                self.import_score_on_select_with_dialog()
 
 if __name__ == '__main__':
     a = SDVXHelper()
