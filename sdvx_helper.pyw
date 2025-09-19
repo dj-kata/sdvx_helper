@@ -292,6 +292,7 @@ class SDVXHelper:
 
     def check_rival_update(self):
         """ライバル挑戦状用の処理。ライバルの更新有無を確認し、更新された曲一覧をdictで返す。
+        TODO: maya2側への対応
 
         Returns:
             dict: 各ライバルの更新データ。key:ライバル名(str)

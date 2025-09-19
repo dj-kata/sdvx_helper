@@ -742,6 +742,13 @@ class SDVXLogger:
                         s.player_name = name
                         s.me = False
                         infos.append(s)
+            # maya2側
+            for player in self.maya2.rival_scores.keys():
+                for s in self.maya2.rival_scores[player]: # 1曲分
+                    if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
+                        s.player_name = player + " (maya2)"
+                        s.me = False
+                        infos.append(s)
             
             # 順位付け
             infos_sorted = sorted(infos, key=lambda x:-x.best_score)
@@ -1274,9 +1281,12 @@ class ManageMaya2:
 
     def get_rival_scores(self):
         """ライバルのスコアをmaya2から取得する。
-        self.rival_scoresはmusic_id, score_valueなどからなるdict(1曲分)のListとなる。
+
+        self.rival_scores:dict, 
+            key: name
+            values: [MusicInfo(), MusicInfo(), ...]
         """
-        ret = {} # key: name, values: [MusicInfo(), MusicInfo(), ...]
+        ret = {}
         try:
             header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
             if self.params.get('maya2_testing'):
