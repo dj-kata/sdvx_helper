@@ -1276,7 +1276,7 @@ class ManageMaya2:
         """ライバルのスコアをmaya2から取得する。
         self.rival_scoresはmusic_id, score_valueなどからなるdict(1曲分)のListとなる。
         """
-        ret = {}
+        ret = {} # key: name, values: [MusicInfo(), MusicInfo(), ...]
         try:
             header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
             if self.params.get('maya2_testing'):
@@ -1284,11 +1284,26 @@ class ManageMaya2:
             else:
                 r = requests.post(maya2_url_v1+'/api/v1/export/rival_scores', headers=header)
             js = r.json()
-
-            tmp_rival_scores = list(js.get('datas').values())
-            for r in tmp_rival_scores:
-                name = r.get('rival_name')
-                ret[name] = r.get('scores')
+            dict_lamp = {'COMP':'clear', 'MXM_COMP':'exh', 'EX_COMP':'hard', 'PLAYED':'failed', 'UC':'uc', 'PUC':'puc'}
+            for rival in list(js.get('datas').values()): # 1人分のライバルデータ
+                tmp = []
+                for s in rival.get('scores'):
+                    # マスタからIDで検索
+                    for m in self.master_db:
+                        if m.get('music_id') == s.get('music_id'): # hit
+                            best_score = s.get('score_value')
+                            exscore = s.get('exscore_value')
+                            lamp = dict_lamp[s.get('exscore_value')]
+                            difficulty = s.get('difficulty_type').lower()
+                            if difficulty not in ('nov', 'adv', 'exh'):
+                                difficulty = 'APPEND'
+                            title = self.conv_table.backward(m.get('title'))
+                            info = MusicInfo(title=title, difficulty=difficulty,
+                                             best_score=best_score, best_exscore=exscore,
+                                             best_lamp=lamp)
+                            tmp.append(info)
+                            break
+                ret[rival['rival_name']] = tmp
         except Exception:
             print(traceback.format_exc())
             return False
