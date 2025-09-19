@@ -620,7 +620,6 @@ class SDVXLogger:
             elif (pre_best.best_score < tmp.cur_score) or (pre_best.best_exscore < tmp.cur_exscore) or (lamp_table.index(pre_best.best_lamp) < lamp_table.index(tmp.lamp)):
                 push_ok = True
 
-            pre_best.disp()
             tmp.disp()
             print('maya2 send flg:', push_ok)
             if push_ok:
@@ -1152,13 +1151,59 @@ class ManageUploadedScores:
         with open('out/uploaded_score.pkl', 'wb') as fp:
             pickle.dump(self.scores, fp)
 
+class Maya2TitleConverter:
+    def __init__(self):
+        self.load()
+
+    def load(self):
+        self.forward_table = {}
+        self.backward_table = {}
+        try:
+            with open('resources/title_conv_table.pkl', 'rb') as f:
+                self.forward_table = pickle.load(f)
+            self.backward_table = dict(zip(self.forward_table.values(), self.forward_table.keys()))
+        except Exception:
+            logger.error(f"resources/title_conv_table.pkl読み込みエラー")
+
+    def forward(self, key:str) -> str:
+        """sdvx_helper側の曲名をmaya2側の曲名に変換する
+
+        Args:
+            key (str): sdvx_helper側曲名
+
+        Returns:
+            str: maya2側曲名
+        """
+        ret = key
+        if key in self.forward_table.keys():
+            ret = self.forward_table[key]
+            logger.info(f"{key} をmaya2向けに変換しました。-> {ret}")
+        return ret
+
+    def backward(self, key:str) -> str:
+        """maya2側の曲名をsdvx_helper側の曲名に変換する
+
+        Args:
+            key (str): maya2側曲名
+
+        Returns:
+            str: sdvx_helper側曲名
+        """
+        ret = key
+        if key in self.backward_table.keys():
+            ret = self.backward_table[key]
+            logger.info(f"{key} をsdvx_helper向けに変換しました。-> {ret}")
+        return ret
+
 class ManageMaya2:
     def __init__(self, token=None):
         self.update_token(token)
         self.master_db = []
+        self.conv_table = Maya2TitleConverter()
         self.load_settings()
         if self.is_alive():
             self.get_musiclist()
+            self.get_rival_scores()
 
     def update_token(self, token):
         self.token = token
@@ -1227,6 +1272,29 @@ class ManageMaya2:
             return False
         return True
 
+    def get_rival_scores(self):
+        """ライバルのスコアをmaya2から取得する。
+        self.rival_scoresはmusic_id, score_valueなどからなるdict(1曲分)のListとなる。
+        """
+        ret = {}
+        try:
+            header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
+            if self.params.get('maya2_testing'):
+                r = requests.post(maya2_url_testing+'/api/testing/export/rival_scores', headers=header)
+            else:
+                r = requests.post(maya2_url_v1+'/api/v1/export/rival_scores', headers=header)
+            js = r.json()
+
+            tmp_rival_scores = list(js.get('datas').values())
+            for r in tmp_rival_scores:
+                name = r.get('rival_name')
+                ret[name] = r.get('scores')
+        except Exception:
+            print(traceback.format_exc())
+            return False
+        self.rival_scores = ret
+        return True
+
     def search_fumeninfo(self, title, fumen='APPEND'):
         """楽曲dbから1譜面の情報を検索する
         """
@@ -1269,17 +1337,13 @@ class ManageMaya2:
         writer.writerow([player_name,volforce])
 
         lines = [f"{player_name},{volforce}"]
-        with open('resources/title_conv_table.pkl', 'rb') as f:
-            conv_table = pickle.load(f)
 
         # 一旦dictに必要な情報を登録
         tmp_maya2 = {}
         for song in target:
             key = song.title
             # 表記揺れ対応
-            if key in conv_table.keys():
-                key = conv_table[key]
-                logger.info(f"{song.title} をmaya2向けに変換しました。-> {key}")
+            key = self.conv_table.forward(key)
             chart = self.search_fumeninfo(key, song.difficulty)
             if chart is not None:
                 music = self.search_musicinfo(key)
