@@ -732,6 +732,7 @@ class SDVXLogger:
             for d in self.best_allfumen:
                 if (d.title == title) and (d.difficulty.lower() == difficulty.lower()):
                     d.player_name = self.myname
+                    d.is_maya2 = False
                     d.me = True
                     lv = d.lv
                     infos.append(d)
@@ -740,6 +741,7 @@ class SDVXLogger:
                 for s in tmp: # 1曲分
                     if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
                         s.player_name = name
+                        s.is_maya2 = False
                         s.me = False
                         infos.append(s)
             # maya2側
@@ -747,6 +749,7 @@ class SDVXLogger:
                 for s in self.maya2.rival_scores[player]: # 1曲分
                     if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
                         s.player_name = player + " (maya2)"
+                        s.is_maya2 = True
                         s.me = False
                         infos.append(s)
             
@@ -778,6 +781,8 @@ class SDVXLogger:
                     f.write(f"        <name>{info.player_name}</name>\n")
                     if info.me:
                         f.write("        <me>1</me>\n")
+                    if info.is_maya2:
+                        f.write("        <is_maya2>1</is_maya2>\n")
                     f.write(f"        <best_score>{info.best_score}</best_score>\n")
                     f.write(f"        <best_lamp>{info.best_lamp.lower()}</best_lamp>\n")
                     f.write(f"        <vf>{info.vf}</vf>\n")
@@ -1206,6 +1211,7 @@ class ManageMaya2:
     def __init__(self, token=None):
         self.update_token(token)
         self.master_db = []
+        self.rival_scores = {}
         self.conv_table = Maya2TitleConverter()
         self.load_settings()
         if self.is_alive():
@@ -1303,14 +1309,14 @@ class ManageMaya2:
                         if m.get('music_id') == s.get('music_id'): # hit
                             best_score = s.get('score_value')
                             exscore = s.get('exscore_value')
-                            lamp = dict_lamp[s.get('exscore_value')]
+                            lamp = dict_lamp[s.get('clear_type')]
                             difficulty = s.get('difficulty_type').lower()
                             if difficulty not in ('nov', 'adv', 'exh'):
                                 difficulty = 'APPEND'
                             title = self.conv_table.backward(m.get('title'))
                             info = MusicInfo(title=title, difficulty=difficulty,
                                              best_score=best_score, best_exscore=exscore,
-                                             best_lamp=lamp)
+                                             best_lamp=lamp, artist='', bpm='', lv='??')
                             tmp.append(info)
                             break
                 ret[rival['rival_name']] = tmp
@@ -1324,13 +1330,16 @@ class ManageMaya2:
         """楽曲dbから1譜面の情報を検索する
         """
         ret = None
-        fumen_list = ['NOV', 'ADV', 'EXH', 'APPEND']
-        logger.debug(f"title:{title}, fumen:{fumen}")
-        fumen_idx  = fumen_list.index(fumen.upper())
-        for m in self.master_db:
-            if m.get('title') == title:
-                if fumen_idx < len(m.get('charts')):
-                    ret = m.get('charts')[fumen_idx]
+        try:
+            fumen_list = ['NOV', 'ADV', 'EXH', 'APPEND']
+            logger.debug(f"title:{title}, fumen:{fumen}")
+            fumen_idx  = fumen_list.index(fumen.upper())
+            for m in self.master_db:
+                if m.get('title') == title:
+                    if fumen_idx < len(m.get('charts')):
+                        ret = m.get('charts')[fumen_idx]
+        except Exception:
+            return None
         return ret
 
     def search_musicinfo(self, title):
