@@ -370,8 +370,8 @@
 
     "url_musiclist":"https://github.com/dj-kata/sdvx_helper/raw/main/resources/musiclist.pkl",
 
-    "maya2_enable":false,
-    "maya2_testing":true,
+    "maya2_enable":true,
+    "maya2_testing":false,
 
     "$comment": "none"
 }
