@@ -1213,6 +1213,11 @@ class ManageMaya2:
         self.master_db = []
         self.rival_scores = {}
         self.conv_table = Maya2TitleConverter()
+        self.reload()
+
+    def reload(self, token=None):
+        if token is not None:
+            self.update_token(token)
         self.load_settings()
         if self.is_alive():
             self.get_musiclist()
@@ -1270,7 +1275,7 @@ class ManageMaya2:
         """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
         """
         try:
-            header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
+            header = {'X-Auth-Token': self.token}
             if self.params.get('maya2_testing'):
                 r = requests.post(maya2_url_testing+'/api/testing/export/musics', headers=header)
             else:
@@ -1294,7 +1299,7 @@ class ManageMaya2:
         """
         ret = {}
         try:
-            header = {'X-Auth-Token': self.token} # TODO 本番用の作り込み
+            header = {'X-Auth-Token': self.token}
             if self.params.get('maya2_testing'):
                 r = requests.post(maya2_url_testing+'/api/testing/export/rival_scores', headers=header)
             else:
@@ -1320,6 +1325,7 @@ class ManageMaya2:
                             tmp.append(info)
                             break
                 ret[rival['rival_name']] = tmp
+                logger.info(f"{rival['rival_name']}: {len(tmp)}songs")
         except Exception:
             print(traceback.format_exc())
             return False

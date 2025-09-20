@@ -185,10 +185,11 @@ class SDVXHelper:
     def update_gui_value(self, key, value=None, values=None):
         # print(key, type(self.window[key]), value, values)
         try:
-            if values is not None:
-                self.window[key].update(values=values)
-            else:
-                self.window[key].update(value)
+            if self.window is not None and self.gui_mode == gui_mode.main:
+                if values is not None:
+                        self.window[key].update(values=values)
+                else:
+                    self.window[key].update(value)
         except Exception:
             logger.error(traceback.format_exc())
 
@@ -687,6 +688,7 @@ class SDVXHelper:
         self.detect_mode = detect_mode.init
         if self.window:
             self.window.close()
+            self.window = None
         menuitems = [
             ['ファイル',['設定','OBS制御設定', 'カスタムWebhook設定', 'アップデートを確認']],
             ['ライバル関連',['Googleドライブ設定(ライバル関連)', 'ライバルのスコアを取得']],
@@ -1298,6 +1300,7 @@ class SDVXHelper:
                             pass
                     break
                 else: # メイン以外のGUIを閉じた場合
+                    self.sdvx_logger.maya2.reload(self.settings['maya2_token'])
                     self.start_detect()
                     try:
                         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
