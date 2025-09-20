@@ -621,6 +621,7 @@ class SDVXLogger:
                 push_ok = True
 
             tmp.disp()
+            #print('maya2 send flg:', push_ok, pre_best.best_score < tmp.cur_score, pre_best.best_exscore < tmp.cur_exscore, lamp_table.index(pre_best.best_lamp) < lamp_table.index(tmp.lamp))
             print('maya2 send flg:', push_ok)
             if push_ok:
                 logger.info(f"today_updates.append: {tmp.title}, {tmp.difficulty}, lamp:{tmp.lamp}, score:{tmp.cur_score}, ex:{tmp.cur_exscore}")
@@ -628,8 +629,8 @@ class SDVXLogger:
                 for i,s in enumerate(self.today_updates): # 既に本日プレイ済みの曲ならマージする
                     if (s.title == tmp.title) and (s.difficulty == tmp.difficulty):
                         duplicate = True
-                        self.today_updates[i].cur_score = max(self.today_updates[i].score, tmp.cur_score)
-                        self.today_updates[i].cur_exscore = max(self.today_updates[i].exscore, tmp.cur_exscore)
+                        self.today_updates[i].cur_score = max(self.today_updates[i].cur_score, tmp.cur_score)
+                        self.today_updates[i].cur_exscore = max(self.today_updates[i].cur_exscore, tmp.cur_exscore)
                         self.today_updates[i].lamp = lamp_table[max(lamp_table.index(self.today_updates[i].lamp),lamp_table.index(tmp.lamp))]
                         logger.info(f"merged!, i={i}, title:{s.title}, difficulty:{s.difficulty}, score:{self.today_updates[i].score}, exscore:{self.today_updates[i].exscore}, lamp:{self.today_updates[i].lamp}")
                 if not duplicate:
@@ -1328,6 +1329,7 @@ class ManageMaya2:
                 logger.info(f"{rival['rival_name']}: {len(tmp)}songs")
         except Exception:
             print(traceback.format_exc())
+            # print(rival.keys())
             return False
         self.rival_scores = ret
         return True
