@@ -65,7 +65,7 @@ class SDVXHelper:
         self.stop_thread = False # 強制停止用
         self.is_blastermax = False
         self.gen_first_vf = False
-        self.window = False
+        self.window = None
         self.obs = False
         # RTA関連
         self.rta_mode = False
@@ -185,7 +185,7 @@ class SDVXHelper:
     def update_gui_value(self, key, value=None, values=None):
         # print(key, type(self.window[key]), value, values)
         try:
-            if self.window is not None and self.gui_mode == gui_mode.main:
+            if self.window is not None:
                 if values is not None:
                         self.window[key].update(values=values)
                 else:
@@ -516,6 +516,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
+            self.window = None
 
         layout_lvs = [
             [sg.Checkbox('all', key='webhook_enable_alllv', enable_events=True)]+[sg.Checkbox(f'{lv}', key=f'webhook_enable_lv{lv}') for lv in range(1,11)],
@@ -551,6 +552,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
+            self.window = None
         layout_list = [
             [sg.Table([[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))], key='rival_names', auto_size_columns=False, headings=['name', 'gdrive_id'], size=(30,7), col_widths=[15, 30], justification='left', enable_events=True)],
         ]
@@ -579,6 +581,7 @@ class SDVXHelper:
         self.gui_mode = gui_mode.init
         if self.window:
             self.window.close()
+            self.window = None
         obs_scenes = []
         obs_sources = []
         if self.obs != False:
@@ -623,6 +626,7 @@ class SDVXHelper:
         self.gui_mode = detect_mode.init
         if self.window:
             self.window.close()
+            self.window = None
         layout_obs = [
             [par_text('OBS host: '), sg.Input(self.settings['host'], font=FONT, key='input_host', size=(20,20))],
             [par_text('OBS websocket port: '), sg.Input(self.settings['port'], font=FONT, key='input_port', size=(10,20))],
@@ -1300,7 +1304,9 @@ class SDVXHelper:
                             pass
                     break
                 else: # メイン以外のGUIを閉じた場合
+                    self.window = None
                     self.sdvx_logger.maya2.reload(self.settings['maya2_token'])
+                    self.connect_obs()
                     self.start_detect()
                     try:
                         plays_str = f"{self.settings['obs_txt_plays_header']}{self.plays}{self.settings['obs_txt_plays_footer']}"
