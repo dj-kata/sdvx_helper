@@ -345,6 +345,10 @@
     "select_arcade_w":50,
     "select_arcade_h":10,
 
+    "has_exscore_sx":440,
+    "has_exscore_sy":1148,
+    "has_exscore_w":77,
+    "has_exscore_h":15,
     "select_exscore_0_sx":125,
     "select_exscore_0_sy":879,
     "select_exscore_0_w":12,

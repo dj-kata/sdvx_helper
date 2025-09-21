@@ -199,6 +199,10 @@ class GenSummary:
         Returns:
             tuple: cur, pre
         """
+        has_exscore = imagehash.average_hash(img.crop(self.get_detect_points('has_exscore')))
+        has_threshold = imagehash.average_hash(Image.open(f'resources/has_exscore.png'))
+        if abs(has_exscore - has_threshold) > 10:
+            return 0, 0
         img_gray = img.convert('L')
         tmp = []
         tmp.append(img_gray.crop(self.get_detect_points('result_exscore_0')))
@@ -733,7 +737,7 @@ if __name__ == '__main__':
         curex,preex = a.get_exscore(tmp)
         res_ocr = a.ocr(notify=True)
         print(f, res_ocr, a.lamp, cur, curex)
-    for f in glob.glob('debug/select/*png'):
-        img = Image.open(f)
-        print(f, a.get_score_on_select(img))
-        print(f, a.get_exscore_on_select(img))
+    # for f in glob.glob('debug/select/*png'):
+    #     img = Image.open(f)
+    #     print(f, a.get_score_on_select(img))
+    #     print(f, a.get_exscore_on_select(img))
