@@ -632,7 +632,7 @@ class SDVXLogger:
                         self.today_updates[i].cur_score = max(self.today_updates[i].cur_score, tmp.cur_score)
                         self.today_updates[i].cur_exscore = max(self.today_updates[i].cur_exscore, tmp.cur_exscore)
                         self.today_updates[i].lamp = lamp_table[max(lamp_table.index(self.today_updates[i].lamp),lamp_table.index(tmp.lamp))]
-                        logger.info(f"merged!, i={i}, title:{s.title}, difficulty:{s.difficulty}, score:{self.today_updates[i].score}, exscore:{self.today_updates[i].exscore}, lamp:{self.today_updates[i].lamp}")
+                        logger.info(f"merged!, i={i}, title:{s.title}, difficulty:{s.difficulty}, score:{self.today_updates[i].cur_score}, exscore:{self.today_updates[i].cur_exscore}, lamp:{self.today_updates[i].lamp}")
                 if not duplicate:
                     self.today_updates.append(tmp)
 
