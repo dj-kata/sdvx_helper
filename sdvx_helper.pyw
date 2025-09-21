@@ -1304,6 +1304,7 @@ class SDVXHelper:
                             pass
                     break
                 else: # メイン以外のGUIを閉じた場合
+                    self.window.close()
                     self.window = None
                     self.sdvx_logger.maya2.reload(self.settings['maya2_token'])
                     self.connect_obs()
