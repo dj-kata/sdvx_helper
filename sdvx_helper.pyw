@@ -81,6 +81,7 @@ class SDVXHelper:
         self.load_settings()
         self.save_settings() # 値が追加された場合のために、一度保存
         self.update_musiclist()
+        self.prepare_hash()
         self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
         self.sdvx_logger.gen_sdvx_battle(False)
         self.vf_pre = self.sdvx_logger.total_vf # アプリ起動時のVF
@@ -109,6 +110,27 @@ class SDVXHelper:
             base_path = os.path.abspath(".")
         return os.path.join(base_path, relative_path)
     
+    def prepare_hash(self):
+        """画面遷移判定に使う基準画像のimagehashを計算しておく
+        """
+        self.hash_scene = {}
+        img = Image.open('resources/logo.png')
+        self.hash_scene['logo'] = imagehash.average_hash(img)
+        img = Image.open('resources/onselect.png')
+        self.hash_scene['select'] = imagehash.average_hash(img)
+        img = Image.open('resources/ondetect.png')
+        self.hash_scene['detect'] = imagehash.average_hash(img)
+        img = Image.open('resources/onresult.png')
+        self.hash_scene['result1'] = imagehash.average_hash(img)
+        img = Image.open('resources/onresult2.png')
+        self.hash_scene['result2'] = imagehash.average_hash(img)
+        img = Image.open('resources/result_head.png')
+        self.hash_scene['result_head'] = imagehash.average_hash(img)
+        img = Image.open('resources/onplay1.png')
+        self.hash_scene['play1'] = imagehash.average_hash(img)
+        img = Image.open('resources/onplay2.png')
+        self.hash_scene['play2'] = imagehash.average_hash(img)
+
     def update_musiclist(self):
         """曲リスト(musiclist.pkl)を最新化する
         """
@@ -807,9 +829,7 @@ class SDVXHelper:
         """
         img = self.img_rot.crop(self.get_detect_points('onselect'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onselect.png')
-        hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 5
+        ret = abs(self.hash_scene['select'] - tmp) < 5
         #logger.debug(f'onselect diff:{abs(hash_target-tmp)}')
         return ret
 
@@ -821,23 +841,21 @@ class SDVXHelper:
         """
         cr = self.img_rot.crop(self.get_detect_points('onresult_val0'))
         tmp = imagehash.average_hash(cr)
-        img_j = Image.open('resources/onresult.png')
-        hash_target = imagehash.average_hash(img_j)
-        val0 = abs(hash_target - tmp) <5 
+        val0 = abs(self.hash_scene['result1'] - tmp) <5 
+        if not val0:
+            return val0
 
         cr = self.img_rot.crop(self.get_detect_points('onresult_val1'))
         tmp = imagehash.average_hash(cr)
-        img_j = Image.open('resources/onresult2.png')
-        hash_target = imagehash.average_hash(img_j)
-        val1 = abs(hash_target - tmp) < 5
+        val1 = abs(self.hash_scene['result2'] - tmp) < 5
+        if not val1:
+            return val1
 
         ret = val0 & val1
         if self.params['onresult_enable_head']:
             cr = self.img_rot.crop(self.get_detect_points('onresult_head'))
             tmp = imagehash.average_hash(cr)
-            img_j = Image.open('resources/result_head.png')
-            hash_target2 = imagehash.average_hash(img_j)
-            val2 = abs(hash_target2 - tmp) < 5
+            val2 = abs(self.hash_scene['result_head'] - tmp) < 5
             ret &= val2
 
         return ret
@@ -850,14 +868,12 @@ class SDVXHelper:
         """
         img = self.img_rot.crop(self.get_detect_points('onplay_val1'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onplay1.png')
-        hash_target = imagehash.average_hash(img)
-        ret1 = abs(hash_target - tmp) < 10
+        ret1 = abs(self.hash_scene['play1'] - tmp) < 10
+        if not ret1:
+            return ret1
         img = self.img_rot.crop(self.get_detect_points('onplay_val2'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/onplay2.png')
-        hash_target = imagehash.average_hash(img)
-        ret2 = abs(hash_target - tmp) < 10
+        ret2 = abs(self.hash_scene['play2'] - tmp) < 10
         return ret1&ret2
 
     def is_ondetect(self):
@@ -868,11 +884,9 @@ class SDVXHelper:
         """
         img = self.img_rot.crop(self.get_detect_points('ondetect'))
         tmp = imagehash.average_hash(img)
-        rgbsum = np.array(img).sum()
-        img = Image.open('resources/ondetect.png')
-        hash_target = imagehash.average_hash(img)
-        # ondetect.pngの画素値合計が3,845,302
-        ret = (abs(hash_target - tmp) < 2) and (rgbsum < 4000000)
+        rgbsum = np.array(img)[:,:,:3].sum()
+        
+        ret = (abs(self.hash_scene['detect'] - tmp) < 2) and (rgbsum < 4000000)
         return ret
     
     def is_onlogo(self):
@@ -883,9 +897,7 @@ class SDVXHelper:
         """
         img = self.img_rot.crop(self.get_detect_points('onlogo'))
         tmp = imagehash.average_hash(img)
-        img = Image.open('resources/logo.png')
-        hash_target = imagehash.average_hash(img)
-        ret = abs(hash_target - tmp) < 10
+        ret = abs(self.hash_scene['logo'] - tmp) < 10
         return ret
     
     def get_detect_points(self, name:str):
@@ -1213,7 +1225,7 @@ class SDVXHelper:
 
             if self.stop_thread:
                 break
-            time.sleep(0.1)
+            time.sleep(0.01)
         logger.debug(f'detect end!')
 
     def main(self):
