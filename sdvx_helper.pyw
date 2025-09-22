@@ -1081,7 +1081,7 @@ class SDVXHelper:
                             # そのスコアを超えていをものを自動で削除
                             # self.sdvx_logger.pop_illegal_logs(title, diff, sc, exsc, lamp)
                             msg = f'以下の自己ベストを登録しますか？\ntitle:{title} ({diff})\nscore:{sc}, lamp:{lamp}, ACのスコアか?:{is_arcade}'
-                            ans = sg.popup_yes_no(msg, icon=self.ico)
+                            ans = sg.popup_yes_no(msg, icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
                         else: # 自動取取の場合
                             ans = 'Yes'
                         if ans == "Yes":
