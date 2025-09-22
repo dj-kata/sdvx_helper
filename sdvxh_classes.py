@@ -384,6 +384,7 @@ class SDVXLogger:
         self.update_best_allfumen()
         self.update_total_vf()
         self.update_stats()
+        logger.info('started')
 
     def load_settings(self):
         """ユーザ設定(self.settings)をロードしてself.settingsにセットする。一応返り値にもする。
@@ -1130,10 +1131,7 @@ class SDVXLogger:
         Returns:
             _type_: _description_
         """
-        if self.maya2.is_alive():
-            return self.maya2.upload_best(self, player_name, volforce, upload_all, token)
-        else:
-            return False
+        return self.maya2.upload_best(self, player_name, volforce, upload_all, token)
 
 class OneUploadedScore:
     def __init__(self, session_id:str=None, music_id:str=None, difficulty:str=None, score:int=None, exscore:int=None, lamp:str=None): 
@@ -1215,14 +1213,14 @@ class ManageMaya2:
         self.rival_scores = {}
         self.conv_table = Maya2TitleConverter()
         self.reload()
+        logger.info('started')
 
     def reload(self, token=None):
         if token is not None:
             self.update_token(token)
         self.load_settings()
-        if self.is_alive():
-            self.get_musiclist()
-            self.get_rival_scores()
+        self.get_musiclist()
+        self.get_rival_scores()
 
     def update_token(self, token):
         self.token = token
@@ -1278,6 +1276,10 @@ class ManageMaya2:
     def get_musiclist(self):
         """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
         """
+        if not self.is_alive():
+            self.master_db = None
+            logger.info('トークン未設定のためスキップします。')
+            return False
         try:
             header = {'X-Auth-Token': self.token}
             if self.params.get('maya2_testing'):
@@ -1301,6 +1303,10 @@ class ManageMaya2:
             key: name
             values: [MusicInfo(), MusicInfo(), ...]
         """
+        if not self.is_alive():
+            self.rival_scores = {}
+            logger.info('トークン未設定のためスキップします。')
+            return False
         ret = {}
         try:
             header = {'X-Auth-Token': self.token}
@@ -1363,6 +1369,9 @@ class ManageMaya2:
         return ret
 
     def upload_best(self, sdvx_logger:SDVXLogger, player_name:str='NONAME', volforce:str='0.000', upload_all:bool=False, token:str=None):
+        if not self.is_alive():
+            logger.info('トークン未設定のためスキップします。')
+            return False
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
             return False
@@ -1460,28 +1469,25 @@ class ManageMaya2:
             url = maya2_url_v1+'/api/v1/import/scores'
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
-        if self.is_alive():
-            res = requests.post(url, files=files, headers=header)
-            logger.debug(res.json())
-            print(res.json())
+        res = requests.post(url, files=files, headers=header)
+        logger.debug(res.json())
+        print(res.json())
 
-            # 送信済みリストを更新
-            session_id = 'TODO'
-            mng = ManageUploadedScores()
-            for v in tmp_maya2.values():
-                tmp = OneUploadedScore(
-                    session_id=session_id,
-                    music_id = v['music_id'],
-                    difficulty=v['difficulty'],
-                    score=v['best_score'],
-                    exscore=v['exscore'],
-                    lamp=v['lamp']
-                )
-                mng.push(tmp)
-            mng.save()
-            return res
-        else:
-            return False
+        # 送信済みリストを更新
+        session_id = 'TODO'
+        mng = ManageUploadedScores()
+        for v in tmp_maya2.values():
+            tmp = OneUploadedScore(
+                session_id=session_id,
+                music_id = v['music_id'],
+                difficulty=v['difficulty'],
+                score=v['best_score'],
+                exscore=v['exscore'],
+                lamp=v['lamp']
+            )
+            mng.push(tmp)
+        mng.save()
+        return res
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
     #a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
