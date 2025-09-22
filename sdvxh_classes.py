@@ -1253,9 +1253,12 @@ class ManageMaya2:
         return ret
 
     def is_alive(self):
-        """サーバ側が生きているかどうかを確認
+        """サーバ側が生きているかどうかを確認。トークン未設定時はアクセスしない。
         """
         payload = {}
+        if self.token in ('', None):
+            logger.info('トークン未設定のためスキップします。')
+            return False
         try:
             if self.params.get('maya2_testing'):
                 r = requests.get(maya2_url_testing+'/', params=payload)
