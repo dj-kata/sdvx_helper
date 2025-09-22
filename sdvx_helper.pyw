@@ -1070,6 +1070,7 @@ class SDVXHelper:
                         is_best = False
                     break
             if is_arcade and (not self.settings['import_arcade_score']):
+                print('AC版のスコアなのでスキップします。')
                 import_ok = False
             if import_ok:
                 # print(title, diff, diff_hash)
@@ -1318,6 +1319,8 @@ class SDVXHelper:
                 else: # メイン以外のGUIを閉じた場合
                     self.window.close()
                     self.window = None
+                    self.save_settings()
+                    self.gen_summary.load_settings()
                     self.sdvx_logger.maya2.reload(self.settings['maya2_token'])
                     self.connect_obs()
                     self.start_detect()

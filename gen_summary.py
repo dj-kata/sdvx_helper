@@ -320,7 +320,8 @@ class GenSummary:
         # アーケード版かどうかの判定
         is_arcade = True
         img_arcade = img.crop(self.get_detect_points('select_arcade'))
-        is_arcade = np.array(img_arcade).sum() > 100000
+        threshold = 200000 if self.settings['save_on_capture'] else 100000
+        is_arcade = np.array(img_arcade).sum() > threshold
 
         return score, lamp, is_arcade
 
@@ -737,7 +738,7 @@ if __name__ == '__main__':
         curex,preex = a.get_exscore(tmp)
         res_ocr = a.ocr(notify=True)
         print(f, res_ocr, a.lamp, cur, curex)
-    # for f in glob.glob('debug/select/*png'):
-    #     img = Image.open(f)
-    #     print(f, a.get_score_on_select(img))
-    #     print(f, a.get_exscore_on_select(img))
+    for f in glob.glob('debug/select/*png'):
+        img = Image.open(f)
+        print(f, a.get_score_on_select(img))
+        print(f, a.get_exscore_on_select(img))
