@@ -1455,9 +1455,9 @@ class SDVXHelper:
                 if name != '' and url != '' and len(url) == 33:
                     self.settings['rival_names'].append(name)
                     self.settings['rival_googledrive'].append(url)
-                    self.update_gui_txt('rival_name', '')
-                    self.update_gui_txt('rival_googledrive', '')
-                self.update_gui_txt('rival_names', [[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+                    self.update_gui_value('rival_name', '')
+                    self.update_gui_value('rival_googledrive', '')
+                self.update_gui_value('rival_names', values=[[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
             elif ev == 'del_rival':
                 for idx in val['rival_names']:
                     self.settings['rival_names'].pop(idx)

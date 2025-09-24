@@ -1315,7 +1315,7 @@ class ManageMaya2:
             else:
                 r = requests.post(maya2_url_v1+'/api/v1/export/rival_scores', headers=header)
             js = r.json()
-            dict_lamp = {'COMP':'clear', 'MAX_COMP':'exh', 'EX_COMP':'hard', 'PLAYED':'failed', 'UC':'uc', 'PUC':'puc'}
+            dict_lamp = {'COMP':'clear', 'MAX_COMP':'exh', 'EX_COMP':'hard', 'PLAYED':'failed', 'UC':'uc', 'PUC':'puc', 'MXM_COMP':'exh'}
             for rival in list(js.get('datas').values()): # 1人分のライバルデータ
                 tmp = []
                 for s in rival.get('scores'):
