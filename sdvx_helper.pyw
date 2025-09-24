@@ -1070,7 +1070,7 @@ class SDVXHelper:
                         is_best = False
                     break
             if is_arcade and (not self.settings['import_arcade_score']):
-                print('AC版のスコアなのでスキップします。')
+                # logger.info('AC版のスコアなのでスキップします。')
                 import_ok = False
             if import_ok:
                 # print(title, diff, diff_hash)
@@ -1087,17 +1087,18 @@ class SDVXHelper:
                             ans = 'Yes'
                         if ans == "Yes":
                             print(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, ex:{exsc:,}, {lamp}")
+                            logger.info(f"選曲画面から自己ベストを登録しました。\n-> {title}({diff.upper()}): {sc:,}, ex:{exsc:,}, {lamp}")
                             self.sdvx_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
                             if self.rta_mode:
                                 self.rta_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
                             self.check_rival_update() # お手紙ビューを更新
                     else:
-                        print(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
+                        # logger.error(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
                         return False
-                else:
-                    print('自己ベストではないのでスキップします。')
+                # else:
+                #     logger.info('自己ベストではないのでスキップします。')
         else:
-            print(f'選曲画面ではないのでスキップします。')
+            # logger.info(f'選曲画面ではないのでスキップします。')
             return False
 
     def detect(self):
