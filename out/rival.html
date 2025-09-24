@@ -186,6 +186,7 @@
                 50%  { color: #282828; }
                 100% { color: #ff2828; }
             }
+            maya2rival{color: #ff7777;}
             .clear{color: #77ff77;}
             .comp{color: #77ff77;}
             .hard{color: #ffc115;}
@@ -218,6 +219,7 @@
                 }
                 $(xml).find("Items rival").each(function(index, item){
                     var name = $(item).find('name').text();
+                    var is_maya2 = $(item).find('is_maya2').text();
                     var lamp = $(item).find('best_lamp').text().toLowerCase();
                     var rank = $(item).find('rank').text();
                     var me   = $(item).find('me').text();
@@ -256,7 +258,11 @@
                         out += '<tr>';
                     }
                     out += '    <td>'+rank+'</td>';
-                    out += '    <td>'+name+'</td>';
+                    if (is_maya2 == "1"){
+                        out += '    <td><maya2rival>'+name+'</maya2rival></td>';
+                    }else{
+                        out += '    <td>'+name+'</td>';
+                    }
                     out += '    <td>'+score+'</td>';
                     out += '    <td>'+lamp+'</td>';
                     out += '</tr>'

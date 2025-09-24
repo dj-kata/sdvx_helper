@@ -750,7 +750,7 @@ class SDVXLogger:
             for player in self.maya2.rival_scores.keys():
                 for s in self.maya2.rival_scores[player]: # 1曲分
                     if (s.title == title) and (s.difficulty.lower() == difficulty.lower()):
-                        s.player_name = player + " (maya2)"
+                        s.player_name = player
                         s.is_maya2 = True
                         s.me = False
                         infos.append(s)
