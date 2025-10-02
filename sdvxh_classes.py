@@ -512,6 +512,7 @@ class SDVXLogger:
         tmp = OnePlayData(title=title, cur_score=cur_score, cur_exscore=cur_exscore, pre_score=pre_score, pre_exscore=pre_exscore, lamp=lamp, difficulty=difficulty, date=date)
         if tmp not in self.alllog:
             self.alllog.append(tmp)
+        self.save_alllog()
 
         # 全譜面のbestを更新
         self.update_best_onesong(title, difficulty)
