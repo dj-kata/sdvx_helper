@@ -1434,10 +1434,10 @@ class SDVXHelper:
                 self.webhook_read(val)
             elif ev == 'webhook_enable_alllv':
                 for i in range(1,21):
-                    self.update_gui_txt(f"webhook_enable_lv{i}", val[ev])
+                    self.update_gui_value(f"webhook_enable_lv{i}", val[ev])
             elif ev == 'webhook_enable_alllamp':
                 for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
-                    self.update_gui_txt(f"webhook_enable_{l}", val[ev])
+                    self.update_gui_value(f"webhook_enable_{l}", val[ev])
             elif ev == 'maya2_sendall':
                 self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
 
@@ -1463,7 +1463,7 @@ class SDVXHelper:
                 for idx in val['rival_names']:
                     self.settings['rival_names'].pop(idx)
                     self.settings['rival_googledrive'].pop(idx)
-                self.update_gui_txt('rival_names', [[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
+                self.update_gui_value('rival_names', values=[[self.settings['rival_names'][i], self.settings['rival_googledrive'][i]] for i in range(len(self.settings['rival_names']))])
             elif ev == 'open_rival':
                 for idx in val['rival_names']:
                     id = self.settings['rival_googledrive'][idx]
