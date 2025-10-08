@@ -1166,7 +1166,8 @@ class SDVXHelper:
                 # 選曲画面から自己べを取り込む
                 if self.settings['import_from_select']:
                     # self.import_score_on_select_core(False)
-                    self.window.write_event_value('-import_score_on_select-', " ")
+                    if not self.stop_thread:
+                        self.window.write_event_value('-import_score_on_select-', " ")
                 if diff_hash < 8:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
