@@ -313,7 +313,7 @@ class SDVXHelper:
         with open('out/rival_log.pkl', 'wb') as f:
             pickle.dump(self.rival_log, f)
 
-    def check_rival_update(self):
+    def check_rival_update(self, disp=True):
         """ライバル挑戦状用の処理。ライバルの更新有無を確認し、更新された曲一覧をdictで返す。
         TODO: maya2側への対応
 
@@ -349,7 +349,7 @@ class SDVXHelper:
                                     new.append(my.best_score)
                                     out[p].append(new) # title, diff, score, diffだけ保持
                                     logger.debug(f'added! {new}')
-                if len(out[p]) > 0:
+                if disp and len(out[p]) > 0:
                     print(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
                 logger.debug(f'ライバル:{p}から挑戦状が{len(out[p])}件届いています。')
             #self.rival_log[p] = self.sdvx_logger.rival_score[i] # ライバルの一時スコアを保存する場合はこれ
@@ -1091,7 +1091,7 @@ class SDVXHelper:
                             self.sdvx_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
                             if self.rta_mode:
                                 self.rta_logger.push(title, sc, exsc, 0, 0, lamp, diff, fmtnow)
-                            self.check_rival_update() # お手紙ビューを更新
+                            self.check_rival_update(False) # お手紙ビューを更新, ログ非表示
                     else:
                         # logger.error(f'取得失敗。スキップします。({title},{diff},{sc},{lamp})')
                         return False
