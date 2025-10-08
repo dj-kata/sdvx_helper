@@ -1471,8 +1471,7 @@ class ManageMaya2:
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
         res = requests.post(url, files=files, headers=header)
-        logger.debug(res.json())
-        print(res.json())
+        logger.debug(f"status_code = {res.status_code}")
 
         # 送信済みリストを更新
         session_id = 'TODO'

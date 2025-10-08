@@ -1439,7 +1439,11 @@ class SDVXHelper:
                 for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
                     self.update_gui_value(f"webhook_enable_{l}", val[ev])
             elif ev == 'maya2_sendall':
-                self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
+                r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
+                if not r:
+                    sg.popup_ok(f"送信時にエラーが発生しました", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                elif r.status_code == 200:
+                    sg.popup_ok(f"スコア送信が完了しました", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
 
             ### Googleドライブ関連
             elif ev == 'add_rival':
