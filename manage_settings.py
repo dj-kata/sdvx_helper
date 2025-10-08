@@ -7,6 +7,8 @@ default_val = {
     'obs_source':'',
     'orientation_top':'left', # 画面回転の設定(False, 'left', 'right', 'top')
     'ui_language':'jp', # jp / en
+    'keep_on_top':False, # 常に最前面に表示
+
     # スレッド起動時の設定
     'obs_enable_boot':[],'obs_disable_boot':[],'obs_scene_boot':'',
     # 0: シーン開始時

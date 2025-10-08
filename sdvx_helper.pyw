@@ -466,6 +466,7 @@ class SDVXHelper:
             self.settings['player_name'] = val['player_name3']
         elif self.gui_mode == gui_mode.setting:
             self.settings['clip_lxly'] = val['clip_lxly']
+            self.settings['keep_on_top'] = val['keep_on_top']
             self.settings['host'] = val['input_host']
             self.settings['port'] = val['input_port']
             self.settings['passwd'] = val['input_passwd']
@@ -691,6 +692,7 @@ class SDVXHelper:
             [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
             [sg.Checkbox('選曲画面からスコアを取り込む',self.settings['import_from_select'],key='import_from_select', enable_events=True),sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)],
             [sg.Checkbox('ウィンドウの座標を0以上に補正する',self.settings['clip_lxly'],key='clip_lxly', enable_events=True, tooltip='設定ファイルに保存されるsdvx_helperウィンドウの座標がマイナスにならないようにします。(60p/120pを切り替える人向け)\n基本的には外しておいてOKです。')],
+            [sg.Checkbox('常に最前面表示する',self.settings['keep_on_top'],key='keep_on_top', enable_events=True)],
         ]
         layout = [
             [sg.Frame('OBS設定', layout=layout_obs, title_color='#000044')],
@@ -733,7 +735,17 @@ class SDVXHelper:
         if self.settings['dbg_enable_output']:
             layout.append([sg.Output(size=(63,8), key='output', font=(None, 9))])
         self.gui_mode = gui_mode.main
-        self.window = sg.Window('SDVX helper', layout, grab_anywhere=True,return_keyboard_events=True,resizable=False,finalize=True,enable_close_attempted_event=True,icon=self.ico,location=(self.settings['lx'], self.settings['ly']))
+        self.window = sg.Window('SDVX helper',
+                                layout,
+                                grab_anywhere=True,
+                                return_keyboard_events=True,
+                                resizable=False,
+                                finalize=True,
+                                enable_close_attempted_event=True,
+                                icon=self.ico,
+                                location=(self.settings['lx'], self.settings['ly']),
+                                keep_on_top=self.settings['keep_on_top'],
+                                )
         if self.connect_obs():
             self.update_gui_value('txt_obswarning', '')
 
