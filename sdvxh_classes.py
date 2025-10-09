@@ -967,10 +967,11 @@ class SDVXLogger:
                 fmtnow = format(now, "%Y%m%d_%H%M%S")
 
                 cur,pre = self.gen_summary.get_score(img)
+                cur_ex,pre_ex = self.gen_summary.get_exscore(img)
                 diff = self.gen_summary.difficulty
                 lamp = self.gen_summary.lamp
 
-                playdat = OnePlayData(ocr, cur, pre, lamp, diff, fmtnow)
+                playdat = OnePlayData(ocr, cur, cur_ex, pre, pre_ex, lamp, diff, fmtnow)
                 playdat.disp()
                 if playdat not in self.alllog:
                     self.alllog.append(playdat)
@@ -1472,6 +1473,7 @@ class ManageMaya2:
         files = {'regist_score': (filename, file_binary)}
         res = requests.post(url, files=files, headers=header)
         logger.debug(f"status_code = {res.status_code}")
+        print(res.json())
 
         # 送信済みリストを更新
         session_id = 'TODO'
