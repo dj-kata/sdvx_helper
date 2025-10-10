@@ -1424,7 +1424,6 @@ class ManageMaya2:
                         tmp_maya2[key] = {'music_id':music.get('music_id'), 'difficulty':chart.get('difficulty'), 
                                             'best_score':song.cur_score, 'exscore':song.cur_exscore, 'lamp':lamp}
                 else:
-                    print(tmp_maya2[key])
                     if upload_all:
                         tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.best_score)
                         tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], song.best_exscore)
@@ -1432,7 +1431,8 @@ class ManageMaya2:
                         tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.cur_score)
                         tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], song.cur_exscore)
 
-                    lamps = ['FAILED', 'COMP', 'EX_COMP', 'UC', 'PUC']
+                    lamps = ['PLAYED', 'COMP', 'EX_COMP', 'UC', 'PUC']
+                    print(lamp, tmp_maya2[key]['lamp'])
                     tmp_maya2[key]['lamp'] = lamps[max(lamps.index(lamp), lamps.index(tmp_maya2[key]['lamp']))]
                     print(f'duplicated data was updated -> key:{key}, data:{tmp_maya2[key]}')
             else:
