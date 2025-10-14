@@ -1372,15 +1372,17 @@ class ManageMaya2:
 
     def upload_best(self, sdvx_logger:SDVXLogger, player_name:str='NONAME', volforce:str='0.000', upload_all:bool=False, token:str=None):
         if not self.is_alive():
-            logger.info('トークン未設定のためスキップします。')
-            return False
+            logger.error('トークン未設定のためスキップします。')
+            return None
         fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
-            return False
+            logger.error('sdvx_logger is None')
+            return None
         target = sdvx_logger.best_allfumen if upload_all else sdvx_logger.today_updates
         if len(target) == 0:
             print('送信データがありません。')
-            return False
+            logger.error('送信データがありません。')
+            return None
         
         cnt_ok = 0
         cnt_ng = 0
@@ -1502,5 +1504,4 @@ if __name__ == '__main__':
     #print(f"自己べ: {a.best_allfumen[-27].best_score}")
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
-    print(a.maya2.search_fumeninfo('V'))
     res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')

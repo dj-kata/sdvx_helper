@@ -1453,10 +1453,12 @@ class SDVXHelper:
                     self.update_gui_value(f"webhook_enable_{l}", val[ev])
             elif ev == 'maya2_sendall':
                 r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
-                if not r:
-                    sg.popup_ok(f"送信時にエラーが発生しました", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                if r is None:
+                    sg.popup_ok(f"送信前にエラーが発生。\n詳細はログファイル(log/sdvxh_classes.log)を確認してください。", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
                 elif r.status_code == 200:
                     sg.popup_ok(f"スコア送信が完了しました", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                else:
+                    sg.popup_ok(f"エラーが発生しました。\n\n{r.json()}", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
 
             ### Googleドライブ関連
             elif ev == 'add_rival':
