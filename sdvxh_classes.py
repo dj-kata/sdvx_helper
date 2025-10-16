@@ -1136,13 +1136,16 @@ class SDVXLogger:
         return self.maya2.upload_best(self, player_name, volforce, upload_all, token)
 
 class OneUploadedScore:
-    def __init__(self, session_id:str=None, music_id:str=None, difficulty:str=None, score:int=None, exscore:int=None, lamp:str=None): 
-        self.session_id = session_id
+    def __init__(self, revision:int=None, music_id:str=None, difficulty:str=None, score:int=None, exscore:int=None, lamp:str=None): 
+        self.revision = revision
         self.music_id = music_id
         self.difficulty = difficulty
         self.score = score
         self.exscore = exscore
         self.lamp = lamp
+
+    def disp(self):
+        print(f"rev:{self.revision}, music_id:{self.music_id}, difficulty:{self.difficulty}, score:{self.score:,}, exscore:{self.exscore:,}, lamp:{self.lamp}")
 class ManageUploadedScores:
     """maya2サーバへ送信済みのスコアを管理する
     """
@@ -1155,7 +1158,7 @@ class ManageUploadedScores:
 
     def load(self):
         try:
-            with open('out/uploaded_scores.pkl', 'rb') as fp:
+            with open('out/uploaded_score.pkl', 'rb') as fp:
                 self.scores = pickle.load(fp)
         except Exception:
             self.scores = []
@@ -1478,11 +1481,11 @@ class ManageMaya2:
         print(res.json())
 
         # 送信済みリストを更新
-        session_id = 'TODO'
+        revision = res.json().get('revision', -1)
         mng = ManageUploadedScores()
         for v in tmp_maya2.values():
             tmp = OneUploadedScore(
-                session_id=session_id,
+                revision=revision,
                 music_id = v['music_id'],
                 difficulty=v['difficulty'],
                 score=v['best_score'],
