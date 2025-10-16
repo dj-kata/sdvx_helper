@@ -69,6 +69,7 @@ class GenSummary:
             self.score_hash_large.append(imagehash.average_hash(Image.open(f'resources/result_score_l{i}.png')))
             self.exscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_exscore_{i}.png')))
             self.bestscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestscore_{i}.png')))
+            self.bestexscore_hash.append(imagehash.average_hash(Image.open(f'resources/result_bestexscore_{i}.png')))
         for k in ['puc', 'uc']:
             self.select_lamp_hash[k] = imagehash.average_hash(Image.open(f'resources/select_lamp_{k}.png'))
 
@@ -226,31 +227,34 @@ class GenSummary:
         cur_score = int(''.join(map(str, out)))
         pre_score = 0
         # # bestスコアの処理
-        # tmp = []
-        # out = []
-        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_0')))
-        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_1')))
-        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_2')))
-        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_3')))
-        # tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_4')))
+        tmp = []
+        out = []
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_0')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_1')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_2')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_3')))
+        tmp.append(img_gray.crop(self.get_detect_points('result_bestexscore_4')))
         # for j,t in enumerate(tmp):
         #    hash = imagehash.average_hash(t)
         #    t.save(f"result_bestexscore_{hash}.png")
-        # for j,t in enumerate(tmp):
-        #    hash = imagehash.average_hash(t)
-        #    minid = -1
-        #    minval = 999999
-        #    for i,h in enumerate(self.bestexscore_hash):
-        #        val = abs(h - hash)
-        #        minid = i if val<minval else minid
-        #        minval = val if val<minval else minval
-        #    if minid in (9,8): # 8,9の判定を間違えやすいので、左下の色を見て判別
-        #        if np.array(t)[10][1] < 100:
-        #            minid = 9
-        #        else:
-        #            minid = 8
-        #    out.append(minid)
-        # pre_score = int(''.join(map(str, out)))
+        for j,t in enumerate(tmp):
+           hash = imagehash.average_hash(t)
+           minid = -1
+           minval = 999999
+           for i,h in enumerate(self.bestexscore_hash):
+               val = abs(h - hash)
+               minid = i if val<minval else minid
+               minval = val if val<minval else minval
+           if minid in (9,8): # 8,9の判定を間違えやすいので、左下の色を見て判別
+               if np.array(t)[10][1] < 100:
+                   minid = 9
+               else:
+                   minid = 8
+           out.append(minid)
+        try:
+            pre_score = int(''.join(map(str, out)))
+        except:
+            pre_score = 0
 
         return cur_score, pre_score
     
@@ -731,14 +735,14 @@ if __name__ == '__main__':
     a = GenSummary(start)
     #a.generate()
     import glob
+    # for f in glob.glob('debug/select/*png'):
+    #     img = Image.open(f)
+    #     print(f, a.get_score_on_select(img))
+    #     print(f, a.get_exscore_on_select(img))
     for f in glob.glob('debug/result/*'):
         tmp = Image.open(f)
         a.cut_result_parts(tmp)
         cur,pre = a.get_score(tmp)
         curex,preex = a.get_exscore(tmp)
         res_ocr = a.ocr(notify=True)
-        print(f, res_ocr, a.lamp, cur, curex)
-    for f in glob.glob('debug/select/*png'):
-        img = Image.open(f)
-        print(f, a.get_score_on_select(img))
-        print(f, a.get_exscore_on_select(img))
+        print(f"{f}, {res_ocr}, {a.lamp}, {cur}({cur-pre:+}), {curex}({curex-preex:+})")
