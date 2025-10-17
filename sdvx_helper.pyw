@@ -215,7 +215,7 @@ class SDVXHelper:
         except Exception:
             logger.error(traceback.format_exc())
 
-    def save_screenshot_general(self):
+    def save_screenshot_general(self, btn_pushed=False):
         """ゲーム画面のスクショを保存する。ホットキーで呼び出す用。
         """
         title = False
@@ -243,7 +243,13 @@ class SDVXHelper:
             #print(traceback.format_exc())
             pass
         tmp_playdata = OnePlayData(title='???', cur_score=cur, cur_exscore=cur_ex, pre_score=pre, pre_exscore=pre_ex, lamp=lamp, difficulty=difficulty, date=fmtnow)
+        best = None
         if res_ocr != False: # OCR通過時、ファイルのタイムスタンプを使うためにここで作成
+            # 自己べを検索
+            for s in self.sdvx_logger.best_allfumen:
+                if s.title == res_ocr and s.difficulty == difficulty:
+                    best = s
+                    break
             ts = os.path.getmtime(dst)
             now = datetime.datetime.fromtimestamp(ts)
 
@@ -269,10 +275,22 @@ class SDVXHelper:
             self.obs.change_text(self.settings['obs_txt_vf_with_diff'], vf_str)
         self.th_webhook = threading.Thread(target=self.send_custom_webhook, args=(tmp_playdata,), daemon=True)
         self.th_webhook.start()
-            
-        self.gen_summary.generate() # ここでサマリも更新
-        print(f"スクリーンショットを保存しました -> {dst}")
 
+        flg_save = True 
+        if (not self.settings['autosave_always']) and (not btn_pushed):# 更新していない場合に画像を削除する
+            lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed', '']
+            lamp_idx = lamp_table.index(lamp)
+            if best is not None: # 自己べ情報がない場合はスルー
+                print('hoge', cur, pre, cur_ex, pre_ex, lamp_idx, lamp_table.index(best.best_lamp))
+                if (cur <= pre) and (cur_ex <= pre_ex) and (lamp_idx >= lamp_table.index(best.best_lamp)):
+                    os.remove(dst)
+                    flg_save = False
+        if flg_save:
+            print(f"スクリーンショットを保存しました -> {dst}")
+        else:
+            print(f"更新されていないので画像保存をスキップしました")
+
+        self.gen_summary.generate() # ここでサマリも更新
         # ライバル欄更新
         if type(title) == str:
             self.sdvx_logger.update_rival_view(title, self.gen_summary.difficulty.upper())
@@ -1210,15 +1228,14 @@ class SDVXHelper:
                 if self.detect_mode == detect_mode.result:
                     self.control_obs_sources('result0')
                     time.sleep(float(self.settings['autosave_prewait']))
-                    if self.settings['autosave_always']:
-                        now = datetime.datetime.now()
-                        diff = (now - self.last_autosave_time).total_seconds()
-                        logger.debug(f'diff = {diff}s')
-                        if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
-                            self.save_screenshot_general()
-                            self.sdvx_logger.gen_sdvx_battle()
-                            self.sdvx_logger.push_today_updates()
-                            self.sdvx_logger.save_alllog()
+                    now = datetime.datetime.now()
+                    diff = (now - self.last_autosave_time).total_seconds()
+                    logger.debug(f'diff = {diff}s')
+                    if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
+                        self.save_screenshot_general()
+                        self.sdvx_logger.gen_sdvx_battle()
+                        self.sdvx_logger.push_today_updates()
+                        self.sdvx_logger.save_alllog()
                 if self.detect_mode == detect_mode.select:
                     self.control_obs_sources('select0')
                     if self.chk_blastermax():
@@ -1254,7 +1271,7 @@ class SDVXHelper:
         self.gen_summary.generate()
         self.starttime = now
         self.gui_main()
-        keyboard.add_hotkey('F6', self.save_screenshot_general)
+        keyboard.add_hotkey('F6', lambda: self.save_screenshot_general(True))
         keyboard.add_hotkey('F7', lambda: self.window.write_event_value('-import_score_on_select_with_dialog-', ' '))
         keyboard.add_hotkey('F8', self.update_rival)
         keyboard.add_hotkey('F3', self.start_rta_mode)
@@ -1355,7 +1372,7 @@ class SDVXHelper:
             elif ev == 'RTA開始':
                 self.start_rta_mode()
             elif ev == 'btn_savefig':
-                self.save_screenshot_general()
+                self.save_screenshot_general(True)
 
             elif ev == 'combo_scene': # シーン選択時にソース一覧を更新
                 if self.obs != False:
