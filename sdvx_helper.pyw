@@ -281,7 +281,6 @@ class SDVXHelper:
             lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed', '']
             lamp_idx = lamp_table.index(lamp)
             if best is not None: # 自己べ情報がない場合はスルー
-                print('hoge', cur, pre, cur_ex, pre_ex, lamp_idx, lamp_table.index(best.best_lamp))
                 if (cur <= pre) and (cur_ex <= pre_ex) and (lamp_idx >= lamp_table.index(best.best_lamp)):
                     os.remove(dst)
                     flg_save = False
