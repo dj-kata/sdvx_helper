@@ -1376,7 +1376,7 @@ class SDVXHelper:
                     # maya2serverへのアップロード
                     self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=False, token=self.settings['maya2_token'])
                     self.control_obs_sources('quit')
-                    summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_summary.png"
+                    summary_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d_%H%M')}_summary.png"
                     print(f"本日の成果一覧を保存中...\n==> {summary_filename}")
                     self.gen_summary.generate_today_all(summary_filename)
                     self.sdvx_logger.save_alllog()
@@ -1384,7 +1384,7 @@ class SDVXHelper:
                     self.update_mybest()
                     self.save_rivallog()
                     print(f"プレーログを保存しました。")
-                    vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d')}_total_vf.png"
+                    vf_filename = f"{self.settings['autosave_dir']}/{self.starttime.strftime('%Y%m%d_%H%M')}_total_vf.png"
                     #print(f"VF対象一覧を保存中 (OBSに設定していれば保存されます) ...\n==> {vf_filename}")
                     try:
                         tmps, tmpid = self.obs.search_itemid(self.settings[f'obs_scene_select'], 'sdvx_stats.html')
