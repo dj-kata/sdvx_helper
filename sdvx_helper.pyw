@@ -519,6 +519,9 @@ class SDVXHelper:
             else:
                 self.settings['lx'] = self.window.current_location()[0]
                 self.settings['ly'] = self.window.current_location()[1]
+            if self.settings['enable_register_gui']:
+                self.settings['import_from_select'] = val['import_from_select']
+                self.settings['import_arcade_score'] = val['import_arcade_score']
         elif self.gui_mode == gui_mode.webhook:
             self.settings['webhook_player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
@@ -550,8 +553,7 @@ class SDVXHelper:
             self.sdvx_logger.player_name = val['player_name']
             self.settings['save_on_capture'] = val['save_on_capture']
             self.settings['save_jacketimg'] = val['save_jacketimg']
-            self.settings['import_from_select'] = val['import_from_select']
-            self.settings['import_arcade_score'] = val['import_arcade_score']
+            self.settings['enable_register_gui'] = val['enable_register_gui']
             self.settings['autosave_prewait'] = val['autosave_prewait']
             if self.params.get('maya2_enable'):
                 self.settings['maya2_token'] = val['maya2_token']
@@ -751,7 +753,7 @@ class SDVXHelper:
             [sg.Text('ログ画像の背景の不透明度(0-255, 0:完全に透過)'), sg.Combo([i for i in range(256)],default_value=self.settings['logpic_bg_alpha'],key='logpic_bg_alpha', enable_events=True)],
             [sg.Checkbox('起動時にアップデートを確認する',self.settings['auto_update'],key='chk_auto_update', enable_events=True)],
             [sg.Text('sdvx_stats.htmlに表示するプレーヤー名'),sg.Input(self.settings['player_name'], key='player_name', size=(30,1))],
-            [sg.Checkbox('選曲画面からスコアを取り込む',self.settings['import_from_select'],key='import_from_select', enable_events=True),sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)],
+            [sg.Checkbox('選曲画面からの取り込みモードを有効にする', self.settings['enable_register_gui'],key='enable_register_gui', enable_events=True)],
             [sg.Checkbox('ウィンドウの座標を0以上に補正する',self.settings['clip_lxly'],key='clip_lxly', enable_events=True, tooltip='設定ファイルに保存されるsdvx_helperウィンドウの座標がマイナスにならないようにします。(60p/120pを切り替える人向け)\n基本的には外しておいてOKです。')],
             [sg.Checkbox('常に最前面表示する',self.settings['keep_on_top'],key='keep_on_top', enable_events=True)],
         ]
@@ -793,6 +795,20 @@ class SDVXHelper:
             [par_btn('save', tooltip='画像を保存します', key='btn_savefig')],
             [par_text('', size=(40,1), key='txt_info')],
         ]
+        if self.settings['enable_register_gui']: # 選曲画面からの登録用GUI
+            layout_register=[
+                [
+                    sg.Checkbox('自動登録',self.settings['import_from_select'],key='import_from_select', enable_events=True),
+                    sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)
+                ],
+                [sg.Text('', key='register_gui_title'), par_text('', key='register_gui_difficulty'), par_btn('add', key='register_gui_add')],
+                [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score'),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore'),sg.Text('Lamp:'),sg.Text('', key='register_gui_lamp')],
+                [sg.Text('search:'),sg.Input('', key='register_gui_search',size=(30,1))],
+                [sg.Listbox([],key='register_gui_search_result', size=(37,5))]
+            ]
+            layout.append([
+                [sg.Frame('選曲画面からのスコア登録', layout=layout_register, title_color='#000044')],
+            ])
         if self.settings['dbg_enable_output']:
             layout.append([sg.Output(size=(63,8), key='output', font=(None, 9))])
         self.gui_mode = gui_mode.main
@@ -1121,18 +1137,16 @@ class SDVXHelper:
 
     def import_score_on_select_core(self, ask:bool=False):
         if self.detect_mode == detect_mode.select:
-            title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
-                self.img_rot.crop(self.get_detect_points('select_jacket')),
-                self.img_rot.crop(self.get_detect_points('select_nov')),
-                self.img_rot.crop(self.get_detect_points('select_adv')),
-                self.img_rot.crop(self.get_detect_points('select_exh')),
-                self.img_rot.crop(self.get_detect_points('select_APPEND')),
-            )
-            sc,lamp,is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
-            if lamp is None:
-                print('ランプ取得失敗')
+            title = self.gen_summary.last_title
+            is_arcade = self.gen_summary.last_is_arcade
+            diff = self.gen_summary.last_difficulty
+            sc = self.gen_summary.last_score
+            exsc = self.gen_summary.last_exscore
+            lamp = self.gen_summary.last_lamp
+
+            if self.gen_summary.last_lamp is None:
+                # print('ランプ取得失敗')
                 return False
-            exsc = self.gen_summary.get_exscore_on_select(self.img_rot)
             now = datetime.datetime.now()
             import_ok = True
             is_best = True # 自己べかどうか。popの条件をimport_okだけにしたいので分けている
@@ -1224,6 +1238,8 @@ class SDVXHelper:
                     self.img_rot.crop(self.get_detect_points('select_exh')),
                     self.img_rot.crop(self.get_detect_points('select_APPEND')),
                 )
+                score, lamp, is_arcade = self.gen_summary.get_score_on_select(self.img_rot)
+                exscore = self.gen_summary.get_exscore_on_select(self.img_rot)
                 # 選曲画面から自己べを取り込む
                 if self.settings['import_from_select']:
                     # self.import_score_on_select_core(False)
@@ -1233,6 +1249,16 @@ class SDVXHelper:
                     self.sdvx_logger.update_rival_view(title, diff)
                     self.sdvx_logger.gen_vf_onselect(title, diff)
                     self.sdvx_logger.gen_history_cursong(title, diff)
+                if self.settings['enable_register_gui']: # 登録用GUI有効時
+                    if score <= 10_000_000:
+                        self.update_gui_value('register_gui_title',title)
+                        self.update_gui_value('register_gui_score',f"{score}")
+                        self.update_gui_value('register_gui_exscore',f"{exscore}")
+                        self.update_gui_value('register_gui_lamp',f"{lamp}")
+                        if diff != 'APPEND':
+                            self.update_gui_value('register_gui_difficulty',f"({diff})")
+                        else:
+                            self.update_gui_value('register_gui_difficulty',f"")
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:

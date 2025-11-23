@@ -38,6 +38,14 @@ class GenSummary:
         self.ignore_rankD = self.settings['ignore_rankD']
         self.alpha = self.settings['logpic_bg_alpha']
         self.max_num = self.params['log_maxnum']
+        # 最後に認識したものを覚えておく
+        self.last_score = 0
+        self.last_exscore = 0
+        self.last_lamp = None
+        self.last_is_arcade = False
+        self.last_title = ''
+        self.last_minval = ''
+        self.last_difficulty = ''
         print(now, self.savedir)
 
     def load_settings(self):
@@ -327,6 +335,10 @@ class GenSummary:
         threshold = 200000 if self.settings['save_on_capture'] else 100000
         is_arcade = np.array(img_arcade).sum() > threshold
 
+        self.last_score = score
+        self.last_lamp = lamp
+        self.last_is_arcade = is_arcade
+
         return score, lamp, is_arcade
 
     def get_exscore_on_select(self, img):
@@ -361,6 +373,7 @@ class GenSummary:
                 minval = val if val<minval else minval
             out.append(minid)
         score = int(''.join(map(str, out)))
+        self.last_exscore = score
 
         return score
 
@@ -532,6 +545,19 @@ class GenSummary:
     # ジャケット画像を与えた時のOCR結果を返す(選曲画面からの利用を想定)
     # 返り値: 曲名, hash差分の最小値
     def ocr_only_jacket(self, jacket, nov, adv, exh, APPEND):
+        """ジャケット画像を与えた時のOCR結果を返す(選曲画面からの利用を想定)。
+        結果はgen_summaryのメンバ変数にも保存される。
+
+        Args:
+            jacket (_type_): _description_
+            nov (_type_): _description_
+            adv (_type_): _description_
+            exh (_type_): _description_
+            APPEND (_type_): _description_
+
+        Returns:
+            [title:str, minval:int, difficulty:str]: OCR結果
+        """
         hash_jacket = imagehash.average_hash(jacket)
         title = False
         minval = 99999
@@ -555,6 +581,9 @@ class GenSummary:
             if abs(hash_cur - hash_jacket) < minval:
                 minval = abs(hash_cur - hash_jacket)
                 title = self.musiclist_hash['jacket'][difficulty][h]
+        self.last_title = title
+        self.last_minval = minval
+        self.last_difficulty = difficulty
         return title, minval, difficulty
 
     def ocr_from_detect(self):

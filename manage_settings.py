@@ -51,6 +51,7 @@ default_val = {
     'rival_googledrive':[],
 
     # 選曲画面で自己べを取り込むための設定
+    'enable_register_gui': False, # メイン画面に取り込み用GUIを追加
     'import_from_select': False,
     'import_arcade_score': False, # AC自己べのものを許容するか
 
