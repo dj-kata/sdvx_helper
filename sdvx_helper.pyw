@@ -55,6 +55,7 @@ except Exception:
 
 class SDVXHelper:
     def __init__(self):
+        logger.info('started')
         self.ico=self.ico_path('icon.ico')
         self.detect_mode = detect_mode.init
         self.gui_mode    = gui_mode.init
@@ -134,14 +135,52 @@ class SDVXHelper:
     def update_musiclist(self):
         """曲リスト(musiclist.pkl)を最新化する
         """
-        try:
-            if self.settings['autoload_musiclist']:
-                with urllib.request.urlopen(self.params['url_musiclist']) as wf:
-                    with open('resources/musiclist.pkl', 'wb') as f:
-                        f.write(wf.read())
+        import socket
+        import ssl
+        import urllib.parse
+
+        if self.settings['autoload_musiclist']:
+            try:
+                url = self.params['url_musiclist']
+                url = 'https://raw.githubusercontent.com/dj-kata/sdvx_helper/main/resources/musiclist.pkl'
+                parsed = urllib.parse.urlparse(url)
+                hostname = parsed.hostname
+                port = 443
+
+                # TCP接続
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(10)
+                ip = socket.gethostbyname(hostname)
+                sock.connect((ip, port))
+
+                # SSL Handshake
+                context = ssl.create_default_context()
+                ssock = context.wrap_socket(sock, server_hostname=hostname)
+
+                # HTTPリクエスト
+                request = f'GET {parsed.path} HTTP/1.1\r\nHost: {hostname}\r\nConnection: close\r\n\r\n'
+                ssock.send(request.encode())
+
+                # レスポンス受信
+                response = b''
+                while True:
+                    data = ssock.recv(4096)
+                    if not data:
+                        break
+                    response += data
+
+                ssock.close()
+
+                # ヘッダーとボディを分離
+                header_end = response.find(b'\r\n\r\n')
+                body = response[header_end+4:]
+
+                with open('resources/musiclist.pkl', 'wb') as f:
+                    f.write(body)
+
                 print('musiclist.pklを更新しました。')
-        except Exception:
-            print(traceback.format_exc())
+            except Exception as e:
+                print(f'musiclist.pklの更新に失敗: {e}')
 
     def get_latest_version(self):
         """GitHubから最新版のバージョンを取得する。
