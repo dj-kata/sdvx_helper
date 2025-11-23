@@ -11,6 +11,12 @@ from connect_maya2 import *
 from params_secret import *
 import datetime
 import hashlib, hmac
+import time
+import socket
+
+# IPv4を強制
+import requests.packages.urllib3.util.connection as urllib3_cn
+urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
 
 SETTING_FILE = 'settings.json'
 ALLLOG_FILE = 'alllog.pkl'
@@ -829,7 +835,7 @@ class SDVXLogger:
             bpm    = tmp[2]
             lv     = tmp[3+diff_table.index(difficulty.upper())]
         except:
-            logger.debug(traceback.format_exc())
+            # logger.debug(traceback.format_exc())
             artist = ''
             bpm = ''
             lv = '??'
@@ -1155,6 +1161,14 @@ class ManageUploadedScores:
     def push(self, data:OneUploadedScore):
         self.scores.append(data)
         return len(self.scores)
+    
+    def delete(self, revision:int, music_id:str):
+        for i,s in enumerate(self.scores):
+            if s.music_id == music_id and s.revision == revision:
+                self.scores.pop(i)
+                logger.info(f"uploaded score deleted! (id:{s.music_id}, rev:{s.revision})")
+                return True # 削除成功
+        return False # 削除失敗
 
     def load(self):
         try:
@@ -1208,7 +1222,7 @@ class Maya2TitleConverter:
         ret = key
         if key in self.backward_table.keys():
             ret = self.backward_table[key]
-            logger.info(f"{key} をsdvx_helper向けに変換しました。-> {ret}")
+            # logger.info(f"{key} をsdvx_helper向けに変換しました。-> {ret}")
         return ret
 
 class ManageMaya2:
@@ -1224,8 +1238,12 @@ class ManageMaya2:
         if token is not None:
             self.update_token(token)
         self.load_settings()
+        start = time.time()
+        logger.info(f'{time.time() - start:.2f}, settings loaded')
         self.get_musiclist()
+        logger.info(f'{time.time() - start:.2f}, musiclist loaded')
         self.get_rival_scores()
+        logger.info(f'{time.time() - start:.2f}, rival scores loaded')
 
     def update_token(self, token):
         self.token = token
@@ -1277,6 +1295,54 @@ class ManageMaya2:
         else:
             logger.info('server: dead')
             return False
+
+    def get_musiclist_test(self):
+        """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
+        """
+        if not self.is_alive():
+            self.master_db = None
+            logger.info('トークン未設定のためスキップします。')
+            return False
+        try:
+            # APIのホスト名を取得（URLから抽出）
+            from urllib.parse import urlparse
+            parsed = urlparse(maya2_url_v1)
+            hostname = parsed.hostname
+
+            print('=== DNS解決テスト ===')
+            start = time.time()
+            result = socket.getaddrinfo(hostname, 443, socket.AF_INET, socket.SOCK_STREAM)
+            print(f'getaddrinfo: {time.time()-start:.1f}s')
+
+            start = time.time()
+            ip = socket.gethostbyname(hostname)
+            print(f'gethostbyname: {time.time()-start:.1f}s, IP: {ip}')
+
+            print('\n=== Session作成テスト ===')
+            start = time.time()
+            session = requests.Session()
+            print(f'Session作成: {time.time()-start:.1f}s')
+
+            start = time.time()
+            session.trust_env = False
+            print(f'trust_env設定: {time.time()-start:.1f}s')
+
+            print('\n=== リクエスト送信テスト ===')
+            header = {'X-Auth-Token': self.token}
+            url = maya2_url_v1 + '/api/v1/export/musics'
+
+            start = time.time()
+            r = session.post(url, headers=header, timeout=10)
+            print(f'POST完了: {time.time()-start:.1f}s')
+
+            start = time.time()
+            js = r.json()
+            print(f'JSON解析: {time.time()-start:.1f}s')
+        except Exception:
+            print(traceback.format_exc())
+            self.master_db = None
+            return False
+        return True
 
     def get_musiclist(self):
         """曲マスタを受信する。何も受信できなかった場合はNoneを返す。
@@ -1495,6 +1561,57 @@ class ManageMaya2:
             mng.push(tmp)
         mng.save()
         return res
+    
+    def delete_score(self, revision:str, music_id:str, difficulty:str):
+        """maya2上のデータを削除
+
+        Args:
+            revision (str): 送信時のリビジョン番号
+            music_id (str): 楽曲ID
+            difficulty (str): 難易度(EXH, MXMなど)
+        """
+        filename = 'out/maya2_payload.csv'
+
+        fp = open(filename, 'w', encoding='utf-8', newline='')
+        writer = csv.writer(fp, lineterminator="\r\n") # \r\n\nになるので対策
+        lines = []
+        line = f'{revision}'
+        lines.append(line)
+        writer.writerow(line.split(','))
+
+        # header
+        line = f"{music_id},{difficulty},,,,1"
+        lines.append(line)
+        writer.writerow(line.split(','))
+
+        payload = '\r\n'.join(lines)
+        secret = maya2_key.encode(encoding='utf-8')
+        checksum = hmac.new(secret, payload.encode(encoding='utf-8'), hashlib.sha256).hexdigest()
+        logger.debug(f"checksum = {checksum}")
+        now = datetime.datetime.now().replace(microsecond=0)
+        fp.close()
+        with open(filename, 'a', encoding='utf-8', newline='') as fp:
+            writer = csv.writer(fp, lineterminator="") # 最終行は改行しない
+            writer.writerow([now,1,checksum])
+
+        # サーバへ送信
+        header = {'X-Auth-Token': self.token}
+        if self.params.get('maya2_testing'):
+            url = maya2_url_testing+'/api/testing/import/modify'
+        else:
+            url = maya2_url_v1+'/api/v1/import/modify'
+        file_binary = open(filename, 'rb').read()
+        # files = {'file': ('modify.csv', file_binary)}
+        files = {'modify': (filename, file_binary)}
+        res = requests.post(url, files=files, headers=header)
+        logger.debug(f"status_code = {res.status_code}")
+
+        if res.status_code == 200:
+            mng = ManageUploadedScores()
+            mng.delete(revision, music_id)
+            mng.save()
+        return res
+
 if __name__ == '__main__':
     a = SDVXLogger(player_name='kata')
     #a.get_rival_score(a.settings['player_name'], a.settings['rival_names'], a.settings['rival_googledrive'])
@@ -1507,4 +1624,6 @@ if __name__ == '__main__':
     #print(f"自己べ: {a.best_allfumen[-27].best_score}")
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
-    res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
+    # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
+    tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
+    print(tmp)

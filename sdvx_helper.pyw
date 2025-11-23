@@ -21,6 +21,10 @@ from sdvxh_classes import *
 import urllib
 import webbrowser
 from decimal import Decimal
+import socket
+import ssl
+import urllib.parse
+
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
@@ -135,10 +139,6 @@ class SDVXHelper:
     def update_musiclist(self):
         """曲リスト(musiclist.pkl)を最新化する
         """
-        import socket
-        import ssl
-        import urllib.parse
-
         if self.settings['autoload_musiclist']:
             try:
                 url = self.params['url_musiclist']
@@ -441,10 +441,15 @@ class SDVXHelper:
 
     def update_rival(self):
         try:
+            start = time.time()
+            print(f'start: {time.time()}')
             self.update_mybest()
+            print(f'update: {time.time() - start:.2f}')
             self.sdvx_logger.get_rival_score(self.settings['player_name'], self.settings['rival_names'], self.settings['rival_googledrive'])
+            print(f'update: {time.time() - start:.2f}')
             print(f"ライバルのスコアを取得完了しました。")
             self.check_rival_update()
+            print(f'update: {time.time() - start:.2f}')
         except Exception:
             logger.debug(traceback.format_exc())
             print('ライバルのログ取得に失敗しました。') # ネットワーク接続やURL設定を見直す必要がある
