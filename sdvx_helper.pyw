@@ -801,10 +801,10 @@ class SDVXHelper:
                     sg.Checkbox('自動登録',self.settings['import_from_select'],key='import_from_select', enable_events=True),
                     sg.Checkbox('AC版の自己べも取り込む',self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)
                 ],
-                [sg.Text('', key='register_gui_title'), par_text('', key='register_gui_difficulty'), par_btn('add', key='register_gui_add')],
-                [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score'),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore'),sg.Text('Lamp:'),sg.Text('', key='register_gui_lamp')],
-                [sg.Text('search:'),sg.Input('', key='register_gui_search',size=(30,1))],
-                [sg.Listbox([],key='register_gui_search_result', size=(37,5))]
+                [sg.Text('', key='register_gui_title', text_color='#4444ff', font=('Meiryo',16)), par_text('', key='register_gui_difficulty', text_color='#ff44ff', font=('Meiryo',16)), par_btn('add', key='register_gui_add')],
+                [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Text('', key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14))],
+                [sg.Text('search:'),sg.Input('', key='register_gui_search',size=(30,1), enable_events=True)],
+                [sg.Listbox([],key='register_gui_search_result', size=(37,5), enable_events=True)]
             ]
             layout.append([
                 [sg.Frame('選曲画面からのスコア登録', layout=layout_register, title_color='#000044')],
