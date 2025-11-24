@@ -78,6 +78,13 @@ class SDVXHelper:
         self.rta_starttime = datetime.datetime.now()
         self.rta_endtime = datetime.datetime.now()
         self.rta_target_vf = Decimal('20.0')
+        # 編集画面用
+        self.register_gui_modify = False # 曲名を自分で変更した場合にTrueにする
+        self.register_gui_title = '' # 選曲画面で選択された曲名、自動検出結果もここに入れる
+        self.register_gui_diff = 'APPEND'
+        self.register_gui_score = 0
+        self.register_gui_exscore = 0
+        self.register_gui_lamp = 'failed'
 
         self.plays = 0
         self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
@@ -804,7 +811,7 @@ class SDVXHelper:
                 [sg.Text('', key='register_gui_title', text_color='#4444ff', font=('Meiryo',16)), par_text('', key='register_gui_difficulty', text_color='#ff44ff', font=('Meiryo',16)), par_btn('add', key='register_gui_add')],
                 [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Text('', key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14))],
                 [sg.Text('search:'),sg.Input('', key='register_gui_search',size=(30,1), enable_events=True)],
-                [sg.Listbox([],key='register_gui_search_result', size=(37,5), enable_events=True)]
+                [sg.Listbox([],key='register_gui_search_result', size=(37,5), enable_events=True), sg.Text('hit:'), sg.Text('', key='register_gui_search_result_len')]
             ]
             layout.append([
                 [sg.Frame('選曲画面からのスコア登録', layout=layout_register, title_color='#000044')],
@@ -825,6 +832,7 @@ class SDVXHelper:
                                 )
         if self.connect_obs():
             self.update_gui_value('txt_obswarning', '')
+        self.update_register_search('')
 
     def start_detect(self):
         """認識スレッドを開始する。
@@ -1231,6 +1239,7 @@ class SDVXHelper:
                 if self.is_onresult():
                     self.save_playerinfo()
             if self.detect_mode == detect_mode.select:
+                # 選曲画面からの曲名・スコア認識
                 title, diff_hash, diff = self.gen_summary.ocr_only_jacket(
                     self.img_rot.crop(self.get_detect_points('select_jacket')),
                     self.img_rot.crop(self.get_detect_points('select_nov')),
@@ -1251,6 +1260,12 @@ class SDVXHelper:
                     self.sdvx_logger.gen_history_cursong(title, diff)
                 if self.settings['enable_register_gui']: # 登録用GUI有効時
                     if score <= 10_000_000:
+                        self.register_gui_modify = False
+                        self.register_gui_title = title
+                        self.register_gui_diff = diff
+                        self.register_gui_score = score
+                        self.register_gui_exscore = exscore
+                        self.register_gui_lamp = lamp
                         self.update_gui_value('register_gui_title',title)
                         self.update_gui_value('register_gui_score',f"{score}")
                         self.update_gui_value('register_gui_exscore',f"{exscore}")
@@ -1328,6 +1343,49 @@ class SDVXHelper:
                 break
             time.sleep(0.01)
         logger.debug(f'detect end!')
+
+    def update_register_search(self, val):
+        """検索実行および結果リストの更新
+
+        Args:
+            val (str): 検索文字列
+        """
+        if self.settings['enable_register_gui']:
+            target = val
+            result = [item for item in self.gen_summary.musiclist['titles'] if all(word in item for word in re.findall('\S+', target))]
+            self.window['register_gui_search_result'].update(values=result)
+            self.window['register_gui_search_result_len'].update(f"{len(result):,}")
+
+    def select_register_search(self, val):
+        """登録用GUIの検索結果クリック時の処理
+
+        Args:
+            val (dict): self.windowのvalをそのまま渡す想定
+        """
+        title = val['register_gui_search_result'][0]
+        self.register_gui_title = title
+        self.register_gui_modify = True
+        self.update_gui_value('register_gui_title',title)
+
+    def register_gui_add(self):
+        """登録用GUIからのスコア登録処理
+        """
+        lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
+        # 自己べ検索
+        best = None
+        for s in self.sdvx_logger.best_allfumen:
+            if (s.title == self.register_gui_title) and (s.difficulty.lower() == self.register_gui_diff.lower()):
+                best = s
+                break
+
+        # print(best.best_score < self.register_gui_score, best.best_exscore < self.register_gui_exscore, )
+        if (best is None) or (best.best_score < self.register_gui_score) or (best.best_exscore < self.register_gui_exscore) or (lamp_table.index(s.best_lamp) > lamp_table.index(self.register_gui_lamp)):
+            now = datetime.datetime.now()
+            self.last_autosave_time = now
+            fmtnow = format(now, "%Y%m%d_%H%M%S")
+            self.sdvx_logger.push(self.register_gui_title, self.register_gui_score, self.register_gui_exscore, 1, 0, self.register_gui_lamp, self.register_gui_diff, fmtnow)
+        else:
+            print(f'更新されていないのでスキップ')
 
     def main(self):
         """メイン処理。PySimpleGUIのイベント処理など。
@@ -1599,6 +1657,12 @@ class SDVXHelper:
                 self.import_score_on_select_core()
             elif ev == '-import_score_on_select_with_dialog-':
                 self.import_score_on_select_with_dialog()
+            elif ev == 'register_gui_search':
+                self.update_register_search(val[ev])
+            elif ev == 'register_gui_search_result':
+                self.select_register_search(val)
+            elif ev == 'register_gui_add':
+                self.register_gui_add()
 
 if __name__ == '__main__':
     a = SDVXHelper()
