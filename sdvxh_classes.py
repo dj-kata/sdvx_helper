@@ -313,9 +313,12 @@ class OneLevelStat:
         self.average_score = 0
 
     def read(self, minfo:MusicInfo):
-        self.rank[minfo.rank.name] += 1
-        self.lamp[minfo.best_lamp] += 1
-        self.scores[f"{minfo.title}___{minfo.difficulty}"] = minfo.best_score
+        try:
+            self.rank[minfo.rank.name] += 1
+            self.lamp[minfo.best_lamp] += 1
+            self.scores[f"{minfo.title}___{minfo.difficulty}"] = minfo.best_score
+        except Exception:
+            print(traceback.format_exc())
 
     def get_average_score(self):
         """平均スコアを計算して返す
@@ -822,6 +825,8 @@ class SDVXLogger:
                 #p.disp()
                 if p.lamp == 'class_clear': # TODO 段位抜けはノマゲ扱いにしておく
                     p.lamp = 'clear'
+                if (p.lamp is None) or (best_lamp is None):
+                    continue
                 best_lamp = p.lamp if lamp_table.index(p.lamp) > lamp_table.index(best_lamp) else best_lamp
                 best_score = p.cur_score if (p.cur_score > best_score) and (p.cur_score <= 10000000) else best_score
                 best_exscore = p.cur_exscore if (p.cur_exscore > best_exscore) else best_exscore

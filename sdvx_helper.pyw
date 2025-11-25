@@ -1214,6 +1214,7 @@ class SDVXHelper:
             logger.debug(f'OBSver:{obsv.obs_version}, RPCver:{obsv.rpc_version}, OBSWSver:{obsv.obs_web_socket_version}')
         done_thissong = False # 曲決定画面の抽出が重いため1曲あたり一度しか行わないように制御
         self.obs.change_text(self.settings['obs_txt_playtime'], self.settings['obs_txt_playtime_header']+str(self.playtime).split('.')[0])
+        last_title_on_select = None
         while True:
             self.get_capture_after_rotate()
             pre_mode = self.detect_mode
@@ -1259,21 +1260,23 @@ class SDVXHelper:
                     self.sdvx_logger.gen_vf_onselect(title, diff)
                     self.sdvx_logger.gen_history_cursong(title, diff)
                 if self.settings['enable_register_gui']: # 登録用GUI有効時
-                    if score <= 10_000_000:
-                        self.register_gui_modify = False
-                        self.register_gui_title = title
-                        self.register_gui_diff = diff
-                        self.register_gui_score = score
-                        self.register_gui_exscore = exscore
-                        self.register_gui_lamp = lamp
-                        self.update_gui_value('register_gui_title',title)
-                        self.update_gui_value('register_gui_score',f"{score}")
-                        self.update_gui_value('register_gui_exscore',f"{exscore}")
-                        self.update_gui_value('register_gui_lamp',f"{lamp}")
+                    if (score <= 10_000_000):
                         if diff != 'APPEND':
                             self.update_gui_value('register_gui_difficulty',f"({diff})")
                         else:
                             self.update_gui_value('register_gui_difficulty',f"")
+                        self.register_gui_diff = diff
+                        self.register_gui_score = score
+                        self.register_gui_exscore = exscore
+                        self.register_gui_lamp = lamp
+                        self.update_gui_value('register_gui_score',f"{score}")
+                        self.update_gui_value('register_gui_exscore',f"{exscore}")
+                        self.update_gui_value('register_gui_lamp',f"{lamp}")
+                    if (last_title_on_select != self.gen_summary.last_title): # 最後の認識結果と一致しない場合のみ通す
+                        self.register_gui_modify = False
+                        self.register_gui_title = title
+                        last_title_on_select = title
+                        self.update_gui_value('register_gui_title',title)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:
@@ -1379,11 +1382,14 @@ class SDVXHelper:
                 break
 
         # print(best.best_score < self.register_gui_score, best.best_exscore < self.register_gui_exscore, )
-        if (best is None) or (best.best_score < self.register_gui_score) or (best.best_exscore < self.register_gui_exscore) or (lamp_table.index(s.best_lamp) > lamp_table.index(self.register_gui_lamp)):
+        if (best is None) or (self.register_gui_lamp is not None) or (best.best_score < self.register_gui_score) or (best.best_exscore < self.register_gui_exscore) or (lamp_table.index(s.best_lamp) > lamp_table.index(self.register_gui_lamp)):
             now = datetime.datetime.now()
             self.last_autosave_time = now
             fmtnow = format(now, "%Y%m%d_%H%M%S")
-            self.sdvx_logger.push(self.register_gui_title, self.register_gui_score, self.register_gui_exscore, 1, 0, self.register_gui_lamp, self.register_gui_diff, fmtnow)
+            try:
+                self.sdvx_logger.push(self.register_gui_title, self.register_gui_score, self.register_gui_exscore, 1, 0, self.register_gui_lamp, self.register_gui_diff, fmtnow)
+            except Exception: # 念の為受けておく
+                logger.debug(traceback.format_exc())
         else:
             print(f'更新されていないのでスキップ')
 
