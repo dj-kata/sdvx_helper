@@ -1287,9 +1287,9 @@ class ManageMaya2:
             return False
         try:
             if self.params.get('maya2_testing'):
-                r = requests.get(maya2_url_testing+'/', params=payload)
+                r = requests.get(self.params.get('maya2_url_testing')+'/', params=payload)
             else:
-                r = requests.get(maya2_url_v1+'/', params=payload)
+                r = requests.get(self.params.get('maya2_url_v1')+'/', params=payload)
         except Exception:
             logger.error(traceback.format_exc())
             logger.info('server: dead')
@@ -1311,7 +1311,7 @@ class ManageMaya2:
         try:
             # APIのホスト名を取得（URLから抽出）
             from urllib.parse import urlparse
-            parsed = urlparse(maya2_url_v1)
+            parsed = urlparse(self.params.get('maya2_url_v1'))
             hostname = parsed.hostname
 
             print('=== DNS解決テスト ===')
@@ -1334,7 +1334,7 @@ class ManageMaya2:
 
             print('\n=== リクエスト送信テスト ===')
             header = {'X-Auth-Token': self.token}
-            url = maya2_url_v1 + '/api/v1/export/musics'
+            url = self.params.get('maya2_url_v1') + '/api/v1/export/musics'
 
             start = time.time()
             r = session.post(url, headers=header, timeout=10)
@@ -1359,9 +1359,9 @@ class ManageMaya2:
         try:
             header = {'X-Auth-Token': self.token}
             if self.params.get('maya2_testing'):
-                r = requests.post(maya2_url_testing+'/api/testing/export/musics', headers=header)
+                r = requests.post(self.params.get('maya2_url_testing')+'/api/testing/export/musics', headers=header)
             else:
-                r = requests.post(maya2_url_v1+'/api/v1/export/musics', headers=header)
+                r = requests.post(self.params.get('maya2_url_v1')+'/api/v1/export/musics', headers=header)
             js = r.json()
 
             musics = js['musics']
@@ -1387,9 +1387,9 @@ class ManageMaya2:
         try:
             header = {'X-Auth-Token': self.token}
             if self.params.get('maya2_testing'):
-                r = requests.post(maya2_url_testing+'/api/testing/export/rival_scores', headers=header)
+                r = requests.post(self.params.get('maya2_url_testing')+'/api/testing/export/rival_scores', headers=header)
             else:
-                r = requests.post(maya2_url_v1+'/api/v1/export/rival_scores', headers=header)
+                r = requests.post(self.params.get('maya2_url_v1')+'/api/v1/export/rival_scores', headers=header)
             js = r.json()
             dict_lamp = {'COMP':'clear', 'MAX_COMP':'exh', 'EX_COMP':'hard', 'PLAYED':'failed', 'UC':'uc', 'PUC':'puc', 'MXM_COMP':'exh'}
             for rival in list(js.get('datas', {}).values()): # 1人分のライバルデータ
@@ -1542,9 +1542,9 @@ class ManageMaya2:
         # サーバへ送信
         header = {'X-Auth-Token': self.token}
         if self.params.get('maya2_testing'):
-            url = maya2_url_testing+'/api/testing/import/scores'
+            url = self.params.get('maya2_url_testing')+'/api/testing/import/scores'
         else:
-            url = maya2_url_v1+'/api/v1/import/scores'
+            url = self.params.get('maya2_url_v1')+'/api/v1/import/scores'
         file_binary = open(filename, 'rb').read()
         files = {'regist_score': (filename, file_binary)}
         res = requests.post(url, files=files, headers=header)
@@ -1602,9 +1602,9 @@ class ManageMaya2:
         # サーバへ送信
         header = {'X-Auth-Token': self.token}
         if self.params.get('maya2_testing'):
-            url = maya2_url_testing+'/api/testing/import/modify'
+            url = self.params.get('maya2_url_testing')+'/api/testing/import/modify'
         else:
-            url = maya2_url_v1+'/api/v1/import/modify'
+            url = self.params.get('maya2_url_v1')+'/api/v1/import/modify'
         file_binary = open(filename, 'rb').read()
         # files = {'file': ('modify.csv', file_binary)}
         files = {'modify': (filename, file_binary)}
@@ -1629,6 +1629,7 @@ if __name__ == '__main__':
     #print(f"自己べ: {a.best_allfumen[-27].best_score}")
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
-    # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
-    tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
-    print(tmp)
+    if a.maya2.is_alive():
+        # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
+        tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
+        print(tmp)
