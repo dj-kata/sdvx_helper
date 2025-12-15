@@ -813,8 +813,24 @@ class SDVXHelper:
                 [sg.Text('search:'),sg.Input('', key='register_gui_search',size=(30,1), enable_events=True)],
                 [sg.Listbox([],key='register_gui_search_result', size=(37,5), enable_events=True), sg.Text('hit:'), sg.Text('', key='register_gui_search_result_len')]
             ]
+            layout_remove_helper = [
+                [sg.Text('', key='edit_title')],
+                [sg.Listbox([], size=(50,4), key='edit_list', enable_events=True)],
+                [sg.Button('削除', key='edit_delete', enable_events=True),],
+            ]
+            layout_remove_maya2 = [
+                [sg.Listbox([], size=(50,4), key='maya2_list', enable_events=True)],
+                [sg.Button('削除', key='maya2_delete', enable_events=True),],
+            ]
+            layout_remove =[
+                [sg.Frame('helper', layout=layout_remove_helper, title_color='#000044')],
+                [sg.Frame('portal', layout=layout_remove_maya2, title_color='#000044')],
+            ]
             layout.append([
-                [sg.Frame('選曲画面からのスコア登録', layout=layout_register, title_color='#000044')],
+                [
+                    sg.Frame('選曲画面からのスコア登録', layout=layout_register, title_color='#000044'),
+                    sg.Frame('スコア削除', layout=layout_remove, title_color='#000044'),
+                ],
             ])
         if self.settings['dbg_enable_output']:
             layout.append([sg.Output(size=(63,8), key='output', font=(None, 9))])
@@ -1098,6 +1114,44 @@ class SDVXHelper:
             self.update_gui_value(f'webhook_enable_{l}', True)
         self.update_gui_value(f'webhook_enable_failed', False)
 
+    def update_edit_list(self, title, difficulty):
+        """編集画面で選択また選曲画面で識別された曲の全ログを表示
+
+        Args:
+            title(str): 曲名
+            val (dict): window.read()のvalueをそのまま渡す
+        """
+        try:
+            diff  = 'APPEND' if difficulty == '' else difficulty
+            logs  = []
+            for i,d in enumerate(self.sdvx_logger.alllog):
+                if (d.title == title) and (d.difficulty.lower() == diff.lower()):
+                    logs.append(f"{i} - {d.cur_score:,}(ex:{d.cur_exscore:,}), {d.lamp}, ({d.date})")
+            logs = list(reversed(logs))
+            self.window['edit_list'].update(values=logs)
+            self.window['edit_title'].update(f"{title} ({diff})")
+            self.logs = logs
+
+            # maya2側
+            if self.sdvx_logger.maya2.is_alive():
+                # 曲ID取得
+                key = self.sdvx_logger.maya2.conv_table.forward(title)
+                chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
+                if chart is not None:
+                    music = self.sdvx_logger.maya2.search_musicinfo(key)
+                    music_id = music.get('music_id')
+                    maya2_logs = []
+                    for i,d in enumerate(self.mng.scores):
+                        if d.music_id == music_id and d.difficulty == diff:
+                            maya2_logs.append(f"{i}, {d.revision}, {d.score}, {d.exscore}, {d.lamp}")
+                    maya2_logs = list(reversed(maya2_logs))
+                    self.window['maya2_list'].update(values=maya2_logs)
+                    self.maya2_logs = maya2_logs
+                    self.maya2_music_id = music_id
+                    self.maya2_difficulty = chart.get('difficulty')
+        except Exception: # 切り替わり時など、雑に回避しておく
+            pass
+
     def send_custom_webhook(self, playdata:OnePlayData):
         """カスタムWebhookへの送出を行う
 
@@ -1276,7 +1330,8 @@ class SDVXHelper:
                         self.register_gui_modify = False
                         self.register_gui_title = title
                         last_title_on_select = title
-                        self.update_gui_value('register_gui_title',title)
+                        self.update_gui_value('register_gui_title',title[:30])
+                        self.update_edit_list(title, diff)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
             if self.detect_mode == detect_mode.init:
@@ -1365,10 +1420,13 @@ class SDVXHelper:
         Args:
             val (dict): self.windowのvalをそのまま渡す想定
         """
-        title = val['register_gui_search_result'][0]
+        print(val)
+        title = val['register_gui_search_result'][0] # 検索結果リストのクリック内容
+        diff = self.register_gui_diff
         self.register_gui_title = title
         self.register_gui_modify = True
-        self.update_gui_value('register_gui_title',title)
+        self.update_gui_value('register_gui_title',title[:30])
+        self.update_edit_list(title, diff)
 
     def register_gui_add(self):
         """登録用GUIからのスコア登録処理
@@ -1669,6 +1727,34 @@ class SDVXHelper:
                 self.select_register_search(val)
             elif ev == 'register_gui_add':
                 self.register_gui_add()
+            # maya2portal連携周り
+            elif ev == 'edit_delete':
+                try:
+                    idx_in_editlist = self.window['edit_list'].get_indexes()
+                    dataidx = int(self.logs[idx_in_editlist[0]].split(' - ')[0])
+                    tmp = self.sdvx_logger.alllog.pop(dataidx)
+                    self.sdvx_logger.save_alllog()
+                    logger.debug(f"removed: idx:{dataidx} - {tmp.title}({tmp.difficulty}, {tmp.cur_score:,}(ex:{tmp.cur_exscore:,}) {tmp.lamp})")
+                    print('以下のリザルトを削除しました。')
+                    tmp.disp()
+                    # maya2向け削除処理
+                    
+                    self.modflg = True
+                    self.update_edit_list(self.register_gui_title, self.register_gui_diff)
+                except Exception:
+                    print(traceback.format_exc())
+            elif ev == 'maya2_delete':
+                try:
+                    idx_in_editlist = self.window['maya2_list'].get_indexes()
+                    data = [d.strip() for d in self.maya2_logs[idx_in_editlist[0]].split(',')]
+                    revision = int(data[1])
+                    music_id = self.maya2_music_id
+                    difficulty = self.maya2_difficulty
+                    res = self.sdvx_logger.maya2.delete_score(revision, music_id, difficulty)
+                    self.mng.load()
+                    self.update_edit_list(self.register_gui_title, self.register_gui_diff)
+                except Exception:
+                    print(traceback.format_exc())
 
 if __name__ == '__main__':
     a = SDVXHelper()
