@@ -1553,6 +1553,7 @@ class ManageMaya2:
 
         # 送信済みリストを更新
         revision = res.json().get('revision', -1)
+        print('rev:',revision)
         mng = ManageUploadedScores()
         for v in tmp_maya2.values():
             tmp = OneUploadedScore(
@@ -1629,6 +1630,7 @@ if __name__ == '__main__':
     #print(f"自己べ: {a.best_allfumen[-27].best_score}")
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
+    mng = ManageUploadedScores()
     if a.maya2.is_alive():
         # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
         tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')

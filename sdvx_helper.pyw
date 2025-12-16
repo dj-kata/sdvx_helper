@@ -95,6 +95,7 @@ class SDVXHelper:
         self.update_musiclist()
         self.prepare_hash()
         self.sdvx_logger = SDVXLogger(player_name=self.settings['player_name'])
+        self.mng = ManageUploadedScores()
         self.sdvx_logger.gen_sdvx_battle(False)
         self.vf_pre = self.sdvx_logger.total_vf # アプリ起動時のVF
         self.vf_cur = self.sdvx_logger.total_vf # 最新のVF
@@ -1137,11 +1138,13 @@ class SDVXHelper:
                 # 曲ID取得
                 key = self.sdvx_logger.maya2.conv_table.forward(title)
                 chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
+                diff = chart['difficulty']
                 if chart is not None:
                     music = self.sdvx_logger.maya2.search_musicinfo(key)
                     music_id = music.get('music_id')
                     maya2_logs = []
                     for i,d in enumerate(self.mng.scores):
+                        # d.disp()
                         if d.music_id == music_id and d.difficulty == diff:
                             maya2_logs.append(f"{i}, {d.revision}, {d.score}, {d.exscore}, {d.lamp}")
                     maya2_logs = list(reversed(maya2_logs))
@@ -1420,7 +1423,6 @@ class SDVXHelper:
         Args:
             val (dict): self.windowのvalをそのまま渡す想定
         """
-        print(val)
         title = val['register_gui_search_result'][0] # 検索結果リストのクリック内容
         diff = self.register_gui_diff
         self.register_gui_title = title
@@ -1661,6 +1663,7 @@ class SDVXHelper:
                     self.update_gui_value(f"webhook_enable_{l}", val[ev])
             elif ev == 'maya2_sendall':
                 r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
+                self.mng.load()
                 if r is None:
                     sg.popup_ok(f"送信前にエラーが発生。\n詳細はログファイル(log/sdvxh_classes.log)を確認してください。", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
                 elif r.status_code == 200:
@@ -1745,13 +1748,17 @@ class SDVXHelper:
                     print(traceback.format_exc())
             elif ev == 'maya2_delete':
                 try:
+                    # maya2_logs: GUI上に出るmaya2側のログ
                     idx_in_editlist = self.window['maya2_list'].get_indexes()
                     data = [d.strip() for d in self.maya2_logs[idx_in_editlist[0]].split(',')]
                     revision = int(data[1])
                     music_id = self.maya2_music_id
                     difficulty = self.maya2_difficulty
                     res = self.sdvx_logger.maya2.delete_score(revision, music_id, difficulty)
-                    self.mng.load()
+                    # if res.status_code == 200: # 不正なデータを消せるようにするためにレスポンスは見ないでおく?
+                    self.mng.delete(revision, music_id)
+                    self.mng.save()
+                    # self.mng.load()
                     self.update_edit_list(self.register_gui_title, self.register_gui_diff)
                 except Exception:
                     print(traceback.format_exc())

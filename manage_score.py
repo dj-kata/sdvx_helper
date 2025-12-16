@@ -9,6 +9,10 @@ from manage_settings import *
 from sdvxh_classes import *
 from functools import partial
 import urllib
+import socket, ssl, urllib.parse
+# IPv4を強制
+import requests.packages.urllib3.util.connection as urllib3_cn
+urllib3_cn.allowed_gai_family = lambda: socket.AF_INET
 
 os.makedirs('log', exist_ok=True)
 os.makedirs('out', exist_ok=True)
@@ -50,6 +54,7 @@ class ScoreViewer:
         self.window = None
         self.modflg = False # 内部データを弄ったかどうか覚えておく
         self.num_del = 0 # 削除したデータ数
+        self.mng = ManageUploadedScores()
         self.load_rivallog()
 
     def load_rivallog(self):
@@ -83,14 +88,51 @@ class ScoreViewer:
 
     # 曲リストを最新化
     def update_musiclist(self):
-        try:
-            if self.settings['autoload_musiclist']:
-                with urllib.request.urlopen(self.params['url_musiclist']) as wf:
-                    with open('resources/musiclist.pkl', 'wb') as f:
-                        f.write(wf.read())
+        """曲リスト(musiclist.pkl)を最新化する
+        """
+        if self.settings['autoload_musiclist']:
+            try:
+                url = self.params['url_musiclist']
+                url = 'https://raw.githubusercontent.com/dj-kata/sdvx_helper/main/resources/musiclist.pkl'
+                parsed = urllib.parse.urlparse(url)
+                hostname = parsed.hostname
+                port = 443
+
+                # TCP接続
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(10)
+                ip = socket.gethostbyname(hostname)
+                sock.connect((ip, port))
+
+                # SSL Handshake
+                context = ssl.create_default_context()
+                ssock = context.wrap_socket(sock, server_hostname=hostname)
+
+                # HTTPリクエスト
+                request = f'GET {parsed.path} HTTP/1.1\r\nHost: {hostname}\r\nConnection: close\r\n\r\n'
+                ssock.send(request.encode())
+
+                # レスポンス受信
+                response = b''
+                while True:
+                    data = ssock.recv(4096)
+                    if not data:
+                        break
+                    response += data
+
+                ssock.close()
+
+                # ヘッダーとボディを分離
+                header_end = response.find(b'\r\n\r\n')
+                body = response[header_end+4:]
+
+                with open('resources/musiclist.pkl', 'wb') as f:
+                    f.write(body)
+
                 print('musiclist.pklを更新しました。')
-        except Exception:
-            print(traceback.format_exc())
+            except Exception as e:
+                print(f'musiclist.pklの更新に失敗: {e}')
+
 
     def load_settings(self):
         ret = {}
@@ -146,8 +188,12 @@ class ScoreViewer:
         ]
         layout_edit = [
             [sg.Text('', key='edit_title')],
-            [sg.Listbox([], size=(40,4), key='edit_list', enable_events=True)],
+            [sg.Listbox([], size=(50,4), key='edit_list', enable_events=True)],
             [sg.Button('削除', key='edit_delete', enable_events=True),],
+        ]
+        layout_maya2 = [
+            [sg.Listbox([], size=(50,4), key='maya2_list', enable_events=True)],
+            [sg.Button('削除', key='maya2_delete', enable_events=True),],
         ]
         layout_rival = [
             [
@@ -169,7 +215,11 @@ class ScoreViewer:
         ]
         header = ['lv', 'Tier', 'title', 'diff', 'score', 'lamp', 'VF', 'last played']
         layout = [
-            [sg.Frame(title='filter', layout=layout_filter), sg.Frame(title='sort', layout=layout_sort), sg.Frame(title='Rival', layout=layout_rival), sg.Frame(title='edit', layout=layout_edit)],
+            [sg.Frame(title='Filter', layout=layout_filter),
+             sg.Frame(title='Sort', layout=layout_sort),
+             sg.Frame(title='Rival', layout=layout_rival),
+             sg.Frame(title='Edit (helper)', layout=layout_edit),
+             sg.Frame(title='Edit (maya2)', layout=layout_maya2)],
             [
                 sg.Table(
                     []
@@ -311,6 +361,11 @@ class ScoreViewer:
         self.window['table'].update(row_colors=row_colors)
 
     def update_edit_list(self, val):
+        """編集画面に選択された曲の全ログを表示。曲を選択した時に実行する。
+
+        Args:
+            val (dict): window.read()のvalueをそのまま渡す
+        """
         try:
             tmp = self.data[val['table'][0]]
             title = tmp[2]
@@ -323,6 +378,25 @@ class ScoreViewer:
             self.window['edit_list'].update(values=logs)
             self.window['edit_title'].update(f"{title} ({diff})")
             self.logs = logs
+
+            # maya2側
+            if self.sdvx_logger.maya2.is_alive():
+                # 曲ID取得
+                key = self.sdvx_logger.maya2.conv_table.forward(title)
+                chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
+                diff = chart['difficulty']
+                if chart is not None:
+                    music = self.sdvx_logger.maya2.search_musicinfo(key)
+                    music_id = music.get('music_id')
+                    maya2_logs = []
+                    for i,d in enumerate(self.mng.scores):
+                        if d.music_id == music_id and d.difficulty == diff:
+                            maya2_logs.append(f"{i}, {d.revision}, {d.score}, {d.exscore}, {d.lamp}")
+                    maya2_logs = list(reversed(maya2_logs))
+                    self.window['maya2_list'].update(values=maya2_logs)
+                    self.maya2_logs = maya2_logs
+                    self.maya2_music_id = music_id
+                    self.maya2_difficulty = chart.get('difficulty')
         except Exception: # 切り替わり時など、雑に回避しておく
             pass
 
@@ -403,10 +477,26 @@ class ScoreViewer:
                     idx_in_editlist = self.window['edit_list'].get_indexes()
                     dataidx = int(self.logs[idx_in_editlist[0]].split(' - ')[0])
                     tmp = self.sdvx_logger.alllog.pop(dataidx)
-                    logger.debug(f"idx:{dataidx} - {tmp.title}({tmp.difficulty}, {tmp.cur_score:,}, {tmp.lamp})")
+                    logger.debug(f"removed: idx:{dataidx} - {tmp.title}({tmp.difficulty}, {tmp.cur_score:,}(ex:{tmp.cur_exscore:,}) {tmp.lamp})")
                     tmp.disp()
+                    # maya2向け削除処理
+                    
                     self.modflg = True
                     self.num_del += 1
+                    self.update_edit_list(val)
+                except Exception:
+                    print(traceback.format_exc())
+            elif ev == 'maya2_delete':
+                try:
+                    idx_in_editlist = self.window['maya2_list'].get_indexes()
+                    data = [d.strip() for d in self.maya2_logs[idx_in_editlist[0]].split(',')]
+                    revision = int(data[1])
+                    music_id = self.maya2_music_id
+                    difficulty = self.maya2_difficulty
+                    res = self.sdvx_logger.maya2.delete_score(revision, music_id, difficulty)
+                    # if res.status_code == 200: # 不正なデータを消せるようにするためにレスポンスは見ないでおく?
+                    self.mng.delete(revision, music_id)
+                    self.mng.save()
                     self.update_edit_list(val)
                 except Exception:
                     print(traceback.format_exc())
