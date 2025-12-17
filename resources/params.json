@@ -8,10 +8,10 @@
     "onplay_val2_w": 296,
     "onplay_val2_h": 16,
 
-    "onselect_sx": 0,
-    "onselect_sy": 1310,
-    "onselect_w": 150,
-    "onselect_h": 270,
+    "onselect_sx": 50,
+    "onselect_sy": 650,
+    "onselect_w": 40,
+    "onselect_h": 150,
     "ondetect_sx": 340,
     "ondetect_sy": 250,
     "ondetect_w": 400,
@@ -376,6 +376,8 @@
 
     "maya2_enable":true,
     "maya2_testing":false,
+    "maya2_url_v1":"http://localhost:12999",
+    "maya2_url_testing":"https://s-helper.95n.jp",
 
     "$comment": "none"
 }
