@@ -28,6 +28,7 @@ import urllib.parse
 # フラットウィンドウ、右下モード(左に上部側がくる)
 # フルスクリーン、2560x1440に指定してもキャプは1920x1080で撮れてるっぽい
 
+os.makedirs('results', exist_ok=True)
 os.makedirs('jackets', exist_ok=True)
 os.makedirs('log', exist_ok=True)
 os.makedirs('out', exist_ok=True)

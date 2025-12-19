@@ -1,7 +1,7 @@
 default_val = {
     'lx':0, 'ly':0,
     'host':'localhost', 'port':'4444', 'passwd':'',
-    'autosave_dir':'','autosave_always':False,'autosave_interval':60,'play0_interval':10,
+    'autosave_dir':'./results','autosave_always':False,'autosave_interval':60,'play0_interval':10,
     'autosave_prewait':'0.0', # リザルト画面を認識して撮影するまでの待ち時間(クルーに対する調整用)
     'detect_wait':2.7,
     'obs_source':'',
