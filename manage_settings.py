@@ -6,7 +6,7 @@ default_val = {
     'detect_wait':2.7,
     'obs_source':'',
     'orientation_top':'left', # 画面回転の設定(False, 'left', 'right', 'top')
-    'ui_language':'jp', # jp / en
+    'default_locale': 'JA', # JA/EN
     'keep_on_top':False, # 常に最前面に表示
 
     # スレッド起動時の設定
