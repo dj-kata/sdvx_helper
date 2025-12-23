@@ -1424,13 +1424,14 @@ class ManageMaya2:
         """
         ret = None
         try:
-            fumen_list = ['NOV', 'ADV', 'EXH', 'APPEND']
             logger.debug(f"title:{title}, fumen:{fumen}")
-            fumen_idx  = fumen_list.index(fumen.upper())
             for m in self.master_db:
                 if m.get('title') == title:
-                    if fumen_idx < len(m.get('charts')):
-                        ret = m.get('charts')[fumen_idx]
+                    for c in m.get('charts'):
+                        # 指定の名前が存在 or 最上位譜面でかつこのループが下位譜面でない
+                        if ((fumen == 'APPEND') and (c['difficulty'] not in ('NOV', 'ADV', 'EXH'))) or (c['difficulty'] == fumen.upper()):
+                            ret = c
+                            break
         except Exception:
             return None
         return ret
@@ -1632,6 +1633,6 @@ if __name__ == '__main__':
     print(a.maya2.is_alive())
     mng = ManageUploadedScores()
     if a.maya2.is_alive():
-        # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
-        tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
-        print(tmp)
+        res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
+        # tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
+        # print(tmp)
