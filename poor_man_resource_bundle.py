@@ -37,7 +37,7 @@ class PoorManResourceBundle:
         """
         print(f'Loading bundle "{locale}" from file "{bundle_file}"...')
         
-        with open('resources/i18n/' + bundle_file, 'r', encoding="utf-8") as f:
+        with open('resources/' + bundle_file, 'r', encoding="utf-8") as f:
             locale_bundle = {}
             
             for line in f.readlines():
@@ -63,7 +63,7 @@ class PoorManResourceBundle:
 
     def load_bundles(self):
         """
-        Loads all resource bundle files from the 'resources/i18n' directory.
+        Loads all resource bundle files from the 'resources' directory.
     
         This method iterates through the files in the specified directory and loads
         only those that match the naming pattern "messages_<locale>.properties".
@@ -71,9 +71,9 @@ class PoorManResourceBundle:
         the `load_bundle` method to process its content. Files that do not match
         the naming pattern are skipped.
     
-        :raises FileNotFoundError: If the 'resources/i18n' directory does not exist.
+        :raises FileNotFoundError: If the 'resources' directory does not exist.
         """
-        bundle_files = os.listdir('resources/i18n')
+        bundle_files = [i for i in os.listdir('resources') if i.endswith('.properties') == True]
         
         for bundle_file in bundle_files:
             if bundle_file.startswith("messages_") and bundle_file.endswith(".properties"):

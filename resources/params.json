@@ -376,8 +376,8 @@
 
     "maya2_enable":true,
     "maya2_testing":false,
-    "maya2_url_v1":"http://localhost:12999",
-    "maya2_url_testing":"https://s-helper.95n.jp",
+    "maya2_url_v1":"https://sh-portal.maya2silence.com",
+    "maya2_url_testing":"https://sh-portal.maya2silence.com",
 
     "$comment": "none"
 }

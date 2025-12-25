@@ -777,7 +777,7 @@ class SDVXHelper:
         ]
         if self.params.get('maya2_enable'):
             layout_maya2 = [
-                [sg.Text(self.i18n('text.settings.maya2.accessToken')), sg.Input(self.settings['maya2_token'], size=(60,1), key='maya2_token')],
+                [sg.Text(self.i18n('text.settings.maya2.accessToken')), sg.Input(self.settings['maya2_token'], size=(60,1), key='maya2_token', enable_events=True)],
                 [sg.Button(self.i18n('button.settings.maya2.sendAll'), key='maya2_sendall')]
             ]
             layout.append([sg.Frame(self.i18n('text.settings.maya2.title'), layout=layout_maya2, title_color='#000044')])
@@ -794,7 +794,7 @@ class SDVXHelper:
             self.window.close()
             self.window = None
         menuitems = [
-            [self.i18n('menu.file'),[self.i18n('menu.file.settings'), self.i18n('menu.file.obs'), self.i18n('menu.file.webhook'), self.i18n('menu.file.updates')]],
+            [self.i18n('menu.file'),[self.i18n('menu.file.settings'), self.i18n('menu.file.obs'), self.i18n('menu.file.webhook'), self.i18n('menu.file.open_portal'), self.i18n('menu.file.updates')]],
             [self.i18n('menu.rivals'),[self.i18n('menu.rivals.google'), self.i18n('menu.rivals.get')]],
             [self.i18n('menu.rta'),[self.i18n('menu.rta.start')]],
             [self.i18n('menu.analysis'),[self.i18n('menu.analysis.tweet'),self.i18n('menu.analysis.csv'),self.i18n('menu.analysis.csvBest'),]],
@@ -1568,6 +1568,11 @@ class SDVXHelper:
                     self.gui_obs_control()
                 else:
                     sg.popup_error(self.i18n('popup.obsFail'))
+            elif ev == self.i18n('menu.file.open_portal'):
+                if self.params.get('maya2_testing'):
+                    webbrowser.open(self.params.get('maya2_url_testing')+'/mypage')
+                else:
+                    webbrowser.open(self.params.get('maya2_url_v1')+'/mypage')
             elif ev == self.i18n('menu.rta.start'):
                 self.start_rta_mode()
             elif ev == 'btn_savefig':
@@ -1681,12 +1686,15 @@ class SDVXHelper:
             elif ev == 'maya2_sendall':
                 r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
                 self.mng.load()
-                if r is None:
-                    sg.popup_ok(self.i18n('message.maya2.sendError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
-                elif r.status_code == 200:
-                    sg.popup_ok(self.i18n('message.maya2.sendComplete'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                if not self.sdvx_logger.maya2.is_alive():
+                    sg.popup_ok(self.i18n('message.maya2.notActiveError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
                 else:
-                    sg.popup_ok(f"{self.i18n('message.maya2.error')}\n\n{r.json()}", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                    if r is None:
+                        sg.popup_ok(self.i18n('message.maya2.sendError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                    elif r.status_code == 200:
+                        sg.popup_ok(self.i18n('message.maya2.sendComplete'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                    else:
+                        sg.popup_ok(f"{self.i18n('message.maya2.error')}\n\n{r.json()}", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
 
             ### Googleドライブ関連
             elif ev == 'add_rival':

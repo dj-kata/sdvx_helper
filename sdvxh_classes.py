@@ -7,7 +7,7 @@ import logging, logging.handlers
 from functools import total_ordering
 from collections import defaultdict
 from scipy.stats import rankdata
-from connect_maya2 import *
+# from connect_maya2 import *
 from params_secret import *
 import datetime
 import hashlib, hmac
@@ -1508,7 +1508,7 @@ class ManageMaya2:
                         tmp_maya2[key]['best_score'] = max(tmp_maya2[key]['best_score'], song.cur_score)
                         tmp_maya2[key]['exscore'] = max(tmp_maya2[key]['exscore'], song.cur_exscore)
 
-                    lamps = ['PLAYED', 'COMP', 'EX_COMP', 'UC', 'PUC']
+                    lamps = ['PLAYED', 'COMP', 'EX_COMP', 'MAX_COMP', 'UC', 'PUC']
                     print(lamp, tmp_maya2[key]['lamp'])
                     tmp_maya2[key]['lamp'] = lamps[max(lamps.index(lamp), lamps.index(tmp_maya2[key]['lamp']))]
                     print(f'duplicated data was updated -> key:{key}, data:{tmp_maya2[key]}')
@@ -1632,7 +1632,6 @@ if __name__ == '__main__':
     #print(f"rival 更新前:{b['自分'][-27].best_score} -> {a.rival_score['自分'][-27].best_score}") 
     print(a.maya2.is_alive())
     mng = ManageUploadedScores()
+
     if a.maya2.is_alive():
-        res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.149')
-        # tmp = a.maya2.delete_score(24, '3kIgHPDRpyWYXg2wmuBNNg', 'EXH')
-        # print(tmp)
+        res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.503')
