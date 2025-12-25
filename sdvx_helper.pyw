@@ -856,6 +856,8 @@ class SDVXHelper:
         if self.connect_obs():
             self.update_gui_value('txt_obswarning', '')
         self.update_register_search('')
+        if (self.settings['maya2_token'] != '') and (self.settings['player_name'] == ''):
+            sg.popup_ok(self.i18n('message.maya2.noNameError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']), keep_on_top=True)
 
     def start_detect(self):
         """認識スレッドを開始する。
@@ -1684,17 +1686,20 @@ class SDVXHelper:
                 for l in ('puc', 'uc', 'exh', 'hard', 'clear', 'failed'):
                     self.update_gui_value(f"webhook_enable_{l}", val[ev])
             elif ev == 'maya2_sendall':
-                r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
-                self.mng.load()
-                if not self.sdvx_logger.maya2.is_alive():
-                    sg.popup_ok(self.i18n('message.maya2.notActiveError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                if self.settings['player_name'] == '': # player name未設定時は送信しない
+                    sg.popup_ok(self.i18n('message.maya2.noNameError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']), keep_on_top=True)
                 else:
-                    if r is None:
-                        sg.popup_ok(self.i18n('message.maya2.sendError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
-                    elif r.status_code == 200:
-                        sg.popup_ok(self.i18n('message.maya2.sendComplete'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                    r = self.sdvx_logger.upload_best(volforce=self.vf_cur, player_name=self.settings['player_name'], upload_all=True, token=self.settings['maya2_token'])
+                    self.mng.load()
+                    if not self.sdvx_logger.maya2.is_alive():
+                        sg.popup_ok(self.i18n('message.maya2.notActiveError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
                     else:
-                        sg.popup_ok(f"{self.i18n('message.maya2.error')}\n\n{r.json()}", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                        if r is None:
+                            sg.popup_ok(self.i18n('message.maya2.sendError'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                        elif r.status_code == 200:
+                            sg.popup_ok(self.i18n('message.maya2.sendComplete'), icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
+                        else:
+                            sg.popup_ok(f"{self.i18n('message.maya2.error')}\n\n{r.json()}", icon=self.ico, location=(self.settings['lx'], self.settings['ly']))
 
             ### Googleドライブ関連
             elif ev == 'add_rival':

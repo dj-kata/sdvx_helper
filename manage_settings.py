@@ -64,7 +64,7 @@ default_val = {
     'logpic_offset_time':2, # ログ画像について、起動の何時間前以降を対象とするか
     'logpic_bg_alpha':255, # ログ画像について、背景の透明度(0-255, 0:完全に透過)
     'autoload_musiclist':True, # 曲リストを起動時にDLするかどうか。デバッグのためにオフにできるようにしている。
-    'player_name':'', # 統計情報ビューに表示するプレイヤー名
+    'player_name':'NONAME', # 統計情報ビューに表示するプレイヤー名
     'save_on_capture':True, # 画面取得方式。True:旧方式、False:新方式(jpeg)
     'save_jacketimg':True, # OCR時にジャケット画像を保存する(保存先はjackets/内。VFビュー用。)
     'update_rival_on_result':False, # リザルト画面のたびにライバル関連データを更新するかどうか

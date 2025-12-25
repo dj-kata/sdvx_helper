@@ -1449,9 +1449,12 @@ class ManageMaya2:
         if not self.is_alive():
             logger.error('トークン未設定のためスキップします。')
             return None
-        fumen_list = ['nov', 'adv', 'exh', 'APPEND']
         if sdvx_logger is None:
             logger.error('sdvx_logger is None')
+            return None
+        if self.settings['player_name'] == '':
+            print('player name is not set!')
+            logger.error('player name is not set!')
             return None
         target = sdvx_logger.best_allfumen if upload_all else sdvx_logger.today_updates
         if len(target) == 0:
