@@ -810,13 +810,14 @@ class SDVXHelper:
             [par_text('', size=(40,1), key='txt_info')],
         ]
         if self.settings['enable_register_gui']: # 選曲画面からの登録用GUI
+            lamps = ['FAILED', 'PLAYED', 'COMP', 'EXCOMP', 'MAXXIVE', 'UC', 'PUC']
             layout_register=[
                 [
                     sg.Checkbox(self.i18n('checkbox.settings.autoRegisterFromSelect'),self.settings['import_from_select'],key='import_from_select', enable_events=True),
                     sg.Checkbox(self.i18n('checkbox.settings.includeArcadeScores'),self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)
                 ],
                 [sg.Text('', key='register_gui_title', text_color='#4444ff', font=('Meiryo',16)), par_text('', key='register_gui_difficulty', text_color='#ff44ff', font=('Meiryo',16)), par_btn('add', key='register_gui_add')],
-                [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Text('', key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14))],
+                [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Combo(lamps, key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14), enable_events=True, readonly=True)],
                 [sg.Text(self.i18n('text.score.search') + ':'),sg.Input('', key='register_gui_search',size=(30,1), enable_events=True)],
                 [sg.Listbox([],key='register_gui_search_result', size=(37,5), enable_events=True), sg.Text('hit:'), sg.Text('', key='register_gui_search_result_len')]
             ]
@@ -1330,17 +1331,18 @@ class SDVXHelper:
                             self.update_gui_value('register_gui_difficulty',f"({diff})")
                         else:
                             self.update_gui_value('register_gui_difficulty',f"")
-                        self.register_gui_diff = diff
                         self.register_gui_score = score
                         self.register_gui_exscore = exscore
-                        self.register_gui_lamp = lamp
                         self.update_gui_value('register_gui_score',f"{score}")
                         self.update_gui_value('register_gui_exscore',f"{exscore}")
-                        self.update_gui_value('register_gui_lamp',f"{lamp}")
-                    if (last_title_on_select != self.gen_summary.last_title): # 最後の認識結果と一致しない場合のみ通す
+                    if (diff != self.gen_summary.last_difficulty) or (last_title_on_select != self.gen_summary.last_title): # 最後の認識結果と一致しない場合のみ通す
                         self.register_gui_modify = False
+                        self.register_gui_diff = diff
                         self.register_gui_title = title
+                        self.register_gui_lamp = lamp # 選択可能にするため、譜面が変わった場合のみ書き換える
                         last_title_on_select = title
+                        convlamp = {'puc':'PUC', 'uc':'UC', 'exh':'MAXXIVE', 'hard':'EXCOMP', 'clear':'COMP', 'failed':'FAILED', 'played':'PLAYED'}
+                        self.update_gui_value('register_gui_lamp',convlamp[lamp])
                         self.update_gui_value('register_gui_title',title[:30])
                         self.update_edit_list(title, diff)
                 if not self.is_onselect():
@@ -1385,7 +1387,7 @@ class SDVXHelper:
                     diff = (now - self.last_autosave_time).total_seconds()
                     logger.debug(f'diff = {diff}s')
                     if diff > self.settings['autosave_interval']: # VF演出の前後で繰り返さないようにする
-                        self.save_screenshot_general()
+                        self.save_screenshot_general() # ここでsdvx_loggerにpush
                         self.sdvx_logger.gen_sdvx_battle()
                         self.sdvx_logger.push_today_updates()
                         self.sdvx_logger.save_alllog()
@@ -1441,6 +1443,7 @@ class SDVXHelper:
     def register_gui_add(self):
         """登録用GUIからのスコア登録処理
         """
+        # 表示上のランプをhelper内部形式に変更
         lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
         # 自己べ検索
         best = None
@@ -1456,6 +1459,7 @@ class SDVXHelper:
             fmtnow = format(now, "%Y%m%d_%H%M%S")
             try:
                 self.sdvx_logger.push(self.register_gui_title, self.register_gui_score, self.register_gui_exscore, 1, 0, self.register_gui_lamp, self.register_gui_diff, fmtnow)
+                self.sdvx_logger.push_today_updates()
             except Exception: # 念の為受けておく
                 logger.debug(traceback.format_exc())
         else:
