@@ -814,7 +814,8 @@ class SDVXHelper:
             layout_register=[
                 [
                     sg.Checkbox(self.i18n('checkbox.settings.autoRegisterFromSelect'),self.settings['import_from_select'],key='import_from_select', enable_events=True),
-                    sg.Checkbox(self.i18n('checkbox.settings.includeArcadeScores'),self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True)
+                    sg.Checkbox(self.i18n('checkbox.settings.includeArcadeScores'),self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True),
+                    sg.Checkbox(self.i18n('checkbox.settings.showUnregisterdCharts'),self.settings['show_unregisterd_charts'],key='show_unregistered_charts', enable_events=True)
                 ],
                 [sg.Text('', key='register_gui_title', text_color='#4444ff', font=('Meiryo',16)), par_text('', key='register_gui_difficulty', text_color='#ff44ff', font=('Meiryo',16)), par_btn('add', key='register_gui_add')],
                 [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Combo(lamps, key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14), enable_events=True, readonly=True)],
@@ -1440,11 +1441,13 @@ class SDVXHelper:
         self.update_gui_value('register_gui_title',title[:30])
         self.update_edit_list(title, diff)
 
-    def register_gui_add(self):
+    def register_gui_add(self, val):
         """登録用GUIからのスコア登録処理
         """
         # 表示上のランプをhelper内部形式に変更
         lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
+        convlamp_rev = {'PUC':'puc', 'UC':'uc', 'MAXXIVE':'exh', 'EXCOMP':'exh', 'COMP':'clear', 'FAILED':'failed', 'PLAYED':'failed'}
+        self.register_gui_lamp = convlamp_rev[val['register_gui_lamp']]
         # 自己べ検索
         best = None
         for s in self.sdvx_logger.best_allfumen:
@@ -1763,7 +1766,7 @@ class SDVXHelper:
             elif ev == 'register_gui_search_result':
                 self.select_register_search(val)
             elif ev == 'register_gui_add':
-                self.register_gui_add()
+                self.register_gui_add(val)
             # maya2portal連携周り
             elif ev == 'edit_delete':
                 try:
