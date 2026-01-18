@@ -87,6 +87,7 @@ class SDVXHelper:
         self.register_gui_score = 0
         self.register_gui_exscore = 0
         self.register_gui_lamp = 'failed'
+        self.register_gui_show_unregistered_charts = False # 検索結果を未登録の曲だけに絞る
 
         self.plays = 0
         self.playtime = datetime.timedelta(seconds=0) # 楽曲プレイ時間の合計
@@ -535,6 +536,10 @@ class SDVXHelper:
             if self.settings['enable_register_gui']:
                 self.settings['import_from_select'] = val['import_from_select']
                 self.settings['import_arcade_score'] = val['import_arcade_score']
+                self.register_gui_show_unregistered_charts = val['show_unregistered_charts']
+                if ev == 'show_unregistered_charts':
+                    # 絞り込みが必要なので検索結果を更新
+                    self.update_register_search()
         elif self.gui_mode == gui_mode.webhook:
             self.settings['webhook_player_name'] = val['player_name2']
         elif self.gui_mode == gui_mode.googledrive:
@@ -815,7 +820,7 @@ class SDVXHelper:
                 [
                     sg.Checkbox(self.i18n('checkbox.settings.autoRegisterFromSelect'),self.settings['import_from_select'],key='import_from_select', enable_events=True),
                     sg.Checkbox(self.i18n('checkbox.settings.includeArcadeScores'),self.settings['import_arcade_score'],key='import_arcade_score', enable_events=True),
-                    sg.Checkbox(self.i18n('checkbox.settings.showUnregisterdCharts'),self.settings['show_unregisterd_charts'],key='show_unregistered_charts', enable_events=True)
+                    sg.Checkbox(self.i18n('checkbox.settings.showUnregisteredCharts'),False,key='show_unregistered_charts', enable_events=True)
                 ],
                 [sg.Text('', key='register_gui_title', text_color='#4444ff', font=('Meiryo',16)), par_text('', key='register_gui_difficulty', text_color='#ff44ff', font=('Meiryo',16)), par_btn('add', key='register_gui_add')],
                 [sg.Text('Score:'),sg.Text('00000000', key='register_gui_score', text_color='#4444ff', font=('Meiryo',14)),sg.Text('EX:'),sg.Text('00000', key='register_gui_exscore', text_color='#4444ff', font=('Meiryo',14)),sg.Text('Lamp:'),sg.Combo(lamps, key='register_gui_lamp', text_color='#4444ff', font=('Meiryo',14), enable_events=True, readonly=True)],
@@ -1144,26 +1149,26 @@ class SDVXHelper:
             self.logs = logs
 
             # maya2側
+            maya2_logs = []
             if self.sdvx_logger.maya2.is_alive():
                 # 曲ID取得
                 key = self.sdvx_logger.maya2.conv_table.forward(title)
                 chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
-                diff = chart['difficulty']
                 if chart is not None:
+                    diff = chart['difficulty']
                     music = self.sdvx_logger.maya2.search_musicinfo(key)
                     music_id = music.get('music_id')
-                    maya2_logs = []
                     for i,d in enumerate(self.mng.scores):
                         # d.disp()
                         if d.music_id == music_id and d.difficulty == diff:
                             maya2_logs.append(f"{i}, {d.revision}, {d.score}, {d.exscore}, {d.lamp}")
                     maya2_logs = list(reversed(maya2_logs))
-                    self.window['maya2_list'].update(values=maya2_logs)
-                    self.maya2_logs = maya2_logs
                     self.maya2_music_id = music_id
                     self.maya2_difficulty = chart.get('difficulty')
+            self.maya2_logs = maya2_logs
+            self.window['maya2_list'].update(values=maya2_logs)
         except Exception: # 切り替わり時など、雑に回避しておく
-            pass
+            logger.error(traceback.format_exc())
 
     def send_custom_webhook(self, playdata:OnePlayData):
         """カスタムWebhookへの送出を行う
@@ -1416,15 +1421,28 @@ class SDVXHelper:
             time.sleep(0.01)
         logger.debug(f'detect end!')
 
-    def update_register_search(self, val):
-        """検索実行および結果リストの更新
+    def update_register_search(self, val=None):
+        """検索実行および結果リストの更新。未登録スコアによる絞り込みもやる。
 
         Args:
             val (str): 検索文字列
         """
+        if val is not None:
+            self.register_gui_search_key = val
         if self.settings['enable_register_gui']:
-            target = val
+            target = self.register_gui_search_key
             result = [item for item in self.gen_summary.musiclist['titles'] if all(word in item for word in re.findall('\S+', target))]
+            if self.register_gui_show_unregistered_charts: # 未送信のものだけ絞り込み
+                uploaded = []
+                for s in self.sdvx_logger.best_allfumen: # 登録済みリストを作っておく
+                    if s.difficulty == self.register_gui_diff:
+                        uploaded.append(s.title)
+                to_remove = [] # 削除すべきidxを求めておく
+                for i,s in enumerate(result):
+                    if s in uploaded:
+                        to_remove.append(i)
+                for i in reversed(to_remove):
+                    result.pop(i)
             self.window['register_gui_search_result'].update(values=result)
             self.window['register_gui_search_result_len'].update(f"{len(result):,}")
 
