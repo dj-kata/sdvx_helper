@@ -1348,8 +1348,9 @@ class SDVXHelper:
                         self.register_gui_lamp = lamp # 選択可能にするため、譜面が変わった場合のみ書き換える
                         last_title_on_select = title
                         convlamp = {'puc':'PUC', 'uc':'UC', 'exh':'MAXXIVE', 'hard':'EXCOMP', 'clear':'COMP', 'failed':'FAILED', 'played':'PLAYED'}
-                        self.update_gui_value('register_gui_lamp',convlamp[lamp])
-                        self.update_gui_value('register_gui_title',title[:30])
+                        self.update_gui_value('register_gui_lamp',convlamp.get(lamp, ''))
+                        if title is not None:
+                            self.update_gui_value('register_gui_title',title[:30])
                         self.update_edit_list(title, diff)
                 if not self.is_onselect():
                     self.detect_mode = detect_mode.init
