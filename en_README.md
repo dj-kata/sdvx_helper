@@ -15,12 +15,24 @@ Each time a result image is captured, the playlog image is updated.
 You can also save a screenshot on pressing F6 key.
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/95173020-f846-4a4f-b320-9e8018cb5059)
 
+Using the [sdvx_helper portal](https://sh-portal.maya2silence.com),  
+you can check Konasute version scores online and generate various images from Vaddict.  
+https://sh-portal.maya2silence.com  
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/d32d3f6b-1a11-48d9-afb3-7bb5d0f911d6" />
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/535d1f05-01e6-4e38-aabb-994c40749061" />
+
 Additionally, you can configure automatic control settings for OBS.
 You can show or hide sources and switch scenes
 for each in-game scene(play, result, select).
 For example, you can display camera footage showing your hands only
 during playing songs, and hide the VTuber avatar only on result
 scene.
+
+You can look at your konasute scores via portal site by [sdvx_helper portal](https://sh-portal.maya2silence.com)を利用することで、
+Web上でコナステ版のスコアを確認したり、Vaddictから様々な画像を生成することができます。  
+https://sh-portal.maya2silence.com  
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/d32d3f6b-1a11-48d9-afb3-7bb5d0f911d6" />
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/535d1f05-01e6-4e38-aabb-994c40749061" />
 
 ## The principles of this application
 Just to clarify, the processing of this application is not related to reverse engineering.
