@@ -5,6 +5,7 @@ English ver is [here](https://github.com/dj-kata/sdvx_helper/blob/main/en_README
 OBSでの配信を想定しています。  
 
 主な機能は以下。
+- Vaddict上での各種画像作成([sdvx_helper portal](https://sh-portal.maya2silence.com)との連携機能)
 - プレー中の曲情報を分かりやすく表示
 - その日のプレーログを画像出力
 - リザルト画像の自動保存(曲名やスコア等を含んだファイル名)
@@ -13,6 +14,14 @@ OBSでの配信を想定しています。
 - OBS制御機能(シーン、ソースの自動切り替え)
 - Discordへのリザルト自動投稿
 - ブラスターゲージ最大時に音声で通知
+
+[sdvx_helper portal](https://sh-portal.maya2silence.com)を利用することで、
+Web上でコナステ版のスコアを確認したり、Vaddictから様々な画像を生成することができます。  
+https://sh-portal.maya2silence.com  
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/d32d3f6b-1a11-48d9-afb3-7bb5d0f911d6" />
+<img width="900" alt="image" src="https://github.com/user-attachments/assets/535d1f05-01e6-4e38-aabb-994c40749061" />
+
+
 
 譜面付近のみを切り取ったレイアウトでも、曲情報を見やすく表示することができます。  
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/5d33134e-942b-4fb6-a580-d81ad191e57a)
