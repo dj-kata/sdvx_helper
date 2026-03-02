@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>playoption</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body { 
+            background: transparent;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'RocknRoll One', sans-serif;
+            color: #fff;
+        }
+        
+        .container {
+            /* background: linear-gradient(135deg, rgba(0, 20, 100, 0.99), rgba(0, 40, 120, 0.99)); */
+            background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3e 50%, #0a0a1f 100%);
+            padding: 1px 20px;
+            box-shadow: 0 5px 20px rgba(33, 150, 243, 0.3);
+            /* border: 2px solid rgba(33, 150, 243, 0.3); */
+            width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        /* ヘッダー */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .today-label {
+            font-size: 25px;
+            color: #ffffff;
+            text-shadow: 3px 3px 0 #000,
+                        -2px 2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px -2px 0 #000;
+        }
+        
+        .today-notes {
+            text-align: right;
+            font-size: 30px;
+            color: #ffeb3b;
+            text-shadow: 0 0 20px rgba(255, 235, 59, 0.5),
+                        3px 3px 0 #000,
+                        -2px 2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px -2px 0 #000;
+            font-weight: bold;
+        }
+        
+        /* 全体の判定内訳グラフ */
+        .total-graph-area {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+        }
+        
+        .bar-container {
+            display: flex;
+            height: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .bar-segment {
+            transition: width 0.5s ease;
+        }
+        
+        .bar-pg {
+            background: linear-gradient(180deg, #00AAFF, #0088DD);
+        }
+        
+        .bar-gr {
+            background: linear-gradient(180deg, #00DDFF, #00BBDD);
+        }
+        
+        .bar-gd {
+            background: linear-gradient(180deg, #FFBB00, #DD9900);
+        }
+        
+        .bar-bad {
+            background: linear-gradient(180deg, #DD4445, #BB2222);
+        }
+        
+        /* 曲ごとのグラフエリア */
+        .songs-graph-area {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 12px 15px 12px 0;
+            margin-bottom: 12px;
+        }
+        
+        .songs-graph-container {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            height: 110px;
+            gap: 30px;
+            overflow: hidden;
+        }
+        
+        .song-bar {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            width: 50px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .song-bar-stack {
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: all 0.5s ease;
+            min-height: 5px;
+        }
+        
+        .song-segment {
+            width: 100%;
+            transition: height 0.5s ease;
+        }
+        
+        .song-segment-pg {
+            background: linear-gradient(180deg, #44ff44, #22dd22);
+        }
+        
+        .song-segment-gr {
+            background: linear-gradient(180deg, #bbff44, #99dd22);
+        }
+        
+        .song-segment-gd {
+            background: linear-gradient(180deg, #ffaa44, #dd8822);
+        }
+        
+        .song-total {
+            text-align: center;
+            font-size: 15px;
+            color: #ffffaa;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 0 #000;
+            font-weight: bold;
+        }
+        
+        .song-index {
+            text-align: center;
+            font-size: 16px;
+            color: #aaddff;
+            margin-top: 5px;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        /* 統計情報 */
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-size: 24px;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-label {
+            color: #aaddff;
+        }
+        
+        .stat-value {
+            color: #ffffdd;
+            font-weight: bold;
+        }
+        
+        .stat-cur {
+            color: #aaa;
+            font-size: 20px;
+        }
+
+        #today-notes{
+            font-size: 28px;
+            color: #ff77ff;
+        }
+        .exh {color: #ffff00;}
+        .hard {color: #ff2222;}
+        .normal {color:#22aaff;}
+        .easy {color: #00ff22;}
+        .assist {color: #cc00ff;}
+    </style>
+    <script>
+    // CSSカスタムプロパティからWebSocketポート番号を取得
+    function getWebSocketPort() {
+        const port = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
+        return parseInt(port) || 8767; // デフォルト値
+    }
+    
+    let ws = null;
+    let reconnectInterval = null;
+
+    function connectWebSocket() {
+        const WEBSOCKET_PORT = getWebSocketPort();
+        ws = new WebSocket(`ws://localhost:${WEBSOCKET_PORT}`);
+        
+        ws.onopen = function() {
+            console.log('WebSocket接続成功');
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+        
+        ws.onmessage = function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'option') {
+                    updateGraph(message.data);
+                }
+            } catch (error) {
+                console.error('メッセージ解析エラー:', error);
+            }
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocketエラー:', error);
+        };
+        
+        ws.onclose = function() {
+            console.log('WebSocket切断。3秒後に再接続します...');
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+    }
+
+    function updateGraph(data) {
+        if (!data) return;
+        
+        // デバッグ: 受信したデータを確認
+        // console.log('受信データ:', data);
+
+        const style = data.play_style || "?";
+        const gauge = data.gauge || "?";
+        const option = data.option || "?";
+        
+        // 安全にDOM要素を更新するヘルパー関数
+        function safeUpdateText(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+            } else {
+                console.warn(`要素が見つかりません: ${id}`);
+            }
+        }
+        
+        function safeUpdateHTML(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.innerHTML = value;
+            } else {
+                console.warn(`要素が見つかりません: ${id}`);
+            }
+        }
+        
+        function safeUpdateStyle(id, property, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style[property] = value;
+            } else {
+                console.warn(`要素が見つかりません: ${id}`);
+            }
+        }
+        
+        // 表示更新
+        // safeUpdateText('style', style);
+        safeUpdateText('gauge', gauge);
+        safeUpdateHTML('gauge', '<span class="'+ gauge + '">' + gauge.toUpperCase() + '</span>')
+        safeUpdateText('option', option);
+    }
+    
+    window.addEventListener('DOMContentLoaded', function() {
+        connectWebSocket();
+    });
+    
+    window.addEventListener('beforeunload', function() {
+        if (ws) {
+            ws.close();
+        }
+    });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- 統計情報 -->
+            <div class="stat-item">
+                <span class="stat-label">opt:</span>
+                <span class="stat-value" id="option">?</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value" id="gauge">?</span>
+            </div>
+    </div>
+</body>
+</html>

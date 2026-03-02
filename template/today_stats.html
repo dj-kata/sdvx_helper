@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Today's Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
+    <style>
+        @font-face {
+            font-family: 'dseg14classic-bold';
+            src: url('./DSEG14Classic-Bold.woff2') format('woff2');
+        }
+        :root {
+            --notes-graph-days: 7;
+            --skip-no-update: 0;
+            /* --stats-levels: "sp11,sp12,dp11,dp12"; */
+            --stats-levels: "sp11,sp12";
+            --lv-stats-position: "left"; /* left or bottom */
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3e 50%, #0a0a1f 100%);
+            font-family: 'RocknRoll One', sans-serif;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 620px 1fr;
+            grid-template-rows: auto auto 1fr minmax(auto, 15vh);
+            gap: 12px;
+            padding: 12px;
+            height: 100vh;
+            width: 100%;
+        }
+
+        /* --- Header --- */
+        .header {
+            grid-column: 1 / 2;
+            grid-row: 1 / 2;
+            background: linear-gradient(135deg, rgba(0, 20, 100, 0.9), rgba(0, 40, 120, 0.9));
+            border-radius: 10px;
+            padding: 14px 20px;
+            box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+            border: 1px solid rgba(33, 150, 243, 0.3);
+            text-align: center;
+        }
+
+        .date-display {
+            font-family: 'dseg14classic-bold';
+            font-size: 72px;
+            color: #fff;
+            text-shadow: 3px 3px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
+            line-height: 1.1;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 25px;
+            margin-top: 10px;
+            font-size: 34px;
+        }
+
+        .stat-label { color: #aaddff; }
+        .stat-value {
+            color: #ffffaa;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        /* --- Notes Graph --- */
+        .notes-section {
+            grid-column: 1 / 2;
+            grid-row: 2 / 3;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 12px 16px;
+            border: 1px solid rgba(100, 100, 200, 0.2);
+        }
+
+        .section-title {
+            font-size: 24px;
+            color: #aaddff;
+            margin-bottom: 18px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .notes-graph {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 10px;
+            height: 200px;
+            padding-top: 50px;
+        }
+
+        .notes-bar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            max-width: 100px;
+        }
+
+        .notes-bar-label {
+            font-size: 20px;
+            color: #ffffaa;
+            margin-bottom: 4px;
+            text-shadow: 2px 2px 0 #000;
+            font-weight: bold;
+        }
+
+        .notes-bar {
+            width: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            min-height: 2px;
+        }
+
+        .notes-bar .seg-pg { background: linear-gradient(180deg, #00AAFF, #0088DD); }
+        .notes-bar .seg-gr { background: linear-gradient(180deg, #00DDFF, #00BBDD); }
+        .notes-bar .seg-gd { background: linear-gradient(180deg, #FFBB00, #DD9900); }
+        .notes-bar .seg-bd { background: linear-gradient(180deg, #DD4445, #BB2222); }
+
+        .notes-bar-date {
+            font-size: 18px;
+            color: #8899bb;
+            margin-top: 4px;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        /* --- Level Histogram --- */
+        .lv-hist-section {
+            grid-column: 1 / 2;
+            grid-row: 3 / 4;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 12px 16px;
+            border: 1px solid rgba(100, 100, 200, 0.2);
+            overflow-y: auto;
+            scrollbar-width: none;
+            min-height: 0;
+            max-height: 100%;
+        }
+        .lv-hist-section::-webkit-scrollbar {
+            display: none;
+        }
+
+        .lv-hist-row {
+            display: flex;
+            align-items: center;
+            height: 38px;
+            margin-bottom: 3px;
+        }
+
+        .lv-hist-label {
+            width: 60px;
+            font-size: 26px;
+            color: #ffeb3b;
+            text-shadow: 2px 2px 0 #000;
+            text-align: right;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .lv-hist-bar-bg {
+            flex: 1;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            position: relative;
+        }
+
+        .lv-hist-seg-sp { background: #ff6666; }
+        .lv-hist-seg-dp { background: #6688ff; }
+        .lv-hist-seg-battle { background: #66dd66; }
+
+        .lv-hist-pct {
+            font-size: 24px;
+            color: #fff;
+            margin-left: 6px;
+            flex-shrink: 0;
+            min-width: 50px;
+            text-shadow: 1px 1px 0 #000;
+        }
+
+        /* --- Play Log (iframe) --- */
+        .playlog-section {
+            grid-column: 2 / 3;
+            grid-row: 1 / 4;
+            border-radius: 10px;
+            overflow: hidden;
+            scrollbar-width: none;
+            border: 1px solid rgba(100, 100, 200, 0.2);
+            min-height: 0;
+            max-height: 100%;
+        }
+
+        .playlog-section iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            scrollbar-width: none; /* Firefox */
+        }
+        .playlog-section iframe::-webkit-scrollbar {
+            display: none; /* Chrome, Edge, OBS */
+            scrollbar-width: none; /* Firefox */
+        }
+
+        /* --- Lv Stats --- */
+        .lv-stats-section {
+            grid-column: 1 / 3;
+            grid-row: 4 / 5;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 12px 16px;
+            border: 1px solid rgba(100, 100, 200, 0.2);
+            scrollbar-width: none;
+            min-height: 0;
+            max-height: 15vh;
+            overflow-y: auto;
+        }
+
+        .lv-stats-title {
+            font-size: 28px;
+            color: #aaddff;
+            margin-bottom: 8px;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .lv-stats-container {
+            display: flex;
+            gap: 14px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+        }
+        .lv-stats-section::-webkit-scrollbar,
+        .lv-stats-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .lv-stats-card {
+            flex: 1;
+            min-width: 280px;
+            background: rgba(20, 20, 50, 0.7);
+            border-radius: 8px;
+            padding: 10px 14px;
+            border: 1px solid rgba(100, 100, 200, 0.15);
+        }
+
+        .lv-stats-card-header {
+            font-size: 30px;
+            color: #ff7777;
+            font-weight: bold;
+            text-shadow: 2px 2px 0 #000;
+            margin-bottom: 6px;
+        }
+
+        .lv-stats-row-label {
+            font-size: 20px;
+            color: #aaddff;
+            margin-bottom: 2px;
+        }
+
+        .lv-stats-numbers {
+            font-size: 24px;
+            color: #ddd;
+            margin-bottom: 4px;
+            text-shadow: 1px 1px 0 #000;
+            line-height: 1.5;
+        }
+
+        .lv-stats-bar {
+            height: 28px;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .lv-stats-bar > div { transition: width 0.4s ease; }
+
+        /* Lamp colors */
+        .lamp-fc  { background: linear-gradient(90deg, #ffaa44, #ff8800); }
+        .lamp-exh { background: linear-gradient(90deg, #ffff44, #dddd00); }
+        .lamp-hard { background: linear-gradient(90deg, #ff4444, #cc0000); }
+        .lamp-clear { background: linear-gradient(90deg, #44bbff, #0088dd); }
+        .lamp-easy { background: linear-gradient(90deg, #44ff44, #00cc00); }
+        .lamp-assist { background: linear-gradient(90deg, #ff66ff, #cc00cc); }
+        .lamp-failed { background: linear-gradient(90deg, #888888, #555555); }
+
+        /* Score rate colors */
+        .rate-aaa { background: linear-gradient(90deg, #ffff44, #dddd00); }
+        .rate-aa  { background: linear-gradient(90deg, #c0c0c0, #999999); }
+        .rate-a   { background: linear-gradient(90deg, #44dd77, #22aa55); }
+        .rate-b   { background: linear-gradient(90deg, #7777ff, #4444cc); }
+
+        .lamp-num-fc { color: #ffaa44; }
+        .lamp-num-exh { color: #ffff44; }
+        .lamp-num-hard { color: #ff6666; }
+        .lamp-num-clear { color: #44bbff; }
+        .lamp-num-easy { color: #44ff44; }
+        .lamp-num-assist { color: #ff66ff; }
+        .lamp-num-failed { color: #888; }
+        .score-num-aaa { color: #ffff44; }
+
+        /* --- lv-stats-position: left mode --- */
+        .main-grid.lv-stats-left {
+            grid-template-rows: auto auto auto minmax(0, 1fr);
+        }
+
+        .main-grid.lv-stats-left .lv-hist-section {
+            /* row 3, no longer 1fr */
+            overflow-y: visible;
+        }
+
+        .main-grid.lv-stats-left .lv-stats-section {
+            grid-column: 1 / 2;
+            grid-row: 4 / 5;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+
+        .main-grid.lv-stats-left .lv-stats-container {
+            flex-direction: column;
+            overflow-x: visible;
+        }
+
+        .main-grid.lv-stats-left .lv-stats-card {
+            min-width: unset;
+        }
+
+        .main-grid.lv-stats-left .playlog-section {
+            grid-row: 1 / 5;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-grid">
+        <!-- Header -->
+        <div class="header">
+            <div class="date-display" id="date-display">----/--/--</div>
+            <div class="header-stats">
+                <div><span class="stat-label">playcount</span> <span class="stat-value" id="playcount-value">0</span></div>
+                <div><span class="stat-label">score rate</span> <span class="stat-value" id="scorerate-value">0%</span></div>
+            </div>
+        </div>
+
+        <!-- Notes Graph -->
+        <div class="notes-section">
+            <div class="section-title">Notes</div>
+            <div class="notes-graph" id="notes-graph"></div>
+        </div>
+
+        <!-- Level Histogram -->
+        <div class="lv-hist-section">
+            <div class="section-title">Lv Hist</div>
+            <div id="lv-hist-body"></div>
+        </div>
+
+        <!-- Play Log (iframe) -->
+        <div class="playlog-section">
+            <iframe id="playlog-iframe"></iframe>
+        </div>
+
+        <!-- Lv Stats -->
+        <div class="lv-stats-section">
+            <div class="lv-stats-title" id="lv-stats-title">Lv stats</div>
+            <div class="lv-stats-container" id="lv-stats-container"></div>
+        </div>
+    </div>
+
+    <script>
+    // --- CSS Custom Properties ---
+    function getCSSProp(name) {
+        // Force style recalculation to ensure latest values
+        document.documentElement.offsetHeight;
+        var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return value;
+    }
+
+    function getWebSocketPort() {
+        return parseInt(getCSSProp('--websocket-port')) || 8767;
+    }
+
+    function getNotesGraphDays() {
+        return parseInt(getCSSProp('--notes-graph-days')) || 5;
+    }
+
+    function getSkipNoUpdate() {
+        return parseInt(getCSSProp('--skip-no-update')) || 0;
+    }
+
+    function getLvStatsPosition() {
+        return (getCSSProp('--lv-stats-position') || 'bottom').replace(/['"]/g, '').toLowerCase();
+    }
+
+    function getStatsLevels() {
+        var raw = (getCSSProp('--stats-levels') || 'sp10,sp11,sp12').replace(/['"]/g, '');
+        var entries = raw.split(',').map(function(s) { return s.trim(); }).filter(function(s) { return s; });
+
+        return entries.map(function(entry) {
+            // Parse "sp11" or "dp9" etc
+            var match = entry.match(/^(sp|dp)(\d+)$/i);
+            if (match) {
+                return {
+                    style: match[1].toUpperCase(),
+                    level: match[2]
+                };
+            }
+            return null;
+        }).filter(function(e) { return e !== null; });
+    }
+
+    // --- iframe skip-no-update injection ---
+    var iframeReady = false;
+    var playlogIframe = null;
+
+    function applySkipNoUpdate() {
+        if (!iframeReady || !playlogIframe) return;
+        try {
+            var doc = playlogIframe.contentDocument || playlogIframe.contentWindow.document;
+            doc.documentElement.style.setProperty('--skip-no-update', getSkipNoUpdate());
+        } catch (e) {
+            // cross-origin or not ready
+        }
+    }
+
+    function hideIframeScrollbar() {
+        if (!iframeReady || !playlogIframe) return;
+        try {
+            var doc = playlogIframe.contentDocument || playlogIframe.contentWindow.document;
+            if (!doc.getElementById('hide-scrollbar-style')) {
+                var style = doc.createElement('style');
+                style.id = 'hide-scrollbar-style';
+                style.textContent = 'html, body { scrollbar-width: none; } html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }';
+                doc.head.appendChild(style);
+            }
+        } catch (e) {
+            // cross-origin or not ready
+        }
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        playlogIframe = document.getElementById('playlog-iframe');
+        playlogIframe.addEventListener('load', function() {
+            iframeReady = true;
+            applySkipNoUpdate();
+            hideIframeScrollbar();
+        });
+
+        // Small delay to ensure CSS custom properties are fully parsed and applied
+        setTimeout(function() {
+            // iframe srcにskip-no-updateをURLパラメータとして渡す
+            // (file://等のクロスオリジン環境でもCSS注入に頼らず確実に値を伝える)
+            playlogIframe.src = 'today_result.html?skip_no_update=' + getSkipNoUpdate();
+            applyLayout();
+            connectWebSocket();
+        }, 100);
+    });
+
+    // --- WebSocket ---
+    var ws = null;
+    var reconnectInterval = null;
+
+    function connectWebSocket() {
+        var port = getWebSocketPort();
+        ws = new WebSocket('ws://localhost:' + port);
+
+        ws.onopen = function() {
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                var msg = JSON.parse(event.data);
+                if (msg.type === 'today_stats') {
+                    renderAll(msg.data);
+                }
+            } catch (e) {
+                console.error('parse error:', e);
+            }
+        };
+
+        ws.onerror = function() {};
+
+        ws.onclose = function() {
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+    }
+
+    window.addEventListener('beforeunload', function() {
+        if (ws) ws.close();
+    });
+
+    function applyLayout() {
+        var grid = document.querySelector('.main-grid');
+        var pos = getLvStatsPosition();
+        if (pos === 'left') {
+            grid.classList.add('lv-stats-left');
+            grid.classList.remove('lv-stats-bottom');
+        } else {
+            grid.classList.add('lv-stats-bottom');
+            grid.classList.remove('lv-stats-left');
+        }
+    }
+
+    // --- Render ---
+    function renderAll(data) {
+        if (!data) return;
+        // Ensure CSS is applied before reading custom properties
+        requestAnimationFrame(function() {
+            applyLayout();
+            renderHeader(data);
+            renderNotesGraph(data.daily_notes || []);
+            renderLvHist(data.today_level_distribution || {});
+            renderLvStats(data.level_stats || {});
+            applySkipNoUpdate();
+        });
+    }
+
+    // Header
+    function renderHeader(data) {
+        document.getElementById('date-display').textContent = data.date || '----/--/--';
+        document.getElementById('playcount-value').textContent = data.playcount || 0;
+        document.getElementById('scorerate-value').textContent = data.score_rate || '0%';
+    }
+
+    // Notes graph
+    function renderNotesGraph(dailyNotes) {
+        var n = getNotesGraphDays();
+        var recent = dailyNotes.slice(-n);
+        var container = document.getElementById('notes-graph');
+
+        if (recent.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        // Find max for scaling
+        var maxTotal = 0;
+        recent.forEach(function(d) {
+            var total = d.pg + d.gr + d.gd + d.bd;
+            if (total > maxTotal) maxTotal = total;
+        });
+
+        var maxBarHeight = 160; // px
+        var html = '';
+
+        recent.forEach(function(d) {
+            var total = d.pg + d.gr + d.gd + d.bd;
+            var scale = maxTotal > 0 ? total / maxTotal : 0;
+            var barHeight = Math.max(2, Math.round(scale * maxBarHeight));
+
+            var pgH = maxTotal > 0 ? Math.round(d.pg / maxTotal * maxBarHeight) : 0;
+            var grH = maxTotal > 0 ? Math.round(d.gr / maxTotal * maxBarHeight) : 0;
+            var gdH = maxTotal > 0 ? Math.round(d.gd / maxTotal * maxBarHeight) : 0;
+            var bdH = maxTotal > 0 ? Math.round(d.bd / maxTotal * maxBarHeight) : 0;
+
+            html += '<div class="notes-bar-wrapper">';
+            html += '<div class="notes-bar-label">' + total.toLocaleString() + '</div>';
+            html += '<div class="notes-bar" style="height:' + barHeight + 'px">';
+            if (pgH > 0) html += '<div class="seg-pg" style="height:' + pgH + 'px"></div>';
+            if (grH > 0) html += '<div class="seg-gr" style="height:' + grH + 'px"></div>';
+            if (gdH > 0) html += '<div class="seg-gd" style="height:' + gdH + 'px"></div>';
+            if (bdH > 0) html += '<div class="seg-bd" style="height:' + bdH + 'px"></div>';
+            html += '</div>';
+            html += '<div class="notes-bar-date">' + d.date + '</div>';
+            html += '</div>';
+        });
+
+        container.innerHTML = html;
+    }
+
+    // Level Histogram
+    function renderLvHist(dist) {
+        var container = document.getElementById('lv-hist-body');
+
+        // Compute grand total
+        var grandTotal = 0;
+        for (var lv in dist) {
+            var e = dist[lv];
+            grandTotal += (e.sp || 0) + (e.dp || 0) + (e.battle || 0);
+        }
+
+        if (grandTotal === 0) {
+            container.innerHTML = '<div style="color:#666;font-size:13px;">No plays yet</div>';
+            return;
+        }
+
+        var html = '';
+        for (var i = 1; i <= 12; i++) {
+            var lv = String(i);
+            var e = dist[lv] || { sp: 0, dp: 0, battle: 0 };
+            var lvTotal = e.sp + e.dp + e.battle;
+            var pct = lvTotal / grandTotal * 100;
+
+            html += '<div class="lv-hist-row">';
+            html += '<div class="lv-hist-label">\u2606' + i + '</div>';
+            html += '<div class="lv-hist-bar-bg">';
+
+            if (lvTotal > 0) {
+                var spPct = e.sp / grandTotal * 100;
+                var dpPct = e.dp / grandTotal * 100;
+                var btPct = e.battle / grandTotal * 100;
+                if (spPct > 0) html += '<div class="lv-hist-seg-sp" style="width:' + spPct + '%"></div>';
+                if (dpPct > 0) html += '<div class="lv-hist-seg-dp" style="width:' + dpPct + '%"></div>';
+                if (btPct > 0) html += '<div class="lv-hist-seg-battle" style="width:' + btPct + '%"></div>';
+            }
+
+            html += '</div>';
+            html += '<div class="lv-hist-pct">' + (pct > 0 ? pct.toFixed(1) + '%' : '') + '</div>';
+            html += '</div>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // Level Stats
+    function renderLvStats(levelStats) {
+        var levelEntries = getStatsLevels();
+
+        var titleEl = document.getElementById('lv-stats-title');
+        titleEl.textContent = 'Lv stats';
+
+        var container = document.getElementById('lv-stats-container');
+        var html = '';
+
+        var lampOrder = [
+            { key: 'fc',     label: 'FC',  cls: 'lamp-fc',     numCls: 'lamp-num-fc' },
+            { key: 'exh',    label: 'E', cls: 'lamp-exh',    numCls: 'lamp-num-exh' },
+            { key: 'hard',   label: 'H',   cls: 'lamp-hard',   numCls: 'lamp-num-hard' },
+            { key: 'clear',  label: 'N',   cls: 'lamp-clear',  numCls: 'lamp-num-clear' },
+            { key: 'easy',   label: 'E',   cls: 'lamp-easy',   numCls: 'lamp-num-easy' },
+            { key: 'assist', label: 'A',  cls: 'lamp-assist', numCls: 'lamp-num-assist' },
+            { key: 'failed', label: 'F',   cls: 'lamp-failed', numCls: 'lamp-num-failed' },
+        ];
+
+        var scoreOrder = [
+            { key: 'AAA',     label: 'AAA', cls: 'rate-aaa' },
+            { key: 'AA',      label: 'AA',  cls: 'rate-aa' },
+            { key: 'A',       label: 'A',   cls: 'rate-a' },
+            { key: 'B_below', label: 'B-',  cls: 'rate-b' },
+        ];
+
+        levelEntries.forEach(function(entry) {
+            var style = entry.style;
+            var lv = entry.level;
+            var styleKey = style === 'DP' ? 'dp' : 'sp';
+            var styleData = levelStats[styleKey] || {};
+            var data = styleData[lv];
+            var cardLabel = style + ' Lv' + lv;
+
+                if (!data) {
+                    html += '<div class="lv-stats-card">';
+                    html += '<div class="lv-stats-card-header">' + cardLabel + '</div>';
+                    html += '<div style="color:#666;font-size:12px;">No data</div>';
+                    html += '</div>';
+                    return;
+                }
+
+                var lamps = data.lamps || {};
+                var scores = data.scores || {};
+                var total = data.total || 0;
+
+                // Build lamp number text
+                var lampNums = [];
+                lampOrder.forEach(function(l) {
+                    var count = lamps[l.key] || 0;
+                    if (count > 0) {
+                        lampNums.push('<span class="' + l.numCls + '">' + l.label + ':' + count + '</span>');
+                    }
+                });
+
+                // Build lamp bar
+                var lampBar = '';
+                lampOrder.forEach(function(l) {
+                    var count = lamps[l.key] || 0;
+                    if (count > 0 && total > 0) {
+                        var w = (count / total * 100).toFixed(2);
+                        lampBar += '<div class="' + l.cls + '" style="width:' + w + '%"></div>';
+                    }
+                });
+
+                // Build score rate bar
+                var scoreBar = '';
+                scoreOrder.forEach(function(s) {
+                    var count = scores[s.key] || 0;
+                    if (count > 0 && total > 0) {
+                        var w = (count / total * 100).toFixed(2);
+                        scoreBar += '<div class="' + s.cls + '" style="width:' + w + '%"></div>';
+                    }
+                });
+
+                var aaaCount = scores['AAA'] || 0;
+
+                html += '<div class="lv-stats-card">';
+                html += '<div class="lv-stats-card-header">' + cardLabel + '</div>';
+
+                // Lamp
+                html += '<div class="lv-stats-numbers">' + lampNums.join(', ') + '</div>';
+                html += '<div class="lv-stats-bar">' + lampBar + '</div>';
+
+                // Score rate
+                html += '<div class="lv-stats-numbers"><span class="score-num-aaa">AAA:' + aaaCount + '</span></div>';
+                html += '<div class="lv-stats-bar">' + scoreBar + '</div>';
+
+                html += '</div>';
+        });
+
+        container.innerHTML = html;
+    }
+    </script>
+</body>
+</html>

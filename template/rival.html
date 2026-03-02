@@ -1,0 +1,463 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>IIDX Rival Ranking</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="../out/websocket.css">
+        <style>
+            :root {
+                --enable-header: 0;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+
+            body {
+                background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3e 50%, #0a0a1f 100%);
+                margin: 0;
+                padding: 10px;
+                overflow: hidden;
+                font-family: "RocknRoll One", sans-serif;
+                color: #fff;
+            }
+
+            #all {
+                max-width: 1900px;
+                margin: 0 auto;
+            }
+
+            /* ヘッダー（--enable-header:1 のときのみ表示） */
+            .title-card {
+                display: none;
+                background: linear-gradient(135deg, rgba(0, 20, 100, 0.9), rgba(0, 40, 120, 0.9));
+                border-radius: 12px;
+                padding: 12px 25px;
+                margin-bottom: 10px;
+                box-shadow: 0 5px 20px rgba(33, 150, 243, 0.3);
+                border: 2px solid rgba(33, 150, 243, 0.3);
+            }
+
+            .title-content {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 30px;
+            }
+
+            .title-name {
+                font-size: 48px;
+                flex-grow: 1;
+                text-shadow: 3px 3px 0 #000,
+                            -2px 2px 0 #000,
+                            2px -2px 0 #000,
+                            -2px -2px 0 #000;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: #ffffff;
+            }
+
+            .title-info {
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                min-width: 280px;
+                text-align: right;
+            }
+
+            .title-level-difficulty {
+                font-size: 40px;
+                text-shadow: 3px 3px 0 #000,
+                            -2px 2px 0 #000,
+                            2px -2px 0 #000,
+                            -2px -2px 0 #000;
+                white-space: nowrap;
+            }
+
+            .title-level {
+                color: #ffeb3b;
+                text-shadow: 0 0 20px rgba(255, 235, 59, 0.5),
+                            3px 3px 0 #000,
+                            -2px 2px 0 #000,
+                            2px -2px 0 #000,
+                            -2px -2px 0 #000;
+            }
+
+            .title-difficulty {
+                margin-left: 15px;
+            }
+
+            .diff-a { color: #ff4444; }
+            .diff-b { color: #44ff44; }
+            .diff-n { color: #4444ff; }
+            .diff-h { color: #ffff44; }
+            .diff-l { color: #ff44ff; }
+
+            .title-notes {
+                font-size: 28px;
+                color: #aaaaff;
+                text-shadow: 2px 2px 0 #000,
+                            -1px 1px 0 #000,
+                            1px -1px 0 #000,
+                            -1px -1px 0 #000;
+            }
+
+            .sp12-info {
+                font-size: 30px;
+                margin-left: 10px;
+            }
+            .sp12-clear { color: #9ee7ff; }
+            .sp12-hard  { color: #ff86b4; }
+            .sp12-slash { color: #888; }
+
+            .playspeed-high { color: #ff7; }
+            .playspeed-low  { color: #f7f; }
+            .battle         { color: #7fa; }
+
+            /* テーブルコンテナ */
+            .result-card {
+                background: linear-gradient(135deg, rgba(30, 30, 60, 0.9), rgba(20, 20, 40, 0.9));
+                border-radius: 12px;
+                padding: 12px 15px;
+                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.4);
+                border: 2px solid rgba(100, 100, 200, 0.3);
+            }
+
+            /* テーブル */
+            #result {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            #result td, #result th {
+                padding: 6px 10px;
+                white-space: nowrap;
+                text-shadow: 2px 2px 0 #000;
+            }
+
+            #result th {
+                font-size: 18px;
+                color: #aaaaff;
+                border-bottom: 1px solid rgba(100, 100, 200, 0.4);
+                text-align: center;
+                padding-bottom: 8px;
+            }
+
+            #result tr {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            /* 自己ベスト行 */
+            #result tr.is-me {
+                background-color: rgba(60, 80, 180, 0.3);
+            }
+
+            /* 順位列 */
+            #result td:nth-child(1) {
+                width: 55px;
+                text-align: center;
+                font-size: 26px;
+                color: #aaaaff;
+            }
+
+            /* プレーヤー列 */
+            #result td:nth-child(2) {
+                font-size: 26px;
+            }
+
+            /* ランプ列 */
+            #result td:nth-child(3) {
+                width: 44px;
+                text-align: center;
+            }
+
+            /* スコア列 */
+            #result td:nth-child(4) {
+                width: 160px;
+                text-align: right;
+                font-size: 28px;
+                font-weight: bold;
+            }
+
+            /* BP列 */
+            #result td:nth-child(5) {
+                width: 90px;
+                text-align: right;
+                font-size: 24px;
+                color: #ff9999;
+            }
+
+            /* オプション列 */
+            #result td:nth-child(6) {
+                text-align: right;
+                font-size: 20px;
+                color: #77bb77;
+            }
+
+            /* ランプボックス */
+            .lamp-box {
+                display: inline-block;
+                width: 28px;
+                height: 28px;
+                border-radius: 4px;
+            }
+
+            /* クリアランプ */
+            .fc {
+                animation-name: flashfc;
+                animation-duration: 0.2s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfc {
+                0%   { background-color: #ff2828; }
+                20%  { background-color: #d5ff28; }
+                40%  { background-color: #28ff7e; }
+                60%  { background-color: #2872ff; }
+                80%  { background-color: #d528ff; }
+                100% { background-color: #ff2828; }
+            }
+            .failed {
+                animation-name: flashfailed;
+                animation-duration: 0.08s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfailed {
+                0%   { background-color: #ff2828; }
+                50%  { background-color: #282828; }
+                100% { background-color: #ff2828; }
+            }
+            .ac  { background-color: #ff66ff; }
+            .ec  { background-color: #22ff22; }
+            .nc  { background-color: #22ccff; }
+            .hc  { background-color: #ffffff; }
+            .exh {
+                animation-name: flashexh;
+                animation-duration: 0.08s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashexh {
+                0%   { background-color: #ff2828; }
+                50%  { background-color: #ffff28; }
+                100% { background-color: #ff2828; }
+            }
+
+            /* 自己ベスト行のプレーヤー名強調 */
+            .me-name {
+                font-weight: bold;
+                color: #aaddff;
+            }
+
+            /* 1位の順位強調 */
+            .rank-1st {
+                color: #ffdd44;
+                font-weight: bold;
+                text-shadow: 0 0 8px rgba(255, 220, 68, 0.6),
+                             2px 2px 0 #000;
+            }
+        </style>
+    </head>
+    <script>
+    function getWebSocketPort() {
+        const port = getComputedStyle(document.documentElement)
+            .getPropertyValue('--websocket-port').trim();
+        return parseInt(port) || 8767;
+    }
+
+    function isHeaderEnabled() {
+        const val = getComputedStyle(document.documentElement)
+            .getPropertyValue('--enable-header').trim();
+        return parseInt(val) === 1;
+    }
+
+    let ws = null;
+    let reconnectInterval = null;
+
+    function connectWebSocket() {
+        const WEBSOCKET_PORT = getWebSocketPort();
+        ws = new WebSocket(`ws://localhost:${WEBSOCKET_PORT}`);
+
+        ws.onopen = function() {
+            console.log('WebSocket接続成功');
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+
+        ws.onmessage = function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'history_cursong') {
+                    updateRival(message.data);
+                }
+            } catch (error) {
+                console.error('メッセージ解析エラー:', error);
+            }
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocketエラー:', error);
+        };
+
+        ws.onclose = function() {
+            console.log('WebSocket切断。3秒後に再接続します...');
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+    }
+
+    function getDifficultyColor(difficulty) {
+        if (!difficulty) return '';
+        var d = difficulty.toUpperCase();
+        if (d.includes('SPA') || d.includes('DPA')) return 'diff-a';
+        if (d.includes('SPH') || d.includes('DPH')) return 'diff-h';
+        if (d.includes('SPN') || d.includes('DPN')) return 'diff-n';
+        if (d.includes('SPL') || d.includes('DPL')) return 'diff-l';
+        if (d.includes('SPB') || d.includes('DPB')) return 'diff-b';
+        return '';
+    }
+
+    function getLampHtml(lamp) {
+        var cls = '';
+        if (lamp == 1) cls = 'failed';
+        else if (lamp == 2) cls = 'ac';
+        else if (lamp == 3) cls = 'ec';
+        else if (lamp == 4) cls = 'nc';
+        else if (lamp == 5) cls = 'hc';
+        else if (lamp == 6) cls = 'exh';
+        else if (lamp == 7) cls = 'fc';
+        if (!cls) return '';
+        return '<span class="lamp-box ' + cls + '"></span>';
+    }
+
+    function updateRival(data) {
+        if (!data) return;
+
+        // ヘッダー表示
+        var enableHeader = isHeaderEnabled();
+        document.querySelector('.title-card').style.display = enableHeader ? 'block' : 'none';
+
+        if (enableHeader) {
+            var lv = data.lv || '';
+            var music = data.music || '';
+            var difficulty = data.difficulty || '';
+            var notes = data.notes || 0;
+            var playspeed = Number(data.playspeed) || 1.0;
+            var diff_color = getDifficultyColor(difficulty);
+            var dp_unofficial_lv = data.dp_unofficial_lv || '';
+            var sp_12hard = data.sp_12hard || '';
+            var sp_12clear = data.sp_12clear || '';
+            var sp_11hard = data.sp_11hard || '';
+            var sp_11clear = data.sp_11clear || '';
+            var battle = data.battle || 0;
+
+            if (battle == 1) {
+                music = "<span class='battle'>[DBx]</span> " + music;
+            }
+            if (playspeed > 1.0) {
+                music = "<span class='playspeed-high'>[" + playspeed + "X]</span> " + music;
+            } else if (playspeed != 1.0) {
+                music = "<span class='playspeed-low'>[" + playspeed + "X]</span> " + music;
+            }
+            document.querySelector('.title-name').innerHTML = music;
+
+            var level_str = '<span class="title-level">☆' + lv + '</span>';
+            if (dp_unofficial_lv) {
+                level_str += ' <span class="dp-unofficial">(' + dp_unofficial_lv + ')</span>';
+            }
+            if (sp_12clear || sp_12hard) {
+                level_str += '<span class="sp12-info">(<span class="sp12-clear">' + (sp_12clear || '?') + '</span>'
+                           + '<span class="sp12-slash">/</span>'
+                           + '<span class="sp12-hard">' + (sp_12hard || '?') + '</span>)</span>';
+            } else if (sp_11clear || sp_11hard) {
+                level_str += '<span class="sp12-info">(<span class="sp12-clear">' + (sp_11clear || '?') + '</span>'
+                           + '<span class="sp12-slash">/</span>'
+                           + '<span class="sp12-hard">' + (sp_11hard || '?') + '</span>)</span>';
+            }
+            level_str += '<span class="title-difficulty ' + diff_color + '">' + difficulty + '</span>';
+            document.querySelector('.title-level-difficulty').innerHTML = level_str;
+            document.querySelector('.title-notes').textContent = 'NOTES: ' + notes;
+        }
+
+        // ライバルランキングテーブル
+        var rival_items = data.rival_items || [];
+        var out = '';
+
+        rival_items.forEach(function(item) {
+            var rank = item.rank || '';
+            var player = item.player || '';
+            var lamp = Number(item.lamp) || 0;
+            var score = Number(item.score) || 0;
+            var bp = item.bp;
+            var option = item.option;
+            var is_me = item.is_me || false;
+
+            var lamp_html = getLampHtml(lamp);
+            var bp_str = (bp !== null && bp !== undefined && bp < 99999999) ? String(bp) : '';
+            var opt_str = (option !== null && option !== undefined) ? String(option) : '?';
+
+            var row_class = is_me ? ' class="is-me"' : '';
+            var name_class = is_me ? ' class="me-name"' : '';
+            var rank_class = (rank === 1) ? ' class="rank-1st"' : '';
+
+            out += '<tr' + row_class + '>';
+            out += '<td' + rank_class + '>' + rank + '</td>';
+            out += '<td' + name_class + '>' + player + '</td>';
+            out += '<td>' + lamp_html + '</td>';
+            out += '<td>' + (score || '') + '</td>';
+            out += '<td>' + bp_str + '</td>';
+            out += '<td>' + opt_str + '</td>';
+            out += '</tr>';
+        });
+
+        document.querySelector('#result tbody').innerHTML = out;
+    }
+
+    window.addEventListener('DOMContentLoaded', function() {
+        // ヘッダーの初期表示制御
+        document.querySelector('.title-card').style.display =
+            isHeaderEnabled() ? 'block' : 'none';
+        connectWebSocket();
+    });
+
+    window.addEventListener('beforeunload', function() {
+        if (ws) ws.close();
+    });
+    </script>
+    <body>
+        <div id="all">
+            <!-- ヘッダー（--enable-header:1 のときのみ表示） -->
+            <div class="title-card">
+                <div class="title-content">
+                    <div class="title-name"></div>
+                    <div class="title-info">
+                        <div class="title-level-difficulty"></div>
+                        <div class="title-notes"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ライバルランキングテーブル -->
+            <div class="result-card">
+                <table id="result">
+                    <thead>
+                        <tr>
+                            <th>rank</th>
+                            <th style="text-align:left">player</th>
+                            <th>lamp</th>
+                            <th>score</th>
+                            <th>bp</th>
+                            <th style="text-align:right">option</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

@@ -13,3 +13,5 @@ jackets/*
 *.png
 log/*
 params_secret.py
+src/portal_secret.py
+portal_secret.txt

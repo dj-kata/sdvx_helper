@@ -1,0 +1,19 @@
+[project]
+name = "inf-daken-counter-obsw"
+version = "0.1.0"
+description = "INFINITAS打鍵カウンタ"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "bs4>=0.0.2",
+    "cx-freeze>=8.5.3",
+    "google-cloud-storage>=3.9.0",
+    "imagehash>=4.3.2",
+    "keyboard>=0.13.5",
+    "numpy>=2.4.1",
+    "obsws-python>=1.8.0",
+    "opencv-python>=4.13.0.90",
+    "pillow>=12.1.0",
+    "pyside6>=6.10.1",
+    "websockets>=16.0",
+]

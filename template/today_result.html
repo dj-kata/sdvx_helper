@@ -1,0 +1,278 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>SDVX Today's Results</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <style>
+            * { box-sizing: border-box; }
+
+            body {
+                background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a0a1f 100%);
+                margin: 0;
+                padding: 5px 10px 10px 10px;
+                overflow-x: hidden;
+                font-family: 'RocknRoll One', sans-serif;
+                color: #fff;
+            }
+
+            #all {
+                max-width: 1900px;
+                margin: 0 auto;
+            }
+
+            .results-container {
+                background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 15, 35, 0.9));
+                border-radius: 12px;
+                padding: 5px 15px 15px 15px;
+                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+                border: 2px solid rgba(160, 80, 220, 0.3);
+            }
+
+            .results-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .results-table tr {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            }
+
+            .results-table tr.score-updated {
+                background-color: rgba(180, 80, 255, 0.08);
+            }
+
+            .results-table td {
+                padding: 7px 8px;
+                white-space: nowrap;
+                text-shadow: 1px 1px 0 #000;
+            }
+
+            /* LV列 */
+            .col-lv {
+                width: 70px;
+                text-align: center;
+                font-size: 34px;
+                color: #ffeb3b;
+                text-shadow: 2px 2px 0 #000;
+            }
+
+            /* ランプ列 */
+            .col-lamp {
+                width: 90px;
+                text-align: center;
+                font-size: 20px;
+            }
+
+            /* 難易度列 */
+            .col-diff {
+                width: 55px;
+                text-align: center;
+                font-size: 22px;
+                font-weight: bold;
+            }
+
+            /* タイトル列 */
+            .col-title {
+                font-size: 32px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 500px;
+            }
+
+            /* スコア列 */
+            .col-score {
+                width: 180px;
+                text-align: right;
+                font-size: 34px;
+                font-weight: bold;
+            }
+
+            /* グレード列 */
+            .col-grade {
+                width: 90px;
+                text-align: center;
+                font-size: 30px;
+                font-weight: bold;
+            }
+
+            /* EXスコア列 */
+            .col-ex {
+                width: 120px;
+                text-align: right;
+                font-size: 26px;
+                color: #aaaaff;
+            }
+
+            /* VF列 */
+            .col-vf {
+                width: 90px;
+                text-align: center;
+                font-size: 28px;
+                color: #ffdd88;
+            }
+
+            /* 難易度カラー */
+            .diff-nov { color: #c060f0; }
+            .diff-adv { color: #d4bb00; }
+            .diff-exh { color: #e84040; }
+            .diff-mxm { color: #e0e0e0; }
+
+            /* スコア更新 */
+            .score-updated  { color: #ffccff; }
+            .score-not-updated { color: #999; }
+
+            /* ランプタグ */
+            .lamp-tag {
+                display: inline-block;
+                padding: 2px 8px;
+                border-radius: 4px;
+                font-size: 18px;
+                font-weight: bold;
+                text-shadow: 1px 1px 0 #000;
+            }
+
+            .lamp-noplay  { background: #1a1a1a; color: #555; }
+            .lamp-played  { background: #333;    color: #aaa; }
+            .lamp-clear   { background: #1840a0; color: #aaddff; }
+            .lamp-exc     { background: #803000; color: #ffaa66; }
+            .lamp-maxxive { background: #604000; color: #ffcc44; }
+            .lamp-uc      { background: #205030; color: #88ffaa; }
+            .lamp-puc     { background: #807000; color: #ffe080;
+                            animation: flashpuc 0.6s infinite alternate; }
+
+            @keyframes flashpuc {
+                0%   { background: #606000; color: #ffd060; }
+                100% { background: #a09000; color: #fff0a0; }
+            }
+
+            /* グレードカラー */
+            .grade-s    { color: #ffdd00; text-shadow: 0 0 8px rgba(255,220,0,0.6); }
+            .grade-aaap { color: #ffffff; }
+            .grade-aaa  { color: #eeeeee; }
+            .grade-aap  { color: #ccffcc; }
+            .grade-aa   { color: #aaffaa; }
+            .grade-ap   { color: #88ff88; }
+            .grade-a    { color: #66ee66; }
+            .grade-b    { color: #8888ff; }
+            .grade-c    { color: #6666dd; }
+            .grade-d    { color: #4444bb; }
+        </style>
+    </head>
+    <body>
+        <script>
+        function getWebSocketPort() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.has('port')) return parseInt(params.get('port'));
+            var css = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
+            return parseInt(css) || 8767;
+        }
+
+        var ws = null;
+        var reconnectTimer = null;
+
+        function connectWebSocket() {
+            var port = getWebSocketPort();
+            ws = new WebSocket('ws://localhost:' + port);
+
+            ws.onopen = function() {
+                if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    var msg = JSON.parse(event.data);
+                    if (msg.type === 'today_results') updateTodayResults(msg.data);
+                } catch(e) { console.error('parse error:', e); }
+            };
+
+            ws.onerror = function() {};
+
+            ws.onclose = function() {
+                if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        var LAMP_NAMES = ['NO PLAY','PLAYED','CLEAR','EXC','MAXXIVE','UC','PUC'];
+        var LAMP_CLASSES = ['lamp-noplay','lamp-played','lamp-clear','lamp-exc','lamp-maxxive','lamp-uc','lamp-puc'];
+
+        function getDiffClass(diff) {
+            if (!diff) return '';
+            var d = diff.toUpperCase();
+            if (d === 'NOV') return 'diff-nov';
+            if (d === 'ADV') return 'diff-adv';
+            if (d === 'EXH') return 'diff-exh';
+            if (d === 'MXM') return 'diff-mxm';
+            return '';
+        }
+
+        function getGradeClass(grade) {
+            if (!grade) return '';
+            var g = grade.toUpperCase();
+            if (g === 'S')    return 'grade-s';
+            if (g === 'AAA+') return 'grade-aaap';
+            if (g === 'AAA')  return 'grade-aaa';
+            if (g === 'AA+')  return 'grade-aap';
+            if (g === 'AA')   return 'grade-aa';
+            if (g === 'A+')   return 'grade-ap';
+            if (g === 'A')    return 'grade-a';
+            if (g === 'B')    return 'grade-b';
+            if (g === 'C')    return 'grade-c';
+            return 'grade-d';
+        }
+
+        function lampHtml(lampVal) {
+            var idx = Math.min(Math.max(lampVal || 0, 0), 6);
+            return '<span class="lamp-tag ' + LAMP_CLASSES[idx] + '">' + LAMP_NAMES[idx] + '</span>';
+        }
+
+        function updateTodayResults(data) {
+            if (!data || !data.items) return;
+
+            var params = new URLSearchParams(window.location.search);
+            var skipNoUpdate = params.has('skip_no_update') ? Number(params.get('skip_no_update')) : 0;
+
+            var out = '';
+            data.items.forEach(function(item) {
+                var lamp = Number(item.lamp) || 0;
+                var score = Number(item.score) || 0;
+                var preScore = Number(item.pre_score) || 0;
+                var isUpdated = item.is_score_updated;
+
+                if (skipNoUpdate && !isUpdated && lamp <= Number(item.pre_lamp || 0)) return;
+
+                var rowClass = isUpdated ? 'score-updated' : '';
+                var scoreClass = isUpdated ? 'score-updated' : 'score-not-updated';
+                var diffClass = getDiffClass(item.difficulty || '');
+                var gradeClass = getGradeClass(item.grade || '');
+
+                out += '<tr class="' + rowClass + '">';
+                out += '<td class="col-lv">' + (item.lv || '') + '</td>';
+                out += '<td class="col-lamp">' + lampHtml(lamp) + '</td>';
+                out += '<td class="col-diff ' + diffClass + '">' + (item.difficulty || '') + '</td>';
+                out += '<td class="col-title ' + diffClass + '">' + (item.title || '') + '</td>';
+                out += '<td class="col-score ' + scoreClass + '">' + score.toLocaleString() + '</td>';
+                out += '<td class="col-grade ' + gradeClass + '">' + (item.grade || '') + '</td>';
+                out += '<td class="col-ex">' + (item.exscore != null ? item.exscore : '') + '</td>';
+                out += '<td class="col-vf">' + (item.vf != null ? item.vf : '') + '</td>';
+                out += '</tr>';
+            });
+
+            document.getElementById('results-tbody').innerHTML = out;
+        }
+
+        window.addEventListener('DOMContentLoaded', function() { connectWebSocket(); });
+        window.addEventListener('beforeunload', function() { if (ws) ws.close(); });
+        </script>
+
+        <div id="all">
+            <div class="results-container">
+                <table class="results-table">
+                    <tbody id="results-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

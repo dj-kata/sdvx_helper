@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>IIDX Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        .dashboard-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            height: 440px;
+        }
+        
+        .iframe-wrapper {
+            position: relative;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        
+        iframe {
+            overflow: hidden;
+        }
+        
+        /* today_result: 1500x400 を 440px高さに拡大 */
+        .iframe-wrapper.today-result {
+            width: 1650px; /* 1500 * (440/400) */
+            height: 440px;
+        }
+        
+        .iframe-wrapper.today-result iframe {
+            width: 1500px;
+            height: 400px;
+            border: none;
+            transform: scale(1.1); /* 440/400 */
+            transform-origin: top left;
+        }
+        
+        /* history_cursong: 1500x440 */
+        .iframe-wrapper.history-cursong {
+            width: 1500px;
+            height: 440px;
+        }
+        
+        .iframe-wrapper.history-cursong iframe {
+            width: 1500px;
+            height: 440px;
+            border: none;
+        }
+        
+        /* graph: 500x230 を 440px高さに拡大 */
+        .iframe-wrapper.graph {
+            width: 957px; /* 500 * (440/230) ≈ 956.52 */
+            height: 440px;
+        }
+        
+        .iframe-wrapper.graph iframe {
+            width: 500px;
+            height: 230px;
+            border: none;
+            transform: scale(1.913); /* 440/230 ≈ 1.913 */
+            transform-origin: top left;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // today_result iframe のCSS制御
+            $('#iframe-today-result').on('load', function() {
+                try {
+                    $(this).contents().find(':root').css('--enable-header', '0');
+                    console.log('CSS制御成功: today_result');
+                } catch(e) {
+                    console.warn('CSS制御失敗（同一オリジン制約）: today_result', e);
+                }
+            });
+            
+            // 他のiframeでも必要に応じて設定可能
+            $('#iframe-history-cursong').on('load', function() {
+                try {
+                    // 必要に応じてカスタムプロパティを設定
+                    console.log('ロード完了: history_cursong');
+                } catch(e) {
+                    console.warn('CSS制御失敗（同一オリジン制約）: history_cursong', e);
+                }
+            });
+            
+            $('#iframe-graph').on('load', function() {
+                try {
+                    // 必要に応じてカスタムプロパティを設定
+                    console.log('ロード完了: graph');
+                } catch(e) {
+                    console.warn('CSS制御失敗（同一オリジン制約）: graph', e);
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- today_result -->
+        <div class="iframe-wrapper today-result">
+            <iframe id="iframe-today-result" src="today_result.html" scrolling="no"></iframe>
+        </div>
+        
+        <!-- history_cursong -->
+        <div class="iframe-wrapper history-cursong">
+            <iframe id="iframe-history-cursong" src="history_cursong.html" scrolling="no"></iframe>
+        </div>
+        
+        <!-- graph -->
+        <div class="iframe-wrapper graph">
+            <iframe id="iframe-graph" src="graph.html" scrolling="no"></iframe>
+        </div>
+    </div>
+</body>
+</html>

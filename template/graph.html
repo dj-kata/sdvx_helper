@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Today's Stats</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body { 
+            background: transparent;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'RocknRoll One', sans-serif;
+            color: #fff;
+        }
+        
+        .container {
+            /* background: linear-gradient(135deg, rgba(0, 20, 100, 0.99), rgba(0, 40, 120, 0.99)); */
+            background: linear-gradient(135deg, #0a0a1f 0%, #1a1a3e 50%, #0a0a1f 100%);
+            padding: 1px 20px;
+            box-shadow: 0 5px 20px rgba(33, 150, 243, 0.3);
+            /* border: 2px solid rgba(33, 150, 243, 0.3); */
+            width: 100%;
+        }
+        
+        /* ヘッダー */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        
+        .today-label {
+            font-size: 25px;
+            color: #ffffff;
+            text-shadow: 3px 3px 0 #000,
+                        -2px 2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px -2px 0 #000;
+        }
+        
+        .today-notes {
+            text-align: right;
+            font-size: 30px;
+            color: #ffeb3b;
+            text-shadow: 0 0 20px rgba(255, 235, 59, 0.5),
+                        3px 3px 0 #000,
+                        -2px 2px 0 #000,
+                        2px -2px 0 #000,
+                        -2px -2px 0 #000;
+            font-weight: bold;
+        }
+        
+        /* 全体の判定内訳グラフ */
+        .total-graph-area {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 12px;
+        }
+        
+        .bar-container {
+            display: flex;
+            height: 20px;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        .bar-segment {
+            transition: width 0.5s ease;
+        }
+        
+        .bar-pg {
+            background: linear-gradient(180deg, #00AAFF, #0088DD);
+        }
+        
+        .bar-gr {
+            background: linear-gradient(180deg, #00DDFF, #00BBDD);
+        }
+        
+        .bar-gd {
+            background: linear-gradient(180deg, #FFBB00, #DD9900);
+        }
+        
+        .bar-bad {
+            background: linear-gradient(180deg, #DD4445, #BB2222);
+        }
+        
+        /* 曲ごとのグラフエリア */
+        .songs-graph-area {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 12px 15px 12px 0;
+            margin-bottom: 12px;
+        }
+        
+        .songs-graph-container {
+            display: flex;
+            align-items: flex-end;
+            justify-content: flex-end;
+            height: 110px;
+            gap: 30px;
+            overflow: hidden;
+        }
+        
+        .song-bar {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            width: 50px;
+            position: relative;
+            flex-shrink: 0;
+        }
+        
+        .song-bar-stack {
+            width: 30px;
+            display: flex;
+            flex-direction: column;
+            border-radius: 4px 4px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+            transition: all 0.5s ease;
+            min-height: 5px;
+        }
+        
+        .song-segment {
+            width: 100%;
+            transition: height 0.5s ease;
+        }
+        
+        .song-segment-pg {
+            background: linear-gradient(180deg, #44ff44, #22dd22);
+        }
+        
+        .song-segment-gr {
+            background: linear-gradient(180deg, #bbff44, #99dd22);
+        }
+        
+        .song-segment-gd {
+            background: linear-gradient(180deg, #ffaa44, #dd8822);
+        }
+        
+        .song-total {
+            text-align: center;
+            font-size: 15px;
+            color: #ffffaa;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 0 #000;
+            font-weight: bold;
+        }
+        
+        .song-index {
+            text-align: center;
+            font-size: 16px;
+            color: #aaddff;
+            margin-top: 5px;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        /* 統計情報 */
+        .stats {
+            display: flex;
+            gap: 15px;
+            font-size: 24px;
+            text-shadow: 2px 2px 0 #000;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stat-label {
+            color: #aaddff;
+        }
+        
+        .stat-value {
+            color: #ffffaa;
+            font-weight: bold;
+        }
+        
+        .stat-cur {
+            color: #aaa;
+            font-size: 20px;
+        }
+
+        #today-notes{
+            font-size: 28px;
+            color: #ff77ff;
+        }
+    </style>
+    <script>
+    // CSSカスタムプロパティからWebSocketポート番号を取得
+    function getWebSocketPort() {
+        const port = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
+        return parseInt(port) || 8767; // デフォルト値
+    }
+    
+    let ws = null;
+    let reconnectInterval = null;
+
+    function connectWebSocket() {
+        const WEBSOCKET_PORT = getWebSocketPort();
+        ws = new WebSocket(`ws://localhost:${WEBSOCKET_PORT}`);
+        
+        ws.onopen = function() {
+            console.log('WebSocket接続成功');
+            if (reconnectInterval) {
+                clearInterval(reconnectInterval);
+                reconnectInterval = null;
+            }
+        };
+        
+        ws.onmessage = function(event) {
+            try {
+                const message = JSON.parse(event.data);
+                if (message.type === 'graph') {
+                    updateGraph(message.data);
+                }
+            } catch (error) {
+                console.error('メッセージ解析エラー:', error);
+            }
+        };
+        
+        ws.onerror = function(error) {
+            console.error('WebSocketエラー:', error);
+        };
+        
+        ws.onclose = function() {
+            console.log('WebSocket切断。3秒後に再接続します...');
+            if (!reconnectInterval) {
+                reconnectInterval = setInterval(connectWebSocket, 3000);
+            }
+        };
+    }
+
+    function updateGraph(data) {
+        if (!data) return;
+        
+        // デバッグ: 受信したデータを確認
+        console.log('受信データ:', data);
+        
+        // 今日の合計データ取得
+        const today_judge = data.today_judge || {};
+        const today_pg = today_judge.pg || 0;
+        const today_gr = today_judge.gr || 0;
+        const today_gd = today_judge.gd || 0;
+        const today_bd = today_judge.bd || 0;
+        const today_pr = today_judge.pr || 0;
+        
+        const playcount = data.playcount || 0;
+        const today_notes = data.today_notes || 0;
+        const today_score_rate = data.today_score_rate || '0%';
+        const current_score_rate = data.current_score_rate || '0%';
+        
+        // BAD判定の合計
+        const today_bad_total = today_bd + today_pr;
+        
+        // 合計ノーツ（グラフ用）
+        const today_total = today_pg + today_gr + today_gd + today_bad_total;
+        
+        // パーセンテージ計算
+        const today_pg_percent = today_total > 0 ? (today_pg / today_total * 100) : 0;
+        const today_gr_percent = today_total > 0 ? (today_gr / today_total * 100) : 0;
+        const today_gd_percent = today_total > 0 ? (today_gd / today_total * 100) : 0;
+        const today_bad_percent = today_total > 0 ? (today_bad_total / today_total * 100) : 0;
+        
+        // 安全にDOM要素を更新するヘルパー関数
+        function safeUpdateText(id, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = value;
+            } else {
+                console.warn(`要素が見つかりません: ${id}`);
+            }
+        }
+        
+        function safeUpdateStyle(id, property, value) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.style[property] = value;
+            } else {
+                console.warn(`要素が見つかりません: ${id}`);
+            }
+        }
+        
+        // 表示更新
+        safeUpdateText('today-notes', today_notes.toLocaleString());
+        safeUpdateText('play-value', playcount);
+        safeUpdateText('rate-value', today_score_rate);
+        // safeUpdateText('cur-value', '(' + current_score_rate + ')');
+        
+        // 全体グラフ更新
+        safeUpdateStyle('bar-pg', 'width', today_pg_percent + '%');
+        safeUpdateStyle('bar-gr', 'width', today_gr_percent + '%');
+        safeUpdateStyle('bar-gd', 'width', today_gd_percent + '%');
+        safeUpdateStyle('bar-bad', 'width', today_bad_percent + '%');
+        
+        // 各曲の判定データを取得
+        const songs = data.judges || [];
+        
+        // 画面幅から表示可能な曲数を計算
+        const container = document.querySelector('.songs-graph-container');
+        const containerWidth = container.clientWidth;
+        const barWidth = 50; // song-barの幅
+        const gapWidth = 20; // グラフ間の余白
+        const rightMargin = 15; // 右端の余白
+        const barTotalWidth = barWidth + gapWidth; // 1本あたりの合計幅
+        const availableWidth = containerWidth - rightMargin; // 利用可能な幅
+        const visibleCount = Math.floor((availableWidth + gapWidth) / barTotalWidth); // 表示可能な曲数
+        
+        // 表示する曲（右端から表示可能な曲数分）
+        const recentSongs = songs.slice(-visibleCount);
+        
+        // 表示される曲の中での最大値を計算（スケーリング用）
+        let maxTotal = 0;
+        recentSongs.forEach(function(song) {
+            const total = song.pg + song.gr + song.gd + song.bd + song.pr;
+            if (total > maxTotal) maxTotal = total;
+        });
+        
+        // 曲ごとのグラフを生成
+        const containerHeight = 100; // コンテナの高さ
+        const indexHeight = 23; // 曲番号の高さ
+        const totalTextHeight = 24; // 合計値テキストの高さ（余裕を持たせる）
+        const maxGraphHeight = containerHeight - indexHeight - totalTextHeight; // グラフ本体の最大高さ（約123px）
+        let songsGraphHtml = '';
+        
+        if (recentSongs.length === 0) {
+            // データがない場合の表示
+            songsGraphHtml = '';
+        } else {
+            recentSongs.forEach(function(song) {
+                const songTotal = song.pg + song.gr + song.gd + song.bd;
+                const pg_height = maxTotal > 0 ? (song.pg / maxTotal * maxGraphHeight) : 0;
+                const gr_height = maxTotal > 0 ? (song.gr / maxTotal * maxGraphHeight) : 0;
+                const gd_height = maxTotal > 0 ? (song.gd / maxTotal * maxGraphHeight) : 0;
+                
+                songsGraphHtml += '<div class="song-bar">';
+                songsGraphHtml += '<div class="song-total">' + songTotal.toLocaleString() + '</div>';
+                songsGraphHtml += '<div class="song-bar-stack">';
+                songsGraphHtml += '<div class="song-segment song-segment-pg" style="height: ' + pg_height + 'px"></div>';
+                songsGraphHtml += '<div class="song-segment song-segment-gr" style="height: ' + gr_height + 'px"></div>';
+                songsGraphHtml += '<div class="song-segment song-segment-gd" style="height: ' + gd_height + 'px"></div>';
+                songsGraphHtml += '</div>';
+                songsGraphHtml += '<div class="song-index">#' + song.idx + '</div>';
+                songsGraphHtml += '</div>';
+            });
+        }
+        
+        container.innerHTML = songsGraphHtml;
+    }
+    
+    window.addEventListener('DOMContentLoaded', function() {
+        connectWebSocket();
+    });
+    
+    window.addEventListener('beforeunload', function() {
+        if (ws) {
+            ws.close();
+        }
+    });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- 統計情報 -->
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">play:</span>
+                <span class="stat-value" id="play-value">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">rate:</span>
+                <span class="stat-value" id="rate-value">0%</span>
+                <span class="stat-cur" id="cur-value"></span>
+            </div>
+            <div class="stat-item" style="margin-left: auto">
+                <!-- <div class="today-notes">0</div> -->
+                <span class="stat-value" id="today-notes">0</span>
+            </div>
+        </div>
+
+        <!-- 今日の全体グラフ -->
+        <div class="total-graph-area">
+            <div class="bar-container">
+                <div id="bar-bad" class="bar-segment bar-bad" style="width: 0%"></div>
+                <div id="bar-gd" class="bar-segment bar-gd" style="width: 0%"></div>
+                <div id="bar-gr" class="bar-segment bar-gr" style="width: 0%"></div>
+                <div id="bar-pg" class="bar-segment bar-pg" style="width: 0%"></div>
+            </div>
+        </div>
+        
+        <!-- 曲ごとのグラフ -->
+        <div class="songs-graph-area">
+            <div class="songs-graph-container">
+                <!-- JavaScriptで動的に生成 -->
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,309 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>SDVX VF Ranking</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <style>
+            * { box-sizing: border-box; }
+
+            body {
+                background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a0a1f 100%);
+                margin: 0;
+                padding: 10px;
+                overflow-x: hidden;
+                font-family: 'RocknRoll One', sans-serif;
+                color: #fff;
+            }
+
+            #all { max-width: 1900px; margin: 0 auto; }
+
+            /* ─── 総VF表示 ─── */
+            .total-vf-card {
+                background: linear-gradient(135deg, rgba(60, 10, 100, 0.9), rgba(30, 5, 60, 0.9));
+                border-radius: 12px;
+                padding: 10px 25px;
+                margin-bottom: 12px;
+                box-shadow: 0 5px 20px rgba(160, 80, 255, 0.3);
+                border: 2px solid rgba(160, 80, 255, 0.4);
+                display: flex;
+                align-items: center;
+                gap: 20px;
+            }
+
+            .total-vf-label {
+                font-size: 28px;
+                color: #bb88ee;
+                text-shadow: 1px 1px 0 #000;
+            }
+
+            .total-vf-value {
+                font-size: 56px;
+                font-weight: bold;
+                color: #ffdd00;
+                text-shadow: 3px 3px 0 #000, 0 0 20px rgba(255, 220, 0, 0.5);
+            }
+
+            /* ─── ランキングテーブル ─── */
+            .ranking-container {
+                background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 15, 35, 0.9));
+                border-radius: 12px;
+                padding: 5px 15px 15px;
+                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+                border: 2px solid rgba(120, 60, 180, 0.3);
+            }
+
+            .ranking-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .ranking-table tr {
+                border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            }
+
+            .ranking-table td {
+                padding: 6px 8px;
+                white-space: nowrap;
+                text-shadow: 1px 1px 0 #000;
+            }
+
+            /* 順位 */
+            .col-rank {
+                width: 55px;
+                text-align: center;
+                font-size: 22px;
+                color: #aaaacc;
+            }
+            .rank-1 { font-size: 28px; color: #ffdd00; text-shadow: 0 0 8px rgba(255,220,0,0.6); }
+            .rank-2 { font-size: 26px; color: #cccccc; }
+            .rank-3 { font-size: 24px; color: #cc8844; }
+
+            /* LV */
+            .col-lv {
+                width: 55px;
+                text-align: center;
+                font-size: 30px;
+                color: #ffeb3b;
+                text-shadow: 2px 2px 0 #000;
+            }
+
+            /* ランプ */
+            .col-lamp {
+                width: 100px;
+                text-align: center;
+            }
+
+            /* 難易度 */
+            .col-diff {
+                width: 55px;
+                text-align: center;
+                font-size: 20px;
+                font-weight: bold;
+            }
+
+            /* タイトル */
+            .col-title {
+                font-size: 30px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 500px;
+            }
+
+            /* スコア */
+            .col-score {
+                width: 165px;
+                text-align: right;
+                font-size: 28px;
+                font-weight: bold;
+                color: #eeeeff;
+            }
+
+            /* グレード */
+            .col-grade {
+                width: 80px;
+                text-align: center;
+                font-size: 26px;
+                font-weight: bold;
+            }
+
+            /* EX */
+            .col-ex {
+                width: 100px;
+                text-align: right;
+                font-size: 22px;
+                color: #aaaaff;
+            }
+
+            /* VF */
+            .col-vf {
+                width: 80px;
+                text-align: center;
+                font-size: 26px;
+                color: #ffdd88;
+                font-weight: bold;
+            }
+
+            /* 難易度カラー */
+            .diff-nov { color: #c060f0; }
+            .diff-adv { color: #d4bb00; }
+            .diff-exh { color: #e84040; }
+            .diff-mxm { color: #e0e0e0; }
+
+            /* ランプタグ */
+            .lamp-tag {
+                display: inline-block;
+                padding: 2px 7px;
+                border-radius: 4px;
+                font-size: 17px;
+                font-weight: bold;
+                text-shadow: 1px 1px 0 #000;
+            }
+
+            .lamp-noplay  { background: #1a1a1a; color: #555; }
+            .lamp-played  { background: #333;    color: #aaa; }
+            .lamp-clear   { background: #1840a0; color: #aaddff; }
+            .lamp-exc     { background: #803000; color: #ffaa66; }
+            .lamp-maxxive { background: #604000; color: #ffcc44; }
+            .lamp-uc      { background: #205030; color: #88ffaa; }
+            .lamp-puc     { background: #807000; color: #ffe080;
+                            animation: flashpuc 0.6s infinite alternate; }
+
+            @keyframes flashpuc {
+                0%   { background: #606000; color: #ffd060; }
+                100% { background: #a09000; color: #fff0a0; }
+            }
+
+            /* グレードカラー */
+            .grade-s    { color: #ffdd00; text-shadow: 0 0 8px rgba(255,220,0,0.6); }
+            .grade-aaap { color: #ffffff; }
+            .grade-aaa  { color: #eeeeee; }
+            .grade-aap  { color: #ccffcc; }
+            .grade-aa   { color: #aaffaa; }
+            .grade-ap   { color: #88ff88; }
+            .grade-a    { color: #66ee66; }
+            .grade-b    { color: #8888ff; }
+            .grade-c    { color: #6666dd; }
+            .grade-d    { color: #4444bb; }
+        </style>
+    </head>
+    <body>
+        <script>
+        function getWebSocketPort() {
+            var params = new URLSearchParams(window.location.search);
+            if (params.has('port')) return parseInt(params.get('port'));
+            var css = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
+            return parseInt(css) || 8767;
+        }
+
+        var ws = null;
+        var reconnectTimer = null;
+
+        function connectWebSocket() {
+            var port = getWebSocketPort();
+            ws = new WebSocket('ws://localhost:' + port);
+
+            ws.onopen = function() {
+                if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    var msg = JSON.parse(event.data);
+                    if (msg.type === 'vf') updateVfRanking(msg.data);
+                } catch(e) { console.error('parse error:', e); }
+            };
+
+            ws.onerror = function() {};
+
+            ws.onclose = function() {
+                if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        var LAMP_NAMES   = ['NO PLAY','PLAYED','CLEAR','EXC','MAXXIVE','UC','PUC'];
+        var LAMP_CLASSES = ['lamp-noplay','lamp-played','lamp-clear','lamp-exc','lamp-maxxive','lamp-uc','lamp-puc'];
+
+        function lampHtml(lampVal) {
+            var idx = Math.min(Math.max(lampVal || 0, 0), 6);
+            return '<span class="lamp-tag ' + LAMP_CLASSES[idx] + '">' + LAMP_NAMES[idx] + '</span>';
+        }
+
+        function getDiffClass(diff) {
+            if (!diff) return '';
+            var d = diff.toUpperCase();
+            if (d === 'NOV') return 'diff-nov';
+            if (d === 'ADV') return 'diff-adv';
+            if (d === 'EXH') return 'diff-exh';
+            if (d === 'MXM') return 'diff-mxm';
+            return '';
+        }
+
+        function getGradeClass(grade) {
+            if (!grade) return '';
+            var g = grade.toUpperCase();
+            if (g === 'S')    return 'grade-s';
+            if (g === 'AAA+') return 'grade-aaap';
+            if (g === 'AAA')  return 'grade-aaa';
+            if (g === 'AA+')  return 'grade-aap';
+            if (g === 'AA')   return 'grade-aa';
+            if (g === 'A+')   return 'grade-ap';
+            if (g === 'A')    return 'grade-a';
+            if (g === 'B')    return 'grade-b';
+            if (g === 'C')    return 'grade-c';
+            return 'grade-d';
+        }
+
+        function updateVfRanking(data) {
+            if (!data) return;
+
+            // 総VF
+            document.getElementById('total-vf-value').textContent = data.total_vf != null ? data.total_vf : '-';
+
+            // ランキングテーブル
+            var items = data.items || [];
+            var out = '';
+            items.forEach(function(item) {
+                var rank = item.rank || 0;
+                var rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+                var diffClass = getDiffClass(item.difficulty || '');
+                var gradeClass = getGradeClass(item.grade || '');
+                var score = Number(item.score) || 0;
+
+                out += '<tr>';
+                out += '<td class="col-rank"><span class="' + rankClass + '">' + rank + '</span></td>';
+                out += '<td class="col-lv">' + (item.lv || '') + '</td>';
+                out += '<td class="col-lamp">' + lampHtml(item.lamp || 0) + '</td>';
+                out += '<td class="col-diff ' + diffClass + '">' + (item.difficulty || '') + '</td>';
+                out += '<td class="col-title ' + diffClass + '">' + (item.title || '') + '</td>';
+                out += '<td class="col-score">' + score.toLocaleString() + '</td>';
+                out += '<td class="col-grade ' + gradeClass + '">' + (item.grade || '') + '</td>';
+                out += '<td class="col-ex">' + (item.exscore != null ? item.exscore : '') + '</td>';
+                out += '<td class="col-vf">' + (item.vf != null ? item.vf : '') + '</td>';
+                out += '</tr>';
+            });
+            document.getElementById('ranking-tbody').innerHTML = out;
+        }
+
+        window.addEventListener('DOMContentLoaded', function() { connectWebSocket(); });
+        window.addEventListener('beforeunload', function() { if (ws) ws.close(); });
+        </script>
+
+        <div id="all">
+            <!-- 総VFカード -->
+            <div class="total-vf-card">
+                <div class="total-vf-label">TOTAL VOLFORCE</div>
+                <div id="total-vf-value" class="total-vf-value">-</div>
+            </div>
+
+            <!-- ランキングテーブル -->
+            <div class="ranking-container">
+                <table class="ranking-table">
+                    <tbody id="ranking-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </body>
+</html>

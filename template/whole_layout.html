@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>oraja_helper layout for streaming</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        @font-face {
+            font-family: 'dseg14classic-bold';
+            src: url('./DSEG14Classic-Bold.woff2') format('woff2');
+        }
+
+        :root {
+            /* === レイアウト設定 === */
+            --game-width: 84%;             /* game-areaの幅（画面の何%を使うか） */
+            
+            /* === 分割比率のカスタムプロパティ === */
+            --color-upper-border: #055;
+            --clock-ratio: 0.6;
+            --option-ratio: 0.5;
+            --comment-ratio: 5.9;
+            
+            /* 下段の3つの要素の比率 */
+            --bottom-today-ratio: 10;
+            --bottom-history-ratio: 9;
+            --bottom-graph-ratio: 5;
+            
+            /* 右下エリアの上下分割比率 */
+            --bottom-right-upper-ratio: 2;
+            --bottom-right-lower-ratio: 1;
+
+            /* === スケーリング設定 === */
+            --original-width: 1920;    /* 元ページの幅 */
+            --original-height: 1080;   /* 元ページの高さ */
+            --scale-method: fit;       /* fit | fill | exact */
+
+            --color-bg: #000;
+            --primary-color: #00bbbb;
+            --secondary-color: #bb00bb;
+            --tertiary-color: #00bb00;
+            --animation-speed: 3s;
+            --glow-intensity: 20px;
+
+            /* === 時計用の設定 === */
+            --enable-flash: 0;                            /* 1:指定時刻に光る機能を有効にする */
+            --flash-hh: 23;                               /* 光る機能の指定時刻(XX)) */
+            --flash-mm: 56;                               /* 光る機能の指定時刻(YY)) */
+            --color-live: #ff0040;                      /* Liveの部分の色 */
+            --color-frame: #0ff;                        /* フレームの色 */
+            --color-time: #0ff;                         /* 時刻の色 */
+            --color-date: #0f8;                         /* 日付の色 */
+            --color-flash: #fa0;                        /* 光る演出の色 */
+            --color-scanning-line: #0ff;                /* 走査線の色 */
+            --color-shadow1: rgba(0, 255, 255, 0.3);    /* 枠につける影の色1 */
+            --color-shadow2: rgba(0, 255, 255, 0.6);    /* 枠につける影の色2 */
+            --enable-scanning-line: 1;                    /* 1:走査線を有効にする */
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background-color: transparent;
+            font-family: 'Arial', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+        }
+
+        .top-section {
+            flex: 0 0 auto;
+            display: flex;
+            background-color: transparent;
+        }
+
+        /* ゲームエリア */
+        .game-area {
+            width: var(--game-width);
+            aspect-ratio: 16/9;
+            flex-shrink: 0;
+            background-color: transparent;
+            border: 10px solid var(--color-bg);
+            margin-right: 5px;
+            position: relative;
+        }
+        .game-inner {
+            /* border: 2px solid #00ffff; */
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-sizing: border-box;
+        }
+
+        /* ネオングロー効果 */
+        .game-inner[data-effect="neon-glow"] {
+            border: 2px solid var(--primary-color);
+            animation: neonGlow var(--animation-speed) ease-in-out infinite alternate;
+        }
+
+        @keyframes neonGlow {
+            0% {
+                border-color: var(--primary-color);
+                box-shadow: 
+                    0 0 var(--glow-intensity) var(--primary-color), 
+                    inset 0 0 calc(var(--glow-intensity) / 2) var(--primary-color);
+            }
+            100% {
+                border-color: var(--secondary-color);
+                box-shadow: 
+                    0 0 calc(var(--glow-intensity) * 1.5) var(--secondary-color), 
+                    inset 0 0 var(--glow-intensity) var(--secondary-color);
+            }
+        }
+
+        .info-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-left: -5px;
+            background-color: transparent;
+            min-width: 0;
+        }
+
+        .clock-area {
+            flex: var(--clock-ratio);
+            background-color: transparent;
+            border: 10px solid var(--color-bg);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .clock-area-inner {
+            width: 100%;
+            height: 100%;
+            border: 2px solid #aaaaff;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            /* background: linear-gradient(180deg, #2c2c70 0%, #0a0a1f 100%); */
+            background: linear-gradient(35deg, #0a0a1f 0%, #1a1a3e 50%, #0a0a1f 100%);
+        }
+        
+        .clock-area .scaled-iframe {
+            border: none;
+        }
+
+        /* === 時計表示用のスタイル === */
+        .clock-display-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding-top: 5px;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: left;
+            margin-bottom: 5px;
+            margin-top: -5px;
+            width: 380px;
+        }
+
+        .live-dot {
+            width: 9px;
+            height: 9px;
+            background: var(--color-live);
+            border-radius: 50%;
+            margin-left: 80px;
+            margin-right: 10px;
+            box-shadow: 0 0 20px var(--color-live);
+            animation: blink 1.5s ease-in-out infinite;
+        }
+
+        .live-text {
+            color: var(--color-live);
+            font-size: 16px;
+            font-weight: 900;
+            text-shadow: 0 0 20px var(--color-live);
+            letter-spacing: 3px;
+            margin-right: 5px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .date-display {
+            color: var(--color-date);
+            font-size: 12px;
+            text-align: right;
+            font-weight: 400;
+            text-shadow: 0 0 15px var(--color-date);
+            letter-spacing: 2px;
+            margin-left: -47px;
+            font-family: 'Orbitron', monospace;
+            width: 50%;
+            display: inline-block;
+        }
+
+        .time-display {
+            color: var(--color-time);
+            font-size: 28px;
+            font-weight: 700;
+            /* margin-left: -7px; */
+            text-align: center;
+            text-shadow: 
+                0 0 5px var(--color-time),
+                0 0 12px var(--color-time);
+            letter-spacing: 4px;
+            font-variant-numeric: tabular-nums;
+            font-family: 'dseg14classic-bold', monospace;
+            width: 360px;
+            justify-content: center;
+            display: flex;
+        }
+
+        .flash {
+            color: var(--color-flash) !important;
+            text-shadow: 
+                0 0 20px var(--color-flash),
+                0 0 40px var(--color-flash),
+                0 0 60px var(--color-flash) !important;
+            animation: flash-glow 0.5s ease-in-out infinite alternate;
+        }
+
+        @keyframes flash-glow {
+            0% { 
+                text-shadow: 
+                    0 0 20px var(--color-flash),
+                    0 0 40px var(--color-flash),
+                    0 0 60px var(--color-flash);
+            }
+            100% { 
+                text-shadow: 
+                    0 0 30px var(--color-flash),
+                    0 0 60px var(--color-flash),
+                    0 0 90px var(--color-flash);
+            }
+        }
+
+        .option-area {
+            flex: var(--option-ratio);
+            background-color: transparent;
+            border: 10px solid var(--color-bg);
+            display: flex;
+        }
+        .option-inner {
+            border: 2px solid #aaaaaa;
+            border-radius: 10px;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .comment-area {
+            flex: var(--comment-ratio);
+            background-color: transparent;
+            border: 10px solid var(--color-bg);
+            display: flex;
+            color: none;
+            font-size: 18px;
+        }
+        .comment-inner {
+            border: 2px solid #aaaaaa;
+            border-radius: 10px;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 区切り線 - #003背景 */
+        .section-divider {
+            height: 2px;
+            background-color: transparent;
+            border: none;
+            margin: 0;
+        }
+
+        /* 下段全体 - #003背景 */
+        .bottom-section {
+            width: var(--game-width);
+            flex: 1;
+            display: flex;
+            flex-direction: row;
+            background-color: var(--color-bg);
+            padding: 10px;
+            gap: 20px;
+            align-items: stretch;
+            min-height: 0;
+        }
+
+        .bottom-today {
+            flex: var(--bottom-today-ratio);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background-color: transparent;
+            border: 2px solid #aaaaaa;
+            border-radius: 10px;
+            display: flex;
+        }
+        
+        .bottom-today iframe {
+            overflow: hidden;
+        }
+
+        .bottom-history {
+            flex: var(--bottom-history-ratio);
+            overflow: hidden;
+            position: relative;
+            background-color: transparent;
+            border: 2px solid #aaaaaa;
+            border-radius: 10px;
+        }
+
+        .bottom-graph {
+            flex: var(--bottom-graph-ratio);
+            overflow: hidden;
+            position: relative;
+            background-color: transparent;
+            border: 2px solid #aaaaaa;
+            border-radius: 10px;
+        }
+        
+        /* スケーリング対応iframe */
+        .scaled-iframe {
+            border: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: top left;
+        }
+
+        /* 通常のiframe */
+        .normal-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 6px;
+        }
+
+        /* プレースホルダー */
+        .placeholder {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 18px;
+            flex-direction: column;
+        }
+
+        .placeholder small {
+            margin-top: 10px;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+
+        /* メッセージ表示スタイル */
+        .message-display {
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            font-family: 'Orbitron', monospace;
+            font-weight: bold;
+            text-align: center;
+            line-height: 1.2;
+        }
+    </style>
+</head>
+<body>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    
+    <div class="container">
+        <!-- 上段 -->
+        <div class="top-section">
+            <!-- 左上：ゲーム画面エリア（完全透明） -->
+            <div class="game-area">
+                <div class="game-inner" data-effect="neon-glow"></div>
+            </div>
+            
+            <!-- 右上：時計・コメントエリア -->
+            <div class="info-area">
+                <!-- 時計エリア（ローカルiframe、スケーリング対応） -->
+                <div class="clock-area">
+                    <div class="clock-area-inner">
+                        <div class="clock-display-wrapper">
+                            <div class="live-indicator">
+                                <div class="live-dot"></div>
+                                <div class="live-text">LIVE</div>
+                                <div class="date-display" id="date">2024.01.01</div>
+                            </div>
+                            <div class="time-display" id="time">00:00:00</div>
+                        </div>
+                    </div>
+                    <!-- <div class="clock-area-inner" id="scaled-container-clock">
+                        <iframe class="scaled-iframe" id="scaled-iframe-clock" src="./clock.html" scrolling="no"></iframe>
+                    </div> -->
+                </div>
+
+                <div class="option-area">
+                    <div class="option-inner">
+                        <iframe src="./option.html" width="300" height="50" frameborder="0" scrolling="no"></iframe>
+                    </div>
+                </div>
+
+                <div class="comment-area">
+                    <div class="comment-inner"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 下段 -->
+        <div class="bottom-section">
+            <!-- today_result -->
+            <div class="bottom-today" id="scaled-container-1">
+                <iframe class="scaled-iframe" id="scaled-iframe-1" src="./today_result.html" scrolling="no"></iframe>
+                <div class="placeholder" id="placeholder-1">
+                    <div>today_result</div>
+                    <small>今日のプレイ履歴</small>
+                </div>
+            </div>
+            
+            <!-- history_cursong -->
+            <div class="bottom-history" id="scaled-container-history">
+                <iframe class="scaled-iframe" id="scaled-iframe-history" src="./history_cursong.html" scrolling="no"></iframe>
+                <div class="placeholder" id="placeholder-history">
+                    <div>history_cursong</div>
+                    <small>現在プレイ中の曲情報</small>
+                </div>
+            </div>
+            
+            <!-- graph -->
+            <div class="bottom-graph" id="scaled-container-graph">
+                <iframe class="scaled-iframe" id="scaled-iframe-graph" src="./graph.html" scrolling="no"></iframe>
+                <div class="placeholder" id="placeholder-graph">
+                    <div>graph</div>
+                    <small>今日の判定統計</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 時計更新関数（シンプル版）
+        function updateTime() {
+            const now = new Date();
+    
+            const enableFlash = getComputedStyle(document.documentElement).getPropertyValue('--enable-flash').trim();
+            const flashHHRaw = getComputedStyle(document.documentElement).getPropertyValue('--flash-hh').trim();
+            const flashMMRaw = getComputedStyle(document.documentElement).getPropertyValue('--flash-mm').trim();
+    
+            const flashHH = String(parseInt(flashHHRaw, 10)).padStart(2, '0');
+            const flashMM = String(parseInt(flashMMRaw, 10)).padStart(2, '0');
+    
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+    
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+
+            let timeHTML = '';
+    
+            if (enableFlash === '1' && hours === flashHH && minutes === flashMM) {
+                timeHTML = `<span class="flash">${hours}</span>:<span class="flash">${minutes}</span>:${seconds}`;
+            } else if (enableFlash === '1' && minutes === flashHH && seconds === flashMM) {
+                timeHTML = `${hours}:<span class="flash">${minutes}</span>:<span class="flash">${seconds}</span>`;
+            } else {
+                timeHTML = `${hours}:${minutes}:${seconds}`;
+            }
+    
+            document.getElementById('time').innerHTML = timeHTML;
+            document.getElementById('date').textContent = `${year}.${month}.${day}`;
+        }
+
+        // 時計更新開始
+        updateTime();
+        setInterval(updateTime, 1000);
+
+        // メッセージ更新関数
+        function updateMessage() {
+            const messageValue = getComputedStyle(document.documentElement)
+                .getPropertyValue('--message')
+                .trim()
+                .replace(/^["']|["']$/g, '');
+            
+            const messageElement = document.querySelector('message');
+            if (messageElement && messageValue) {
+                messageElement.textContent = messageValue;
+            }
+        }
+
+        // スケーリング機能（修正版：正確な中央配置対応）
+        function setupScaledIframe(iframeId, containerId, originalWidth = 1920, originalHeight = 1080, method = 'fit') {
+            const iframe = document.getElementById(iframeId);
+            const container = document.getElementById(containerId);
+            const placeholder = document.getElementById('placeholder-' + iframeId.split('-')[2]);
+            
+            if (!iframe || !container) return;
+
+            function scaleIframe() {
+                const containerRect = container.getBoundingClientRect();
+                const containerWidth = containerRect.width;
+                const containerHeight = containerRect.height;
+
+                if (containerWidth === 0 || containerHeight === 0) return;
+
+                let scale, offsetX = 0, offsetY = 0;
+
+                switch (method) {
+                    case 'fit': // アスペクト比維持してフィット（完全中央配置版）
+                        scale = Math.min(containerWidth / originalWidth, containerHeight / originalHeight);
+                        const scaledWidth = originalWidth * scale;
+                        const scaledHeight = originalHeight * scale;
+                        offsetX = (containerWidth - scaledWidth) / 2;
+                        offsetY = (containerHeight - scaledHeight) / 2;
+                        break;
+                    
+                    case 'fill': // コンテナを埋める（はみ出る可能性あり）
+                        scale = Math.max(containerWidth / originalWidth, containerHeight / originalHeight);
+                        const scaledWidthFill = originalWidth * scale;
+                        const scaledHeightFill = originalHeight * scale;
+                        offsetX = (containerWidth - scaledWidthFill) / 2;
+                        offsetY = (containerHeight - scaledHeightFill) / 2;
+                        break;
+                    
+                    case 'exact': // 指定された縮小率
+                        scale = 0.5; // 50%縮小など
+                        const scaledWidthExact = originalWidth * scale;
+                        const scaledHeightExact = originalHeight * scale;
+                        offsetX = (containerWidth - scaledWidthExact) / 2;
+                        offsetY = (containerHeight - scaledHeightExact) / 2;
+                        break;
+                }
+
+                // iframeのスタイル設定（正確な中央配置のため）
+                iframe.style.width = originalWidth + 'px';
+                iframe.style.height = originalHeight + 'px';
+                iframe.style.position = 'absolute';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.transformOrigin = 'top left';
+                
+                // transformの順序を調整：translate → scale
+                iframe.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+
+                console.log(`${iframeId}: scale=${scale.toFixed(3)}, offset=(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)}), container=${containerWidth}x${containerHeight}`);
+            }
+
+            // iframe読み込み完了時にスケーリング適用
+            iframe.onload = function() {
+                if (placeholder) placeholder.style.display = 'none';
+                iframe.style.display = 'block';
+                setTimeout(scaleIframe, 100); // 少し遅延して確実に実行
+            };
+
+            iframe.onerror = function() {
+                if (placeholder) placeholder.style.display = 'flex';
+                iframe.style.display = 'none';
+                console.error(`${iframeId}: 読み込みエラー`);
+            };
+
+            // ウィンドウリサイズ時に再スケーリング
+            window.addEventListener('resize', scaleIframe);
+
+            // 初期スケーリング
+            scaleIframe();
+        }
+
+        // info_grid用のXML読み込み関数
+        function loadInfoGridXml() {
+            var getxml = $.ajax({
+                url: './history.xml',
+                type: 'GET',
+                dataType: 'xml',
+                cache: false
+            });
+            getxml.done(function(xml){
+                // xmlデータからほしいデータをfindで探し処理
+                var notes = Number($(xml).find('Items notes').text()).toLocaleString();
+                var notes_month = Number($(xml).find('Items notes_month').text()).toLocaleString();
+                var sr = $(xml).find('Items total_score_rate').text();
+                var plays = $(xml).find('Items playcount').text();
+                var playtime = $(xml).find('Items playtime').text();
+                var pace = Number($(xml).find('Items pace').text()).toLocaleString();
+
+                $('notes').html(notes);
+                $('notes_month').html(notes_month);
+                $('plays').html(plays);
+                $('score_rate').html(sr);
+                $('playtime').html(playtime);
+                $('pace').html(pace);
+            });
+            getxml.fail(function(err) {
+                // データ読み込み失敗時の処理
+            });
+        }
+
+        // iframe制御とスケーリング設定
+        $(function(){
+            // スケーリング対応iframeの設定
+            // setupScaledIframe('scaled-iframe-clock', 'scaled-container-clock', 500, 120, 'fit');
+            setupScaledIframe('scaled-iframe-1', 'scaled-container-1', 1700, 400, 'fit');
+            setupScaledIframe('scaled-iframe-history', 'scaled-container-history', 1650, 430, 'fit');
+            setupScaledIframe('scaled-iframe-graph', 'scaled-container-graph', 500, 230, 'fit');
+
+            // CSS制御
+            $('#scaled-iframe-1').on('load', function(){
+                try {
+                    $(this).contents().find(':root').css('--enable-header','0');
+                    console.log('CSS制御成功: scaled-iframe-1');
+                } catch(e) {
+                    console.warn('CSS制御失敗（同一オリジン制約）: scaled-iframe-1');
+                }
+            });
+            
+            // info_grid用のデータ読み込み開始
+            setInterval(loadInfoGridXml, 1000);
+            loadInfoGridXml();
+
+            // メッセージ更新開始
+            setInterval(updateMessage, 1000);
+            updateMessage();
+        });
+
+        // メッセージ設定関数
+        window.setMessage = function(message) {
+            document.documentElement.style.setProperty('--message', `"${message}"`);
+            updateMessage();
+        };
+
+        window.clearMessage = function() {
+            document.documentElement.style.setProperty('--message', '""');
+            updateMessage();
+        };
+
+        // 動的設定変更関数（デバッグ用）
+        window.changeIframeSrc = function(iframeId, newSrc) {
+            const iframe = document.getElementById(iframeId);
+            if (iframe) {
+                iframe.src = newSrc;
+            }
+        };
+
+        window.changeScale = function(iframeId, originalWidth, originalHeight, method) {
+            const containerId = iframeId.replace('iframe', 'container');
+            setupScaledIframe(iframeId, containerId, originalWidth, originalHeight, method);
+        };
+
+        // 右下下段にiframeを追加する関数
+        window.addIframeToBottomRightLower = function(src, scaled = false, originalWidth = 1920, originalHeight = 1080) {
+            const container = document.getElementById('bottom-right-lower');
+            if (!container) return;
+
+            // 既存コンテンツをクリア
+            container.innerHTML = '';
+            
+            if (scaled) {
+                // スケーリング対応iframe
+                container.style.position = 'relative';
+                const iframe = document.createElement('iframe');
+                iframe.className = 'scaled-iframe';
+                iframe.id = 'bottom-right-lower-iframe';
+                iframe.src = src;
+                container.appendChild(iframe);
+                
+                // スケーリング設定
+                setTimeout(() => {
+                    setupScaledIframe('bottom-right-lower-iframe', 'bottom-right-lower', originalWidth, originalHeight, 'fit');
+                }, 100);
+            } else {
+                // 通常のiframe
+                container.style.position = 'relative';
+                const iframe = document.createElement('iframe');
+                iframe.className = 'normal-iframe';
+                iframe.src = src;
+                container.appendChild(iframe);
+            }
+        };
+
+        // 右下下段のコンテンツをリセットする関数
+        window.resetBottomRightLower = function() {
+            const container = document.getElementById('bottom-right-lower');
+            if (container) {
+                container.innerHTML = `
+                    <div class="message-display"><message></message></div>
+                    <small style="margin-top: 5px; opacity: 0.7;"></small>
+                `;
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                container.style.flexDirection = 'column';
+                
+                // メッセージ更新を再開
+                updateMessage();
+            }
+        };
+
+        // エフェクト切り替え関数（デバッグ用）
+        window.setGameEffect = function(effect) {
+            const gameInner = document.querySelector('.game-inner');
+            if (gameInner) {
+                gameInner.setAttribute('data-effect', effect);
+            }
+        };
+
+        // エフェクト設定変更関数
+        window.setEffectSettings = function(primaryColor, secondaryColor, tertiaryColor, speed, glowIntensity) {
+            const root = document.documentElement;
+            if (primaryColor) root.style.setProperty('--primary-color', primaryColor);
+            if (secondaryColor) root.style.setProperty('--secondary-color', secondaryColor);
+            if (tertiaryColor) root.style.setProperty('--tertiary-color', tertiaryColor);
+            if (speed) root.style.setProperty('--animation-speed', speed);
+            if (glowIntensity) root.style.setProperty('--glow-intensity', glowIntensity);
+        };
+
+        // 時計設定変更関数
+        window.setClockSettings = function(liveColor, frameColor, timeColor, dateColor, flashColor, enableFlash, flashHH, flashMM, enableScanLine) {
+            const root = document.documentElement;
+            if (liveColor) root.style.setProperty('--color-live', liveColor);
+            if (frameColor) root.style.setProperty('--color-frame', frameColor);
+            if (timeColor) root.style.setProperty('--color-time', timeColor);
+            if (dateColor) root.style.setProperty('--color-date', dateColor);
+            if (flashColor) root.style.setProperty('--color-flash', flashColor);
+            if (enableFlash !== undefined) root.style.setProperty('--enable-flash', enableFlash ? '1' : '0');
+            if (flashHH !== undefined) root.style.setProperty('--flash-hh', flashHH);
+            if (flashMM !== undefined) root.style.setProperty('--flash-mm', flashMM);
+            if (enableScanLine !== undefined) root.style.setProperty('--enable-scanning-line', enableScanLine ? '1' : '0');
+        };
+    </script>
+</body>
+</html>
