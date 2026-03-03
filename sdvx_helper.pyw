@@ -36,6 +36,7 @@ from src.obs_dialog import OBSControlDialog
 from src.main_window import MainWindowUI
 from src.rival_data import RivalManager
 from src.portal_manager import PortalManager
+from src.summary_generator import generate_summary, generate_summary_from_screenshots
 
 logger = get_logger('sdvx_helper')
 
@@ -63,10 +64,15 @@ class MainWindow(MainWindowUI):
         # OBS接続マネージャー
         self.obs_manager = OBSWebSocketManager()
         self.obs_manager.set_config(self.config)
-        self.obs_manager.connection_changed.connect(self.on_obs_connection_changed)
+        # QueuedConnection を明示: OBSMonitorThread（バックグラウンド）からの emit が
+        # DirectConnection になってバックグラウンドスレッドで UI 操作されないよう保証する
+        self.obs_manager.connection_changed.connect(
+            self.on_obs_connection_changed, Qt.QueuedConnection
+        )
 
         # Portal連携マネージャー
         self.portal_manager = PortalManager(token=self.config.portal_token)
+        self.portal_manager.load_cache()   # 前回キャッシュを即時反映
         if self.config.portal_token:
             QTimer.singleShot(3000, self._portal_fetch_musiclist)
 
@@ -359,15 +365,18 @@ class MainWindow(MainWindowUI):
     # ── 各モードの処理 ────────────────────────────────────────────────────────
 
     def _process_select(self):
-        """選曲画面の処理: 自己ベストを DB に登録"""
+        """選曲画面の処理: OBSテキスト更新 & スコアビューワ編集パネル更新。
+        DB への登録はスコアビューワの「自動登録」モード有効時のみ行う。
+        """
         data = self.screen_reader.read_from_select()
         if not data:
             return
 
-        title = data.get('title')
-        diff  = data.get('difficulty')
-        lamp  = data.get('lamp')
-        score = data.get('score')
+        title   = data.get('title')
+        diff    = data.get('difficulty')
+        lamp    = data.get('lamp')
+        score   = data.get('score')
+        exscore = data.get('exscore')
 
         if not title or diff is None or lamp is None or score is None:
             return
@@ -381,22 +390,9 @@ class MainWindow(MainWindowUI):
         self.current_title = title
         self.current_diff  = diff
 
-        # スコアビューワが開いていれば編集パネルを更新
+        # スコアビューワが開いていれば編集パネルを更新（自動登録も内部で判断）
         if self.score_viewer is not None and self.score_viewer.isVisible():
-            self.score_viewer.update_select_data(title, diff, score, None, lamp)
-
-        result = OneResult(
-            title=title,
-            difficulty=diff,
-            lamp=lamp,
-            score=score,
-            level=level,
-            detect_mode=detect_mode.select,
-        )
-        if self.result_database.add(result):
-            self.result_database.save()
-            logger.info(f"選曲画面から自己ベストを登録: {result}")
-            self.statusBar().showMessage(f"選曲画面から登録: {get_title_with_chart(title, diff)}", 5000)
+            self.score_viewer.update_select_data(title, diff, score, exscore, lamp)
 
     def _process_detect(self):
         """楽曲情報画面の処理: DETECT_WAIT秒後に曲情報を読み取る"""
@@ -484,9 +480,18 @@ class MainWindow(MainWindowUI):
             self.result_database.broadcast_vf_data()
             self.result_database.broadcast_cursong_data(title, diff)
 
-            # 画像保存
+            # テキスト版サマリー画像生成（バックグラウンドで実行）
+            generate_summary(
+                self.result_database.get_today_results(self.start_time_with_offset)
+            )
+
+            # 画像保存 + スクリーンショット版サマリー生成
             if self.config.autosave_image:
                 self.save_image(score=score, exscore=exscore, lamp=lamp)
+                generate_summary_from_screenshots(
+                    self.config.image_save_path,
+                    self.start_time_with_offset,
+                )
 
             logger.info(f"リザルト登録: {result}")
             self.statusBar().showMessage(f"リザルト登録: {get_title_with_chart(title, diff)}", 10000)
@@ -518,7 +523,8 @@ class MainWindow(MainWindowUI):
             os.makedirs(self.config.image_save_path, exist_ok=True)
             full_path = Path(self.config.image_save_path) / filename
 
-            screen = self.obs_manager.screen
+            # 回転補正済み画像を優先、なければ生キャプチャ
+            screen = self.screen_reader.corrected_screen or self.obs_manager.screen
             if screen is not None:
                 screen.save(str(full_path))
                 logger.info(f"画像保存: {full_path}")
@@ -543,8 +549,10 @@ class MainWindow(MainWindowUI):
         csv_path = self.config.csv_export_path or None
         self.result_database.write_best_csv(csv_path=csv_path)
 
-        # Portal: 今日のプレーログをバックグラウンドで送信（最大5秒待機）
-        if self.config.portal_token and self.portal_manager.master_db:
+        # Portal: 今日のプレーログをバックグラウンドで送信（最大15秒待機）
+        # upload_scores 内で master_db が空の場合は自動取得する。
+        # daemon=False で Python 終了前に必ず完了させる（join timeout=15 で上限を設定）。
+        if self.config.portal_token:
             import threading
             total_vf = self.result_database.get_total_vf()
             def _upload():
@@ -557,9 +565,9 @@ class MainWindow(MainWindowUI):
                     )
                 except Exception:
                     logger.error(f'Portal送信エラー:\n{traceback.format_exc()}')
-            t = threading.Thread(target=_upload, daemon=True)
+            t = threading.Thread(target=_upload, daemon=False)
             t.start()
-            t.join(timeout=5)
+            t.join(timeout=15)
 
         if self.score_viewer is not None:
             self.score_viewer.close()

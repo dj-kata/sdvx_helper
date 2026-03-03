@@ -24,7 +24,7 @@ from src.define import (
     HASH_ONSELECT, HASH_ONDETECT, HASH_ONPLAY1, HASH_ONPLAY2,
     HASH_ONRESULT1, HASH_ONRESULT2, HASH_ONRESULT_HEAD,
     ONDETECT_RGBSUM_THRESHOLD, ONRESULT_ENABLE_HEAD,
-    RECT_SELECT_JACKET, RECT_SELECT_NOV, RECT_SELECT_ADV,
+    RECT_SELECT_JACKET, RECT_SELECT_NOV, RECT_SELECT_ADV, RECT_SELECT_APPEND,
     RECT_SELECT_EXH, RECT_SELECT_LAMP,
     RECT_HAS_EXSCORE,
     RECT_SELECT_SCORE_LARGE, RECT_SELECT_SCORE_SMALL, RECT_SELECT_EXSCORE,
@@ -53,11 +53,11 @@ _BLACKBAR_LUM_TH = 20
 
 # ─── 数字認識 輝度補正パラメータ ───────────────────────────────────────────
 _DIGIT_AMBIGUITY_TH  = 4    # 0/8混同: この距離差以内なら輝度で判別
-_DIGIT_68_AMBIGUITY_TH = 10 # 6/8混同: 互いの距離差がこれ以内なら輝度で判別
-_DIGIT_68_MIN_DIST   = 8    # 6/8混同: ベスト距離がこれ未満なら確信度高とみなし輝度チェックをスキップ
+_DIGIT_68_AMBIGUITY_TH = 14 # 6/8混同: 互いの距離差がこれ以内なら輝度で判別
+_DIGIT_68_MIN_DIST   = 2    # 6/8混同: ベスト距離がこれ未満なら確信度高とみなし輝度チェックをスキップ
 _DIGIT_CENTER_TH     = 80   # 0/8判別: 中央輝度がこれ以上なら '8'、未満なら '0'
-_DIGIT_68_TR_TH      = 155  # 6/8判別: 右上輝度がこれ以上なら '8'、未満なら '6'
-                             # select: 6≈69, 8≈178 / result_small: 6≈137, 8≈173
+_DIGIT_68_TR_TH      = 185  # 6/8判別: 右上輝度がこれ以上なら '8'、未満なら '6'
+                             # 実測例: 6(EXH背景)≈164, 8(MXM背景)≈196
 
 # ─── ランプ判別パラメータ ────────────────────────────────────────────────────
 _SELECT_LAMP_SAT_TH = 0.25  # 選曲画面 exc/maxxive 判別: 彩度がこれ以上なら exc (紫), 未満なら maxxive (白)
@@ -78,6 +78,12 @@ class ScreenReader:
         self._orientation = orientation  # None = 自動検出
         self._img: Image.Image | None = None  # 回転補正済み画像
         self._fail_count = 0             # 連続認識失敗カウント
+
+    @property
+    def corrected_screen(self) -> 'Image.Image | None':
+        """回転補正・黒帯除去済みの画像 (1080×1920) を返す。
+        save_image() などで正立した画像を保存するために使う。"""
+        return self._img
 
     # ─── 画像更新・向き検出 ────────────────────────────────────────────────────
 
@@ -281,8 +287,18 @@ class ScreenReader:
         if (best_k in (6, 8)
                 and dists[best_k] >= _DIGIT_68_MIN_DIST
                 and abs(dists.get(6, 99) - dists.get(8, 99)) <= _DIGIT_68_AMBIGUITY_TH):
-            bri = ScreenReader._sample_brightness(img, rect, 0.2, 0.75)
-            return '8' if bri > _DIGIT_68_TR_TH else '6'
+            # 文字の骨格があるはずの地点の平均輝度を基準にする
+            tr  = ScreenReader._sample_brightness(img, rect, 0.2, 0.8)
+            tl  = ScreenReader._sample_brightness(img, rect, 0.2, 0.2)
+            ml  = ScreenReader._sample_brightness(img, rect, 0.5, 0.2)
+            ctr = ScreenReader._sample_brightness(img, rect, 0.5, 0.5)
+            base_bri = (tl + ml + ctr) / 3
+
+            # 8判定の条件:
+            # 1. 右上が絶対的に明るい (従来の判定)
+            # 2. あるいは、文字の他の部分 (左・中央) と比較して同等以上の明るさである
+            is_8 = (tr > _DIGIT_68_TR_TH) or (tr > base_bri * 0.9 and tr > 150)
+            return '8' if is_8 else '6'
         if dists[best_k] > threshold:
             return '?'
         return str(best_k)
@@ -447,22 +463,19 @@ class ScreenReader:
         """選曲画面の難易度タブから現在選択されている難易度を判定する。
         NOV/ADV/EXH タブを HASH_DIFFICULTY と比較し、一致しなければ APPEND (MXM) とみなす。
         """
-        checks = [
-            (RECT_SELECT_NOV, HASH_DIFFICULTY.get('nov'), difficulty.novice),
-            (RECT_SELECT_ADV, HASH_DIFFICULTY.get('adv'), difficulty.advanced),
-            (RECT_SELECT_EXH, HASH_DIFFICULTY.get('exh'), difficulty.exhaust),
-        ]
-        min_dist = 10
-        result = difficulty.maximum  # どれも一致しなければ APPEND/MXM
-        for rect, tmpl, diff in checks:
-            if tmpl is None:
-                continue
-            h = imagehash.average_hash(img.crop(rect))
-            d = abs(tmpl - h)
-            if d < min_dist:
-                min_dist = d
-                result = diff
-        return result
+        sum_nov = np.array(img.crop(RECT_SELECT_NOV)).sum()
+        sum_adv = np.array(img.crop(RECT_SELECT_ADV)).sum()
+        sum_exh = np.array(img.crop(RECT_SELECT_EXH)).sum()
+        sum_append = np.array(img.crop(RECT_SELECT_APPEND)).sum()
+        max_sum = max(sum_nov, sum_adv, sum_exh, sum_append)
+        if max_sum == sum_nov:
+            return difficulty.novice
+        elif max_sum == sum_adv:
+            return difficulty.advanced
+        elif max_sum == sum_exh:
+            return difficulty.exhaust
+        else:
+            return difficulty.maximum
 
     def _read_difficulty_from_detect(self, img: Image.Image) -> difficulty:
         """detect画面（楽曲情報）の難易度バッジから難易度を判定する。

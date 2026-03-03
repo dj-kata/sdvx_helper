@@ -68,6 +68,8 @@ class OBSWebSocketManager(QObject):
         self.monitor_thread: Optional[threading.Thread] = None
         self.monitor_running = False
         self.stop_event = threading.Event()
+        # screenshot() 失敗の連続回数（切断検出用）
+        self._screenshot_failures = 0
         
         # 画面サイズ設定
         self.picw = 1920
@@ -211,19 +213,11 @@ class OBSWebSocketManager(QObject):
                 
                 # 接続状態チェック
                 if self.is_connected and self.client:
-                    # 接続中の場合、pingして確認
-                    try:
-                        self.client.get_version()
-                        consecutive_failures = 0  # 成功したらカウンタリセット
-                        
-                    except Exception as e:
-                        # 接続が切れた
-                        logger.warning(f"OBS connection lost: {e}")
-                        self.is_connected = False
-                        self.client = None
-                        self._emit_status(self.ui.obs.status_lost, False)
-                        consecutive_failures += 1
-                
+                    # 接続中は何もしない。
+                    # 切断検出はメインスレッドの screenshot() 失敗が担う
+                    # （モニタースレッドと self.client を同時使用する race condition を避けるため）
+                    consecutive_failures = 0
+
                 else:
                     # 未接続の場合、自動再接続を試みる
                     if self.auto_reconnect:
@@ -418,10 +412,28 @@ class OBSWebSocketManager(QObject):
         try:
             if self.save_screenshot_dst(self.config.monitor_source_name, dst):
                 self.screen = Image.open(dst).convert('RGB')
+                self._screenshot_failures = 0  # 成功: カウンタリセット
             else:
+                self._on_screenshot_failed()
                 self.screen = None
         except Exception:
+            self._on_screenshot_failed()
             self.screen = None
+
+    def _on_screenshot_failed(self):
+        """screenshot() 失敗を記録し、連続3回で切断と判定してモニタースレッドに通知する。
+        メインスレッドからのみ呼ばれる前提（モニタースレッドとの self.client 競合を排除）。
+        """
+        if not self.is_connected:
+            return
+        self._screenshot_failures += 1
+        if self._screenshot_failures >= 3:
+            logger.warning(f"OBS connection lost (screenshot failed {self._screenshot_failures} times)")
+            self._screenshot_failures = 0
+            self.is_connected = False
+            self.client = None
+            if self.ui:
+                self._emit_status(self.ui.obs.status_lost, False)
     
     @_require_connection
     def save_screenshot_dst(self, source: str, dst: str, disable_wh:bool=False) -> bool:

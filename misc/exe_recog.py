@@ -29,9 +29,13 @@ if __name__ == '__main__':
         img = Image.open(f)
         sr.update_screen(img)
         result = sr.read_from_select()
-        print(f, result)
+        print(f"{f} - {result['title']}({result['difficulty']}), sc:{result['score']}, ex:{result['exscore']}, lamp:{result['lamp']}")
 
-    for f in glob.glob('debug/result/*png'):
-        read_result(f)
-    # for f in glob.glob('debug/select/*png'):
-        # read_select(f)
+    # for f in glob.glob('debug/result/*png'):
+        # read_result(f)
+    for f in glob.glob('debug/select/*png'):
+        read_select(f)
+    for f in glob.glob('debug/select2/*png'):
+        read_select(f)
+    # for f in glob.glob('debug/select/exh_996*png'):
+    #     read_select(f)

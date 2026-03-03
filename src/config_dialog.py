@@ -8,7 +8,7 @@ import pickle
 import traceback
 import os
 
-from PySide6.QtCore import Signal, QThread, QUrl
+from PySide6.QtCore import Signal, QThread, QUrl, Qt
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QLineEdit, QSpinBox, QCheckBox, QPushButton,
                                QGroupBox, QFileDialog, QTabWidget, QWidget,
@@ -226,7 +226,9 @@ class ConfigDialog(QDialog):
         self.init_ui()
         self.load_config_values()
         if rival_manager is not None:
-            rival_manager.rivals_loaded.connect(self._update_rival_status)
+            rival_manager.rivals_loaded.connect(
+                self._update_rival_status, Qt.QueuedConnection
+            )
 
     def init_ui(self):
         """UI初期化"""

@@ -3,11 +3,13 @@ https://sh-portal.maya2silence.com との通信を管理する。
 """
 from __future__ import annotations
 
+import bz2
 import datetime
 import hashlib
 import hmac
 import importlib.util
 import os
+import pickle
 import sys
 import traceback
 from typing import TYPE_CHECKING, Optional
@@ -101,6 +103,8 @@ _LAMP_PRIORITY = ['PLAYED', 'COMP', 'EX_COMP', 'MAX_COMP', 'UC', 'PUC']
 class PortalManager:
     """SDVX Helper Portal との連携を担当するクラス。"""
 
+    MASTER_CACHE_PATH = os.path.join('out', 'portal_master.sdvxh')
+
     def __init__(self, token: str = ''):
         self.token = token
         self.master_db: list = []
@@ -109,6 +113,29 @@ class PortalManager:
             logger.info('PortalManager initialized (HMAC key OK)')
         else:
             logger.warning('PortalManager initialized (HMAC key NOT found)')
+
+    # ── キャッシュ ────────────────────────────────────────────────────────────
+
+    def load_cache(self):
+        """起動時に楽曲マスタキャッシュを読み込む。失敗時は無視する。"""
+        try:
+            with bz2.BZ2File(self.MASTER_CACHE_PATH, 'rb') as f:
+                self.master_db = pickle.load(f)
+            logger.info(f'Portal楽曲マスタキャッシュ読み込み完了: {len(self.master_db)} 曲')
+        except FileNotFoundError:
+            logger.debug('Portal楽曲マスタキャッシュが見つかりません')
+        except Exception:
+            logger.warning(f'Portal楽曲マスタキャッシュ読み込み失敗:\n{traceback.format_exc()}')
+
+    def _save_cache(self):
+        """楽曲マスタをキャッシュファイルに保存する。"""
+        try:
+            os.makedirs('out', exist_ok=True)
+            with bz2.BZ2File(self.MASTER_CACHE_PATH, 'wb', compresslevel=1) as f:
+                pickle.dump(self.master_db, f)
+            logger.info('Portal楽曲マスタキャッシュ保存完了')
+        except Exception:
+            logger.error(f'Portal楽曲マスタキャッシュ保存失敗:\n{traceback.format_exc()}')
 
     def _get_mng(self) -> ManageUploadedScores:
         """ManageUploadedScores のキャッシュインスタンスを返す（初回のみロード）。"""
@@ -154,6 +181,7 @@ class PortalManager:
             r.raise_for_status()
             self.master_db = r.json().get('musics', [])
             logger.info(f'楽曲マスタ受信完了: {len(self.master_db)} 曲')
+            self._save_cache()
             return True
         except Exception:
             logger.error(f'楽曲マスタ受信失敗:\n{traceback.format_exc()}')
@@ -308,8 +336,10 @@ class PortalManager:
             logger.info('トークン未設定のためスキップ')
             return None
         if not self.master_db:
-            logger.warning('楽曲マスタが未取得のためスキップ')
-            return None
+            logger.info('楽曲マスタ未取得のため取得を試みます...')
+            if not self.get_musiclist() or not self.master_db:
+                logger.warning('楽曲マスタ取得失敗のためスキップ')
+                return None
 
         # ── 送信対象リザルトを収集 ──────────────────────────────────────────
         if upload_all:

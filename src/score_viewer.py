@@ -280,7 +280,11 @@ class ScoreViewer(QMainWindow):
         self._init_ui()
         self._restore_filter_state()
         if rival_manager is not None:
-            rival_manager.rivals_loaded.connect(self._on_rivals_loaded)
+            # QueuedConnection を明示: RivalFetchWorker (QThread) からの emit が
+            # バックグラウンドスレッドで UI 操作を行わないよう保証する
+            rival_manager.rivals_loaded.connect(
+                self._on_rivals_loaded, Qt.QueuedConnection
+            )
         self.refresh_data()
 
     # ── UI構築 ────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Dict, List, Tuple, Optional
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal, Qt
 
 from src.classes import clear_lamp
 from src.funcs import convert_lamp, convert_difficulty
@@ -102,8 +102,6 @@ class RivalFetchWorker(QThread):
             self.finished.emit(list(results_by_name.values()))
         except Exception:
             logger.error(traceback.format_exc())
-        finally:
-            self.finished.disconnect()
 
     # ── CSV 取得 ──────────────────────────────────────────────────────────────
 
@@ -293,7 +291,11 @@ class RivalManager(QObject):
             self._worker.wait(2000)
 
         self._worker = RivalFetchWorker(rival_configs, portal_fetch_fn=portal_fetch_fn)
-        self._worker.finished.connect(self._on_fetch_finished)
+        # QThread.run() 内の emit は QThread のスレッドアフィニティ(=メインスレッド)と
+        # 同じに見えるため AutoConnection では DirectConnection になり、UI 操作がバック
+        # グラウンドスレッドで実行される。QueuedConnection を明示してメインスレッドに
+        # デリバリーされるよう強制する。
+        self._worker.finished.connect(self._on_fetch_finished, Qt.QueuedConnection)
         self._worker.start()
 
     def _on_fetch_finished(self, results: List[RivalData]):
