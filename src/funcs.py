@@ -95,18 +95,23 @@ def get_grade_coef(score: int) -> float:
 # ─── ランプ変換 ───────────────────────────────────────────────────────────────
 
 _LAMP_MAP = {
-    'NO PLAY':  clear_lamp.noplay,
-    'PLAYED':   clear_lamp.played,
-    'FAILED':   clear_lamp.played,   # CSV旧形式
-    'CLEAR':    clear_lamp.clear,
-    'COMP':     clear_lamp.clear,    # portal/CSV旧形式
-    'EXC-COMP': clear_lamp.exc,
-    'EX_COMP':  clear_lamp.exc,      # portal形式
-    'EXC':      clear_lamp.exc,      # CSV旧形式
-    'MAXXIVE':  clear_lamp.maxxive,
-    'MAX_COMP': clear_lamp.maxxive,  # portal形式
-    'UC':       clear_lamp.uc,
-    'PUC':      clear_lamp.puc,
+    'NO PLAY':            clear_lamp.noplay,
+    'PLAYED':             clear_lamp.played,
+    'FAILED':             clear_lamp.played,   # CSV旧形式
+    'CLEAR':              clear_lamp.clear,
+    'COMP':               clear_lamp.clear,    # portal/CSV旧形式
+    'COMPLETE':           clear_lamp.clear,    # アーケードCSV
+    'EXC-COMP':           clear_lamp.exc,
+    'EX_COMP':            clear_lamp.exc,      # portal形式
+    'EXC':                clear_lamp.exc,      # CSV旧形式
+    'EXCESSIVE COMPLETE': clear_lamp.exc,      # アーケードCSV
+    'MAXXIVE':            clear_lamp.maxxive,
+    'MAXXIVE COMPLETE':   clear_lamp.maxxive,  # アーケードCSV
+    'MAX_COMP':           clear_lamp.maxxive,  # portal形式
+    'UC':                 clear_lamp.uc,
+    'ULTIMATE CHAIN':     clear_lamp.uc,       # アーケードCSV
+    'PUC':                clear_lamp.puc,
+    'PERFECT':            clear_lamp.puc,      # アーケードCSV
 }
 
 
@@ -118,15 +123,19 @@ def convert_lamp(lamp_str: str) -> clear_lamp:
 # ─── 難易度変換 ───────────────────────────────────────────────────────────────
 
 _DIFFICULTY_MAP = {
-    'NOV': difficulty.novice,
-    'ADV': difficulty.advanced,
-    'EXH': difficulty.exhaust,
-    'MXM': difficulty.maximum,
-    'INF': difficulty.maximum,
-    'GRV': difficulty.maximum,
-    'HVN': difficulty.maximum,
-    'VVD': difficulty.maximum,
-    'XCD': difficulty.maximum,
+    'NOV':      difficulty.novice,
+    'NOVICE':   difficulty.novice,    # アーケードCSV
+    'ADV':      difficulty.advanced,
+    'ADVANCED': difficulty.advanced,  # アーケードCSV
+    'EXH':      difficulty.exhaust,
+    'EXHAUST':  difficulty.exhaust,   # アーケードCSV
+    'MXM':      difficulty.maximum,
+    'MAXIMUM':  difficulty.maximum,   # アーケードCSV
+    'INF':      difficulty.maximum,
+    'GRV':      difficulty.maximum,
+    'HVN':      difficulty.maximum,
+    'VVD':      difficulty.maximum,
+    'XCD':      difficulty.maximum,
 }
 
 

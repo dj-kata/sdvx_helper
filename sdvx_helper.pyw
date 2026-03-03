@@ -381,6 +381,10 @@ class MainWindow(MainWindowUI):
         self.current_title = title
         self.current_diff  = diff
 
+        # スコアビューワが開いていれば編集パネルを更新
+        if self.score_viewer is not None and self.score_viewer.isVisible():
+            self.score_viewer.update_select_data(title, diff, score, None, lamp)
+
         result = OneResult(
             title=title,
             difficulty=diff,

@@ -17,12 +17,12 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QLineEdit, QLabel, QGroupBox,
-    QPushButton, QMessageBox, QComboBox,
+    QPushButton, QMessageBox, QComboBox, QListWidget,
 )
-from PySide6.QtCore import Qt, QByteArray, QThread, QObject, Signal
+from PySide6.QtCore import Qt, QByteArray, QObject, Signal, QTimer
 from PySide6.QtGui import QColor, QBrush, QPainter
 
-from src.result import OneBestData
+from src.result import OneBestData, OneResult
 from src.result_database import ResultDatabase
 from src.rival_data import RivalManager, RivalScoreEntry
 from src.classes import difficulty, clear_lamp, detect_mode
@@ -130,22 +130,23 @@ _GRADE_ORDER: dict[str, int] = {
 
 
 class _PortalDeleteWorker(QObject):
-    """portal削除をバックグラウンドスレッドで実行するワーカー"""
+    """portal削除をバックグラウンドスレッドで実行するワーカー。
+
+    QThread + moveToThread は started→run の接続タイミング問題で
+    done シグナルが届かないケースがあるため、Python の threading.Thread を使う。
+    self は main thread に留まるため done → スロット接続はキュー接続で確実に届く。
+    """
     done = Signal(object)  # requests.Response | None
 
-    def __init__(self, portal_manager, revision: int, music_id: str, cdiff: str):
-        super().__init__()
-        self._pm     = portal_manager
-        self._rev    = revision
-        self._mid    = music_id
-        self._cdiff  = cdiff
-
-    def run(self):
-        try:
-            res = self._pm.delete_score(self._rev, self._mid, self._cdiff)
-        except Exception:
-            res = None
-        self.done.emit(res)
+    def start(self, portal_manager, revision: int, music_id: str, cdiff: str):
+        import threading
+        def _task():
+            try:
+                res = portal_manager.delete_score(revision, music_id, cdiff)
+            except Exception:
+                res = None
+            self.done.emit(res)
+        threading.Thread(target=_task, daemon=True).start()
 
 
 class _WinLossBar(QWidget):
@@ -264,8 +265,13 @@ class ScoreViewer(QMainWindow):
         # スコアテーブルのソート状態（デフォルト: VF降順）
         self._sort_col   = self._COL_VF
         self._sort_order = Qt.DescendingOrder
-        # portal削除スレッド管理
-        self._delete_thread: QThread | None = None
+        # 編集パネル用
+        self._edit_data: dict = {}
+        self._edit_autofill_title: str = ''  # 最後に自動補完したタイトル
+        self._last_auto_registered: tuple | None = None
+        self._all_titles: list[str] = []
+        # portal削除ワーカー管理
+        self._delete_worker: _PortalDeleteWorker | None = None
         self._pending_delete_entry = None
 
         self.setWindowTitle("Score Viewer - SDVX Helper")
@@ -298,6 +304,12 @@ class ScoreViewer(QMainWindow):
         top_h.addWidget(self._make_right_panel(), stretch=1)
 
         root.addWidget(top)
+
+        # ── 入力補助パネル（編集モード時のみ表示） ──
+        self._edit_panel = self._make_edit_panel()
+        self._edit_panel.setVisible(False)
+        self._edit_mode_cb.stateChanged.connect(self._on_edit_mode_toggled)
+        root.addWidget(self._edit_panel)
 
         # ── 下部: スコアテーブル ──
         self._score_table = QTableWidget()
@@ -413,6 +425,10 @@ class ScoreViewer(QMainWindow):
         self._win_loss_bar = _WinLossBar()
         layout.addWidget(self._win_loss_bar)
 
+        # 編集モード
+        self._edit_mode_cb = QCheckBox("編集モード")
+        layout.addWidget(self._edit_mode_cb)
+
         # 更新ボタン
         refresh_btn = QPushButton("データ更新")
         refresh_btn.clicked.connect(self.refresh_data)
@@ -495,6 +511,72 @@ class ScoreViewer(QMainWindow):
 
         return widget
 
+    def _make_edit_panel(self) -> QGroupBox:
+        """入力補助パネル（編集モード時に表示）"""
+        box = QGroupBox("入力補助")
+        h = QHBoxLayout(box)
+        h.setSpacing(8)
+
+        # ── 認識結果 ──
+        rec_box = QGroupBox("認識結果")
+        rec_v = QVBoxLayout(rec_box)
+        rec_v.setSpacing(3)
+        self._edit_title_label  = QLabel("—")
+        self._edit_title_label.setWordWrap(True)
+        self._edit_diff_label   = QLabel("—")
+        self._edit_score_label  = QLabel("—")
+        self._edit_exscore_label = QLabel("—")
+        self._edit_lamp_label   = QLabel("—")
+        for lbl, widget in [
+            ("曲名:",     self._edit_title_label),
+            ("難易度:",   self._edit_diff_label),
+            ("スコア:",   self._edit_score_label),
+            ("EXスコア:", self._edit_exscore_label),
+            ("ランプ:",   self._edit_lamp_label),
+        ]:
+            row = QHBoxLayout()
+            row.addWidget(QLabel(lbl))
+            row.addWidget(widget, stretch=1)
+            rec_v.addLayout(row)
+        rec_v.addStretch()
+        h.addWidget(rec_box, stretch=2)
+
+        # ── 曲名選択 ──
+        search_box = QGroupBox("曲名選択（認識ミス補正）")
+        search_v = QVBoxLayout(search_box)
+        self._edit_search_edit = QLineEdit()
+        self._edit_search_edit.setPlaceholderText("曲名を検索... (空=認識タイトルを使用)")
+        self._search_debounce_timer = QTimer(self)
+        self._search_debounce_timer.setSingleShot(True)
+        self._search_debounce_timer.timeout.connect(self._do_edit_search)
+        self._edit_search_edit.textChanged.connect(
+            lambda: self._search_debounce_timer.start(300)
+        )
+        search_v.addWidget(self._edit_search_edit)
+        self._edit_candidate_list = QListWidget()
+        self._edit_candidate_list.setMaximumHeight(120)
+        search_v.addWidget(self._edit_candidate_list)
+        h.addWidget(search_box, stretch=3)
+
+        # ── 登録操作 ──
+        op_box = QGroupBox("登録")
+        op_v = QVBoxLayout(op_box)
+        op_v.setSpacing(6)
+        op_v.addWidget(QLabel("ランプ (補正):"))
+        self._edit_lamp_combo = QComboBox()
+        for lp in clear_lamp:
+            self._edit_lamp_combo.addItem(str(lp), lp)
+        op_v.addWidget(self._edit_lamp_combo)
+        self._edit_autoregister_cb = QCheckBox("自動登録")
+        op_v.addWidget(self._edit_autoregister_cb)
+        self._edit_add_btn = QPushButton("追加")
+        self._edit_add_btn.clicked.connect(self._on_edit_add_clicked)
+        op_v.addWidget(self._edit_add_btn)
+        op_v.addStretch()
+        h.addWidget(op_box, stretch=1)
+
+        return box
+
     def _make_portal_panel(self) -> QGroupBox:
         """portal送信済みスコアパネル"""
         box = QGroupBox("portal送信済み")
@@ -541,6 +623,10 @@ class ScoreViewer(QMainWindow):
             if self.portal_manager and self.portal_manager.master_db:
                 self._4th_diff_map = self.portal_manager.get_4th_diff_map()
                 self._tier_map     = self.portal_manager.get_tier_map()
+            # 曲名リストを更新（songDBから全タイトル）
+            self._all_titles = sorted(
+                self.result_database.song_database._songs.keys()
+            )
             self._bests = self.result_database.get_all_best_results()
             self._refresh_rival_combo()
             self._populate_score_table()
@@ -683,16 +769,20 @@ class ScoreViewer(QMainWindow):
 
     def _update_diff_column(self):
         """4th難易度名マップ更新時にDiff列のテキストのみ差し替える（MXM枠対象）"""
-        for row in range(self._score_table.rowCount()):
-            title_item = self._score_table.item(row, self._COL_TITLE)
-            diff_item  = self._score_table.item(row, self._COL_DIFF)
-            if not title_item or not diff_item:
-                continue
-            diff_enum = convert_difficulty(diff_item.text())
-            if diff_enum != difficulty.maximum:
-                continue  # NOV/ADV/EXH は変わらない
-            new_label = self._4th_diff_map.get(title_item.text(), 'MXM')
-            diff_item.setText(new_label)
+        self._score_table.setSortingEnabled(False)
+        try:
+            for row in range(self._score_table.rowCount()):
+                title_item = self._score_table.item(row, self._COL_TITLE)
+                diff_item  = self._score_table.item(row, self._COL_DIFF)
+                if not title_item or not diff_item:
+                    continue
+                diff_enum = convert_difficulty(diff_item.text())
+                if diff_enum != difficulty.maximum:
+                    continue  # NOV/ADV/EXH は変わらない
+                new_label = self._4th_diff_map.get(title_item.text(), 'MXM')
+                diff_item.setText(new_label)
+        finally:
+            self._score_table.setSortingEnabled(True)
 
     def _update_tier_columns(self):
         """ティアマップ更新時に S Tier / P Tier 列のテキストのみ差し替える"""
@@ -701,19 +791,23 @@ class ScoreViewer(QMainWindow):
                 return float(v)
             except (ValueError, TypeError):
                 return -1.0
-        for row in range(self._score_table.rowCount()):
-            title_item = self._score_table.item(row, self._COL_TITLE)
-            diff_item  = self._score_table.item(row, self._COL_DIFF)
-            s_item     = self._score_table.item(row, self._COL_S_TIER)
-            p_item     = self._score_table.item(row, self._COL_P_TIER)
-            if not (title_item and s_item and p_item and diff_item):
-                continue
-            diff_enum = convert_difficulty(diff_item.text())
-            s_tier, p_tier = self._tier_map.get((title_item.text(), diff_enum), ('', ''))
-            s_item.setText(s_tier)
-            s_item.setData(Qt.UserRole, _tier_sort(s_tier))
-            p_item.setText(p_tier)
-            p_item.setData(Qt.UserRole, _tier_sort(p_tier))
+        self._score_table.setSortingEnabled(False)
+        try:
+            for row in range(self._score_table.rowCount()):
+                title_item = self._score_table.item(row, self._COL_TITLE)
+                diff_item  = self._score_table.item(row, self._COL_DIFF)
+                s_item     = self._score_table.item(row, self._COL_S_TIER)
+                p_item     = self._score_table.item(row, self._COL_P_TIER)
+                if not (title_item and s_item and p_item and diff_item):
+                    continue
+                diff_enum = convert_difficulty(diff_item.text())
+                s_tier, p_tier = self._tier_map.get((title_item.text(), diff_enum), ('', ''))
+                s_item.setText(s_tier)
+                s_item.setData(Qt.UserRole, _tier_sort(s_tier))
+                p_item.setText(p_tier)
+                p_item.setData(Qt.UserRole, _tier_sort(p_tier))
+        finally:
+            self._score_table.setSortingEnabled(True)
 
     def _update_rival_panel(self, title: str = None, diff_enum=None):
         """ライバルパネルを更新。選択曲がある場合は全プレーヤーのスコアを表示"""
@@ -1007,6 +1101,14 @@ class ScoreViewer(QMainWindow):
         if reply != QMessageBox.Yes:
             return
 
+        # revision == -1 はリビジョン未記録のエントリ: API コールなしでローカルのみ削除
+        if entry.revision == -1:
+            mng = self.portal_manager._get_mng()
+            mng.delete(entry.revision, entry.music_id, entry.difficulty)
+            mng.save()
+            self._show_portal_uploads(self._selected_title, self._selected_diff)
+            return
+
         if not self.portal_manager or not self.portal_manager.token:
             QMessageBox.warning(self, 'エラー', 'portal トークンが未設定です')
             return
@@ -1016,35 +1118,181 @@ class ScoreViewer(QMainWindow):
         self._portal_del_btn.setEnabled(False)
         self._portal_del_btn.setText("削除中...")
 
-        self._delete_thread = QThread(self)
-        worker = _PortalDeleteWorker(
+        # ワーカーを main thread に置いたまま Python スレッドで非同期実行
+        self._delete_worker = _PortalDeleteWorker(self)
+        self._delete_worker.done.connect(self._on_portal_delete_result)
+        self._delete_worker.start(
             self.portal_manager, entry.revision, entry.music_id, entry.difficulty
         )
-        worker.moveToThread(self._delete_thread)
-        self._delete_thread.started.connect(worker.run)
-        worker.done.connect(self._on_portal_delete_result)
-        worker.done.connect(self._delete_thread.quit)
-        worker.done.connect(worker.deleteLater)
-        self._delete_thread.finished.connect(self._delete_thread.deleteLater)
-        self._delete_thread.start()
 
     def _on_portal_delete_result(self, res):
         """portal削除スレッド完了時のコールバック（メインスレッドで呼ばれる）"""
+        self._delete_worker = None  # ワーカー参照解放
         self._portal_del_btn.setText("選択を削除")
         entry = self._pending_delete_entry
         self._pending_delete_entry = None
 
+        # ローカルからは常に削除済みなのでテーブルを再描画
+        self._show_portal_uploads(self._selected_title, self._selected_diff)
+
         if res is None:
-            QMessageBox.warning(self, 'エラー', 'portal との通信に失敗しました')
-        elif res.status_code == 200:
-            QMessageBox.information(self, '完了',
-                f'Rev.{entry.revision} / {entry.difficulty} をportalから削除しました')
-            self._show_portal_uploads(self._selected_title, self._selected_diff)
-        else:
-            QMessageBox.warning(self, 'エラー',
-                f'portal エラー: {res.status_code}\n{res.text[:200]}')
+            QMessageBox.warning(self, '警告',
+                f'portal との通信に失敗しました。\nローカルの記録は削除しました。')
+        elif res.status_code != 200:
+            QMessageBox.warning(self, '警告',
+                f'portal エラー: {res.status_code}\nローカルの記録は削除しました。\n{res.text[:200]}')
         # 選択状態に応じてボタン有効化
         self._portal_del_btn.setEnabled(bool(self._portal_table.selectedItems()))
+
+    # ── 編集パネル ────────────────────────────────────────────────────────────
+
+    def _on_edit_mode_toggled(self, state: int):
+        self._edit_panel.setVisible(self._edit_mode_cb.isChecked())
+
+    def update_select_data(
+        self,
+        title: str,
+        diff: Optional[difficulty],
+        score: Optional[int],
+        exscore: Optional[int],
+        lamp: Optional[clear_lamp],
+    ):
+        """メインウィンドウから選曲画面の認識データを受け取り、編集パネルを更新する。
+        編集モードが OFF の場合は何もしない。
+        """
+        if not self._edit_mode_cb.isChecked():
+            return
+
+        new_data = {'title': title, 'diff': diff,
+                    'score': score, 'exscore': exscore, 'lamp': lamp}
+        if new_data == self._edit_data:
+            return  # 変化なし: 10Hz 連呼による無駄な UI 更新を防ぐ
+
+        prev_title = self._edit_data.get('title')
+        self._edit_data = new_data
+
+        # 認識結果ラベルを更新
+        self._edit_title_label.setText(title or '(未認識)')
+        self._edit_diff_label.setText(str(diff) if diff is not None else '—')
+        self._edit_score_label.setText(str(score) if score is not None else '—')
+        self._edit_exscore_label.setText(str(exscore) if exscore is not None else '—')
+        self._edit_lamp_label.setText(str(lamp) if lamp is not None else '—')
+
+        # 曲が変わった場合: 検索ボックスをリセットして新タイトルで自動補完
+        # (ユーザーが手動入力した場合はリセットしない)
+        if title:
+            cur_search = self._edit_search_edit.text()
+            if not cur_search or cur_search == self._edit_autofill_title:
+                # 空または前回の自動補完テキストなら上書き
+                self._edit_autofill_title = title
+                self._edit_search_edit.setText(title)
+
+        # ランプコンボを認識ランプに合わせる
+        if lamp is not None:
+            idx = self._edit_lamp_combo.findData(lamp)
+            if idx >= 0:
+                self._edit_lamp_combo.setCurrentIndex(idx)
+
+        # 自動登録チェック
+        if self._edit_autoregister_cb.isChecked():
+            self._try_auto_register()
+
+    def _do_edit_search(self):
+        """曲名検索ボックスの内容で候補リストを絞り込む（デバウンス後に実行）"""
+        text = self._edit_search_edit.text()
+        self._edit_candidate_list.clear()
+        if not text:
+            return
+        lower = text.lower()
+        matches = [t for t in self._all_titles if lower in t.lower()]
+        # 前方一致を上に
+        matches.sort(key=lambda t: (0 if t.lower().startswith(lower) else 1, t))
+        for t in matches[:60]:
+            self._edit_candidate_list.addItem(t)
+
+    def _get_effective_title(self) -> str:
+        """選択リストで選ばれた曲名、なければ認識タイトルを返す"""
+        sel = self._edit_candidate_list.selectedItems()
+        if sel:
+            return sel[0].text()
+        return self._edit_data.get('title') or ''
+
+    def _try_auto_register(self):
+        """自動登録を試みる（同一データの重複登録は防ぐ）"""
+        data  = self._edit_data
+        title = self._get_effective_title()
+        diff  = data.get('diff')
+        score = data.get('score')
+        lamp  = self._edit_lamp_combo.currentData()
+
+        if not title or diff is None or score is None:
+            return
+        if lamp is None or lamp == clear_lamp.noplay:
+            return
+
+        key = (title, diff, score, lamp)
+        if key == self._last_auto_registered:
+            return
+
+        added = self._do_register(title, diff, score, data.get('exscore'), lamp, auto=True)
+        if added:
+            self._last_auto_registered = key
+
+    def _on_edit_add_clicked(self):
+        """追加ボタンがクリックされたとき"""
+        data  = self._edit_data
+        title = self._get_effective_title()
+        diff  = data.get('diff')
+        score = data.get('score')
+        exscore = data.get('exscore')
+        lamp  = self._edit_lamp_combo.currentData()
+
+        if not title:
+            QMessageBox.warning(self, "エラー", "曲名が設定されていません")
+            return
+        if diff is None:
+            QMessageBox.warning(self, "エラー", "難易度が認識されていません")
+            return
+        if score is None:
+            QMessageBox.warning(self, "エラー", "スコアが認識されていません")
+            return
+
+        added = self._do_register(title, diff, score, exscore, lamp)
+        if not added:
+            QMessageBox.information(self, "情報",
+                "スコアに更新がなかったため登録をスキップしました\n"
+                "（現在の自己ベスト以下のスコア・ランプ）")
+
+    def _do_register(
+        self,
+        title: str,
+        diff: difficulty,
+        score: int,
+        exscore: Optional[int],
+        lamp: clear_lamp,
+        auto: bool = False,
+    ) -> bool:
+        """result_database に1件登録して保存・テーブル更新する。"""
+        info  = self.result_database.song_database.get_song_info(title)
+        level = info.get_level(diff) if info else None
+        result = OneResult(
+            title=title,
+            difficulty=diff,
+            lamp=lamp,
+            score=score,
+            exscore=exscore,
+            level=level,
+            detect_mode=detect_mode.select,
+        )
+        added = self.result_database.add(result)
+        if added:
+            self.result_database.save()
+            self.refresh_data()
+            prefix = "自動登録" if auto else "登録"
+            self.statusBar().showMessage(
+                f"{prefix}完了: {title} [{diff}] score:{score} lamp:{lamp}"
+            )
+        return added
 
     def _delete_play(self):
         """選択プレーを削除"""

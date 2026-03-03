@@ -231,13 +231,26 @@ class ResultDatabase:
                 logger.error(f"CSV ファイル読み込み失敗:\n{traceback.format_exc()}")
                 return -1
 
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = reader.fieldnames or []
+        is_arcade = '楽曲名' in fieldnames  # アーケード公式CSVか判定
+
         results = []
-        for row in csv.DictReader(io.StringIO(text)):
-            title     = row.get('title', '').strip()
-            diff_str  = row.get('difficulty', '').strip()
-            lv_str    = row.get('Lv', '').strip()
-            score_str = row.get('score', '').strip()
-            lamp_str  = row.get('lamp', '').strip()
+        for row in reader:
+            if is_arcade:
+                title     = row.get('楽曲名', '').strip()
+                diff_str  = row.get('難易度', '').strip()
+                lv_str    = row.get('楽曲レベル', '').strip()
+                score_str = row.get('ハイスコア', '').strip()
+                lamp_str  = row.get('クリアランク', '').strip()
+                exscore_str = row.get('EXスコア', '').strip()
+            else:
+                title     = row.get('title', '').strip()
+                diff_str  = row.get('difficulty', '').strip()
+                lv_str    = row.get('Lv', '').strip()
+                score_str = row.get('score', '').strip()
+                lamp_str  = row.get('lamp', '').strip()
+                exscore_str = ''
 
             if not title or not score_str:
                 continue
@@ -250,17 +263,31 @@ class ResultDatabase:
             except ValueError:
                 continue
 
-            lv = int(lv_str) if lv_str.isdigit() else None
+            # レベル: アーケードCSVは小数(18.1等)なので整数部を使う
+            try:
+                lv = int(float(lv_str)) if lv_str else None
+            except ValueError:
+                lv = None
             if lv is None:
                 info = self.song_database.get_song_info(title)
                 if info:
                     lv = info.get_level(diff)
+
+            # EXスコア: 0は未記録扱い
+            exscore = None
+            try:
+                ex = int(exscore_str)
+                if ex > 0:
+                    exscore = ex
+            except (ValueError, TypeError):
+                pass
 
             results.append(OneResult(
                 title=title,
                 difficulty=diff,
                 lamp=lamp,
                 score=score,
+                exscore=exscore,
                 level=lv,
                 detect_mode=detect_mode.select,
             ))

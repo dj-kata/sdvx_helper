@@ -104,10 +104,17 @@ class PortalManager:
     def __init__(self, token: str = ''):
         self.token = token
         self.master_db: list = []
+        self._uploaded_scores_mng: Optional[ManageUploadedScores] = None
         if _HMAC_KEY:
             logger.info('PortalManager initialized (HMAC key OK)')
         else:
             logger.warning('PortalManager initialized (HMAC key NOT found)')
+
+    def _get_mng(self) -> ManageUploadedScores:
+        """ManageUploadedScores のキャッシュインスタンスを返す（初回のみロード）。"""
+        if self._uploaded_scores_mng is None:
+            self._uploaded_scores_mng = ManageUploadedScores()
+        return self._uploaded_scores_mng
 
     def update_token(self, token: str):
         self.token = token
@@ -416,7 +423,7 @@ class PortalManager:
                 try:
                     revision = res.json().get('revision', -1)
                     logger.info(f'portal revision: {revision}')
-                    mng = ManageUploadedScores()
+                    mng = self._get_mng()
                     for dat in tmp.values():
                         mng.push(OneUploadedScore(
                             revision=revision,
@@ -446,7 +453,7 @@ class PortalManager:
             return []
         music_id = music.get('music_id')
         cdiff    = chart.get('difficulty')
-        mng = ManageUploadedScores()
+        mng = self._get_mng()
         return [s for s in mng.scores if s.music_id == music_id and s.difficulty == cdiff]
 
     def delete_score(self, revision: int, music_id: str, cdiff: str) -> Optional[object]:
@@ -495,10 +502,11 @@ class PortalManager:
             logger.info(f'portal delete: status={res.status_code}')
             logger.debug(f'portal delete response: {res.text[:200]}')
 
-            if res.status_code == 200:
-                mng = ManageUploadedScores()
-                mng.delete(revision, music_id, cdiff)
-                mng.save()
+            # portal 側にリビジョンがなかった場合も含め、
+            # レスポンスに関わらずローカルの記録は常に削除する
+            mng = self._get_mng()
+            mng.delete(revision, music_id, cdiff)
+            mng.save()
 
             return res
         except Exception:
