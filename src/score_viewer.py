@@ -19,14 +19,14 @@ from PySide6.QtWidgets import (
     QCheckBox, QLineEdit, QLabel, QGroupBox,
     QPushButton, QMessageBox, QComboBox,
 )
-from PySide6.QtCore import Qt, QByteArray
+from PySide6.QtCore import Qt, QByteArray, QThread, QObject, Signal
 from PySide6.QtGui import QColor, QBrush, QPainter
 
 from src.result import OneBestData
 from src.result_database import ResultDatabase
 from src.rival_data import RivalManager, RivalScoreEntry
 from src.classes import difficulty, clear_lamp, detect_mode
-from src.funcs import convert_difficulty
+from src.funcs import convert_difficulty, convert_lamp
 from src.config import Config
 from src.logger import get_logger
 
@@ -129,6 +129,25 @@ _GRADE_ORDER: dict[str, int] = {
 }
 
 
+class _PortalDeleteWorker(QObject):
+    """portal削除をバックグラウンドスレッドで実行するワーカー"""
+    done = Signal(object)  # requests.Response | None
+
+    def __init__(self, portal_manager, revision: int, music_id: str, cdiff: str):
+        super().__init__()
+        self._pm     = portal_manager
+        self._rev    = revision
+        self._mid    = music_id
+        self._cdiff  = cdiff
+
+    def run(self):
+        try:
+            res = self._pm.delete_score(self._rev, self._mid, self._cdiff)
+        except Exception:
+            res = None
+        self.done.emit(res)
+
+
 class _WinLossBar(QWidget):
     """自分 vs ライバル 勝敗バー（比率表示）"""
 
@@ -205,20 +224,23 @@ class ScoreViewer(QMainWindow):
     """SDVX スコアビューワ"""
 
     _COL_LV           = 0
-    _COL_TITLE        = 1
-    _COL_DIFF         = 2
-    _COL_SCORE        = 3
-    _COL_GRADE        = 4
-    _COL_EX           = 5
-    _COL_LAMP         = 6
-    _COL_VF           = 7
-    _COL_DATE         = 8
-    _COL_PLAYS        = 9
-    _COL_RIVAL_SCORE  = 10
-    _COL_RIVAL_LAMP   = 11
-    _COL_SCORE_DIFF   = 12
-    _HEADERS = ['LV', 'Title', 'Diff', 'Score', 'Grade', 'EXScore', 'Lamp', 'VF',
-                'Last Played', 'Plays', 'Rival Score', 'Rival Lamp', 'Score Diff']
+    _COL_S_TIER       = 1
+    _COL_P_TIER       = 2
+    _COL_TITLE        = 3
+    _COL_DIFF         = 4
+    _COL_SCORE        = 5
+    _COL_GRADE        = 6
+    _COL_EX           = 7
+    _COL_LAMP         = 8
+    _COL_VF           = 9
+    _COL_DATE         = 10
+    _COL_PLAYS        = 11
+    _COL_RIVAL_SCORE  = 12
+    _COL_RIVAL_LAMP   = 13
+    _COL_SCORE_DIFF   = 14
+    _HEADERS = ['LV', 'S Tier', 'P Tier', 'Title', 'Diff', 'Score', 'Grade', 'EXScore',
+                'Lamp', 'VF', 'Last Played', 'Plays',
+                'Rival Score', 'Rival Lamp', 'Score Diff']
 
     def __init__(self, config: Config, result_database: ResultDatabase,
                  rival_manager: RivalManager = None,
@@ -237,9 +259,14 @@ class ScoreViewer(QMainWindow):
         self._selected_score: int | None = None
         # title → 4th難易度名 (MXM/INF/GRV/HVN/VVD/XCD)
         self._4th_diff_map: dict[str, str] = {}
+        # (title, difficulty_enum) → (s_tier, p_tier)
+        self._tier_map: dict = {}
         # スコアテーブルのソート状態（デフォルト: VF降順）
         self._sort_col   = self._COL_VF
         self._sort_order = Qt.DescendingOrder
+        # portal削除スレッド管理
+        self._delete_thread: QThread | None = None
+        self._pending_delete_entry = None
 
         self.setWindowTitle("Score Viewer - SDVX Helper")
         self.setMinimumSize(1000, 680)
@@ -281,7 +308,7 @@ class ScoreViewer(QMainWindow):
         hdr.setSectionResizeMode(self._COL_TITLE, QHeaderView.Stretch)
         for col in [self._COL_LV, self._COL_DIFF, self._COL_GRADE,
                     self._COL_LAMP, self._COL_VF, self._COL_PLAYS,
-                    self._COL_SCORE, self._COL_EX,
+                    self._COL_SCORE, self._COL_EX, self._COL_S_TIER, self._COL_P_TIER,
                     self._COL_RIVAL_SCORE, self._COL_RIVAL_LAMP, self._COL_SCORE_DIFF]:
             hdr.setSectionResizeMode(col, QHeaderView.ResizeToContents)
 
@@ -436,6 +463,9 @@ class ScoreViewer(QMainWindow):
 
         h.addWidget(log_box, stretch=3)
 
+        # ── portal送信済み ──
+        h.addWidget(self._make_portal_panel(), stretch=2)
+
         # ── ライバル ──
         rival_box = QGroupBox("ライバル比較")
         rival_v = QVBoxLayout(rival_box)
@@ -465,14 +495,52 @@ class ScoreViewer(QMainWindow):
 
         return widget
 
+    def _make_portal_panel(self) -> QGroupBox:
+        """portal送信済みスコアパネル"""
+        box = QGroupBox("portal送信済み")
+        v = QVBoxLayout(box)
+        v.setSpacing(4)
+
+        self._portal_label = QLabel("譜面を選択するとportal送信履歴が表示されます")
+        self._portal_label.setWordWrap(True)
+        v.addWidget(self._portal_label)
+
+        self._portal_table = QTableWidget()
+        self._portal_table.setColumnCount(5)
+        self._portal_table.setHorizontalHeaderLabels(['Rev', '日時', 'Score', 'EXScore', 'Lamp'])
+        hdr = self._portal_table.horizontalHeader()
+        for col in range(4):
+            hdr.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        hdr.setStretchLastSection(True)
+        self._portal_table.setSortingEnabled(True)
+        self._portal_table.setSelectionBehavior(QTableWidget.SelectRows)
+        self._portal_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self._portal_table.setAlternatingRowColors(True)
+        self._portal_table.setMinimumHeight(120)
+        self._portal_table.itemSelectionChanged.connect(
+            lambda: self._portal_del_btn.setEnabled(bool(self._portal_table.selectedItems()))
+        )
+        v.addWidget(self._portal_table)
+
+        del_row = QHBoxLayout()
+        del_row.addStretch()
+        self._portal_del_btn = QPushButton("選択を削除")
+        self._portal_del_btn.setEnabled(False)
+        self._portal_del_btn.clicked.connect(self._delete_portal_entry)
+        del_row.addWidget(self._portal_del_btn)
+        v.addLayout(del_row)
+
+        return box
+
     # ── データ更新 ────────────────────────────────────────────────────────────
 
     def refresh_data(self):
         """DBからデータを再読み込みして表示を更新"""
         try:
-            # portalマスタがあれば4th難易度名マップを更新
+            # portalマスタがあれば4th難易度名マップ・ティアマップを更新
             if self.portal_manager and self.portal_manager.master_db:
                 self._4th_diff_map = self.portal_manager.get_4th_diff_map()
+                self._tier_map     = self.portal_manager.get_tier_map()
             self._bests = self.result_database.get_all_best_results()
             self._refresh_rival_combo()
             self._populate_score_table()
@@ -525,7 +593,19 @@ class ScoreViewer(QMainWindow):
             it.setForeground(QBrush(QColor(30, 30, 30)))
             return it
 
-        self._score_table.setItem(row, self._COL_LV,    _mk(lv or '', lv))
+        def _tier_sort(v: str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return -1.0
+
+        self._score_table.setItem(row, self._COL_LV, _mk(lv or '', lv))
+
+        # S Tier / P Tier（portal マスタがあれば表示。数字のみ）
+        s_tier, p_tier = self._tier_map.get((best.title, best.difficulty), ('', ''))
+        self._score_table.setItem(row, self._COL_S_TIER, _mk(s_tier, _tier_sort(s_tier)))
+        self._score_table.setItem(row, self._COL_P_TIER, _mk(p_tier, _tier_sort(p_tier)))
+
         self._score_table.setItem(row, self._COL_TITLE,
             _mk(best.title, align=Qt.AlignLeft | Qt.AlignVCenter))
         self._score_table.setItem(row, self._COL_SCORE, _mk(best.best_score, best.best_score))
@@ -584,13 +664,18 @@ class ScoreViewer(QMainWindow):
 
     def _on_rivals_loaded(self):
         """rival_manager の読み込み/フェッチ完了時に呼ばれる"""
-        # 4th難易度名マップを更新し、変化があった場合のみDiff列テキストを差し替える
-        new_map: dict[str, str] = {}
+        # 4th難易度名マップ・ティアマップを更新し、変化があった場合のみ列テキストを差し替える
+        new_diff_map: dict[str, str] = {}
+        new_tier_map: dict = {}
         if self.portal_manager and self.portal_manager.master_db:
-            new_map = self.portal_manager.get_4th_diff_map()
-        if new_map != self._4th_diff_map:
-            self._4th_diff_map = new_map
+            new_diff_map = self.portal_manager.get_4th_diff_map()
+            new_tier_map = self.portal_manager.get_tier_map()
+        if new_diff_map != self._4th_diff_map:
+            self._4th_diff_map = new_diff_map
             self._update_diff_column()
+        if new_tier_map != self._tier_map:
+            self._tier_map = new_tier_map
+            self._update_tier_columns()
         self._refresh_rival_combo()
         self._apply_filter()
         if self._selected_title:
@@ -608,6 +693,27 @@ class ScoreViewer(QMainWindow):
                 continue  # NOV/ADV/EXH は変わらない
             new_label = self._4th_diff_map.get(title_item.text(), 'MXM')
             diff_item.setText(new_label)
+
+    def _update_tier_columns(self):
+        """ティアマップ更新時に S Tier / P Tier 列のテキストのみ差し替える"""
+        def _tier_sort(v: str):
+            try:
+                return float(v)
+            except (ValueError, TypeError):
+                return -1.0
+        for row in range(self._score_table.rowCount()):
+            title_item = self._score_table.item(row, self._COL_TITLE)
+            diff_item  = self._score_table.item(row, self._COL_DIFF)
+            s_item     = self._score_table.item(row, self._COL_S_TIER)
+            p_item     = self._score_table.item(row, self._COL_P_TIER)
+            if not (title_item and s_item and p_item and diff_item):
+                continue
+            diff_enum = convert_difficulty(diff_item.text())
+            s_tier, p_tier = self._tier_map.get((title_item.text(), diff_enum), ('', ''))
+            s_item.setText(s_tier)
+            s_item.setData(Qt.UserRole, _tier_sort(s_tier))
+            p_item.setText(p_tier)
+            p_item.setData(Qt.UserRole, _tier_sort(p_tier))
 
     def _update_rival_panel(self, title: str = None, diff_enum=None):
         """ライバルパネルを更新。選択曲がある場合は全プレーヤーのスコアを表示"""
@@ -779,6 +885,7 @@ class ScoreViewer(QMainWindow):
         self._selected_score = my_score
         self._hist_label.setText(f"プレー履歴: {title}  [{diff_str}]")
         self._show_history(title, diff_enum)
+        self._show_portal_uploads(title, diff_enum)
         self._update_rival_panel(title, diff_enum)
 
     def _show_history(self, title: str, diff: Optional[difficulty]):
@@ -821,6 +928,123 @@ class ScoreViewer(QMainWindow):
         self._hist_table.setSortingEnabled(True)
         self._hist_table.sortByColumn(1, Qt.DescendingOrder)  # Score降順
         self._del_btn.setEnabled(False)
+
+    def _show_portal_uploads(self, title: str, diff_enum):
+        """portal送信済みテーブルを更新"""
+        self._portal_table.setSortingEnabled(False)
+        self._portal_table.clearContents()
+        self._portal_table.setRowCount(0)
+
+        if not self.portal_manager or not self.portal_manager.master_db:
+            self._portal_label.setText(
+                'portal マスタ未受信のため表示できません' if self.portal_manager
+                else 'portal連携が無効です'
+            )
+            return
+
+        entries = self.portal_manager.get_uploaded_scores(title, diff_enum)
+        diff_str = str(diff_enum) if diff_enum else ''
+        self._portal_label.setText(
+            f"portal送信履歴: {title}  [{diff_str}]  ({len(entries)} 件)"
+        )
+
+        def _mk(text, sort_val=None) -> _SortItem:
+            it = _SortItem(str(text))
+            it.setTextAlignment(Qt.AlignCenter)
+            it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+            if sort_val is not None:
+                it.setData(Qt.UserRole, sort_val)
+            return it
+
+        for entry in entries:
+            row = self._portal_table.rowCount()
+            self._portal_table.insertRow(row)
+
+            # Rev列 — エントリ参照を UserRole+1 に格納（ソート後も正しく参照できる）
+            rev_item = _mk(entry.revision, entry.revision)
+            rev_item.setData(Qt.UserRole + 1, entry)
+            self._portal_table.setItem(row, 0, rev_item)
+
+            uploaded_at = getattr(entry, 'uploaded_at', None)
+            date_str  = uploaded_at.strftime('%Y-%m-%d %H:%M') if uploaded_at else '—'
+            date_sort = uploaded_at.timestamp() if uploaded_at else 0
+            self._portal_table.setItem(row, 1, _mk(date_str, date_sort))
+
+            self._portal_table.setItem(row, 2, _mk(entry.score or '', entry.score or 0))
+            ex = entry.exscore if entry.exscore is not None else '—'
+            self._portal_table.setItem(row, 3, _mk(ex, entry.exscore if entry.exscore is not None else -1))
+
+            lamp     = convert_lamp(entry.lamp or '')
+            lamp_bg  = _LAMP_BG.get(lamp, QColor(185, 185, 185))
+            lum      = (lamp_bg.red() * 299 + lamp_bg.green() * 587 + lamp_bg.blue() * 114) // 1000
+            lamp_item = _mk(entry.lamp or '', lamp.value)
+            lamp_item.setBackground(QBrush(lamp_bg))
+            lamp_item.setForeground(QBrush(QColor(20, 20, 20) if lum > 150 else QColor(255, 255, 255)))
+            self._portal_table.setItem(row, 4, lamp_item)
+
+        self._portal_table.setSortingEnabled(True)
+        self._portal_table.sortByColumn(0, Qt.DescendingOrder)  # Rev降順（最新が上）
+        self._portal_del_btn.setEnabled(False)
+
+    def _delete_portal_entry(self):
+        """選択したportal送信済みエントリを削除（バックグラウンドスレッドで通信）"""
+        sel = self._portal_table.selectedItems()
+        if not sel:
+            return
+        row      = self._portal_table.row(sel[0])
+        rev_item = self._portal_table.item(row, 0)
+        entry    = rev_item.data(Qt.UserRole + 1) if rev_item else None
+        if entry is None:
+            return
+
+        reply = QMessageBox.question(
+            self, '確認',
+            f'portal上のこのスコアを削除しますか？\n'
+            f'Rev.{entry.revision}  {entry.music_id}  {entry.difficulty}\n'
+            f'Score: {entry.score}  Lamp: {entry.lamp}',
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        if not self.portal_manager or not self.portal_manager.token:
+            QMessageBox.warning(self, 'エラー', 'portal トークンが未設定です')
+            return
+
+        # 通信中は削除ボタンを無効化してフリーズを防ぐ
+        self._pending_delete_entry = entry
+        self._portal_del_btn.setEnabled(False)
+        self._portal_del_btn.setText("削除中...")
+
+        self._delete_thread = QThread(self)
+        worker = _PortalDeleteWorker(
+            self.portal_manager, entry.revision, entry.music_id, entry.difficulty
+        )
+        worker.moveToThread(self._delete_thread)
+        self._delete_thread.started.connect(worker.run)
+        worker.done.connect(self._on_portal_delete_result)
+        worker.done.connect(self._delete_thread.quit)
+        worker.done.connect(worker.deleteLater)
+        self._delete_thread.finished.connect(self._delete_thread.deleteLater)
+        self._delete_thread.start()
+
+    def _on_portal_delete_result(self, res):
+        """portal削除スレッド完了時のコールバック（メインスレッドで呼ばれる）"""
+        self._portal_del_btn.setText("選択を削除")
+        entry = self._pending_delete_entry
+        self._pending_delete_entry = None
+
+        if res is None:
+            QMessageBox.warning(self, 'エラー', 'portal との通信に失敗しました')
+        elif res.status_code == 200:
+            QMessageBox.information(self, '完了',
+                f'Rev.{entry.revision} / {entry.difficulty} をportalから削除しました')
+            self._show_portal_uploads(self._selected_title, self._selected_diff)
+        else:
+            QMessageBox.warning(self, 'エラー',
+                f'portal エラー: {res.status_code}\n{res.text[:200]}')
+        # 選択状態に応じてボタン有効化
+        self._portal_del_btn.setEnabled(bool(self._portal_table.selectedItems()))
 
     def _delete_play(self):
         """選択プレーを削除"""

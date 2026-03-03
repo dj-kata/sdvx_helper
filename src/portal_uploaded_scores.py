@@ -29,6 +29,7 @@ class OneUploadedScore:
         score: int = None,
         exscore: int = None,
         lamp: str = None,
+        uploaded_at=None,  # datetime.datetime | None
     ):
         self.revision = revision
         self.music_id = music_id
@@ -36,6 +37,7 @@ class OneUploadedScore:
         self.score = score
         self.exscore = exscore
         self.lamp = lamp
+        self.uploaded_at = uploaded_at
 
     def __repr__(self) -> str:
         return (
@@ -64,12 +66,13 @@ class ManageUploadedScores:
         self.scores.append(data)
         return len(self.scores)
 
-    def delete(self, revision: int, music_id: str) -> bool:
+    def delete(self, revision: int, music_id: str, difficulty: str = None) -> bool:
         for i, s in enumerate(self.scores):
             if s.music_id == music_id and s.revision == revision:
-                self.scores.pop(i)
-                logger.info(f'uploaded score deleted (id:{s.music_id}, rev:{s.revision})')
-                return True
+                if difficulty is None or s.difficulty == difficulty:
+                    self.scores.pop(i)
+                    logger.info(f'uploaded score deleted (id:{s.music_id}, diff:{s.difficulty}, rev:{s.revision})')
+                    return True
         return False
 
     def load(self):

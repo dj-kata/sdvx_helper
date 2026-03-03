@@ -228,6 +228,32 @@ class PortalManager:
                     break
         return result
 
+    def get_tier_map(self) -> dict:
+        """(title, difficulty_enum) → (s_tier, p_tier) マップを返す。
+
+        s_tier/p_tier は portal チャートオブジェクトのフィールド値（文字列）。
+        master_db が空の場合は空 dict を返す。
+        """
+        result: dict = {}
+        for music in self.master_db:
+            title = music.get('title', '')
+            if not title:
+                continue
+            for chart in music.get('charts', []):
+                cdiff   = chart.get('difficulty', '')
+                s_tier  = str(chart.get('s_tier') or '').removeprefix('Tier ').strip()
+                p_tier  = str(chart.get('p_tier') or '').removeprefix('Tier ').strip()
+                if cdiff == 'NOV':
+                    d = difficulty.novice
+                elif cdiff == 'ADV':
+                    d = difficulty.advanced
+                elif cdiff == 'EXH':
+                    d = difficulty.exhaust
+                else:
+                    d = difficulty.maximum
+                result[(title, d)] = (s_tier, p_tier)
+        return result
+
     def _find_chart(self, title: str, diff: difficulty):
         """楽曲マスタから指定の譜面を検索。
 
@@ -399,6 +425,7 @@ class PortalManager:
                             score=dat['score'],
                             exscore=dat['exscore'],
                             lamp=dat['lamp'],
+                            uploaded_at=now,
                         ))
                     mng.save()
                 except Exception:
@@ -407,4 +434,73 @@ class PortalManager:
             return res
         except Exception:
             logger.error(f'portal upload 失敗:\n{traceback.format_exc()}')
+            return None
+
+    def get_uploaded_scores(self, title: str, diff: difficulty) -> list:
+        """指定譜面のportal送信済みスコアリストを返す。
+
+        master_db が未取得またはタイトル未発見の場合は空リストを返す。
+        """
+        music, chart = self._find_chart(title, diff)
+        if chart is None:
+            return []
+        music_id = music.get('music_id')
+        cdiff    = chart.get('difficulty')
+        mng = ManageUploadedScores()
+        return [s for s in mng.scores if s.music_id == music_id and s.difficulty == cdiff]
+
+    def delete_score(self, revision: int, music_id: str, cdiff: str) -> Optional[object]:
+        """portal上のスコアを1件削除する。
+
+        成功時は uploaded_score.pkl から該当エントリを除去して保存する。
+
+        Returns:
+            requests.Response or None
+        """
+        if not _REQUESTS_AVAILABLE:
+            logger.warning('requests ライブラリが未インストールのためスキップ')
+            return None
+        if not self.token:
+            logger.info('トークン未設定のためスキップ')
+            return None
+
+        # CSV 生成（v1 互換フォーマット）
+        now = datetime.datetime.now().replace(microsecond=0)
+        lines = [str(revision), f'{music_id},{cdiff},,,,1']
+        payload_str = '\r\n'.join(lines)
+
+        key = _HMAC_KEY or _resolve_hmac_key()
+        if key:
+            checksum = hmac.new(key.encode('utf-8'),
+                                payload_str.encode('utf-8'),
+                                hashlib.sha256).hexdigest()
+        else:
+            checksum = ''
+            logger.warning('HMAC キー未設定のため checksum なしで送信します')
+
+        full_csv = payload_str + '\r\n' + f'{now},1,{checksum}'
+
+        os.makedirs('out', exist_ok=True)
+        csv_path = 'out/portal_modify.csv'
+        with open(csv_path, 'w', encoding='utf-8', newline='') as f:
+            f.write(full_csv)
+
+        try:
+            url   = PORTAL_URL + '/api/v1/import/modify'
+            with open(csv_path, 'rb') as f:
+                file_binary = f.read()
+            files = {'modify': (csv_path, file_binary)}
+            res   = requests.post(url, files=files,
+                                  headers={'X-Auth-Token': self.token}, timeout=5)
+            logger.info(f'portal delete: status={res.status_code}')
+            logger.debug(f'portal delete response: {res.text[:200]}')
+
+            if res.status_code == 200:
+                mng = ManageUploadedScores()
+                mng.delete(revision, music_id, cdiff)
+                mng.save()
+
+            return res
+        except Exception:
+            logger.error(f'portal delete 失敗:\n{traceback.format_exc()}')
             return None

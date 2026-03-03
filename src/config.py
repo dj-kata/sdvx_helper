@@ -75,8 +75,8 @@ class Config:
         """チェック済み難易度の文字列リスト。空=全選択。"""
         self.score_viewer_lv_checks:   list = []
         """チェック済みレベルの整数リスト。空=全選択。"""
-        self.score_viewer_sort_column: int = 7
-        """スコアテーブルのソート列インデックス（7 = VF）"""
+        self.score_viewer_sort_column: int = 9
+        """スコアテーブルのソート列インデックス（9 = VF）"""
         self.score_viewer_sort_order:  int = 1
         """スコアテーブルのソート方向（0 = 昇順, 1 = 降順）"""
 
