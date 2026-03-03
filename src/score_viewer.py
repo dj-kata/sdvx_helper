@@ -20,14 +20,19 @@ from PySide6.QtWidgets import (
     QPushButton, QMessageBox, QComboBox,
 )
 from PySide6.QtCore import Qt, QByteArray
-from PySide6.QtGui import QColor, QBrush
+from PySide6.QtGui import QColor, QBrush, QPainter
 
 from src.result import OneBestData
 from src.result_database import ResultDatabase
 from src.rival_data import RivalManager, RivalScoreEntry
 from src.classes import difficulty, clear_lamp, detect_mode
+from src.funcs import convert_difficulty
 from src.config import Config
 from src.logger import get_logger
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from src.portal_manager import PortalManager
 
 logger = get_logger(__name__)
 
@@ -124,6 +129,68 @@ _GRADE_ORDER: dict[str, int] = {
 }
 
 
+class _WinLossBar(QWidget):
+    """自分 vs ライバル 勝敗バー（比率表示）"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._wins = 0
+        self._losses = 0
+        self._draws = 0
+        self.setFixedHeight(40)
+
+    def set_data(self, wins: int, losses: int, draws: int):
+        self._wins = wins
+        self._losses = losses
+        self._draws = draws
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing, False)
+        w = self.width()
+        bar_h = 22
+
+        total = self._wins + self._losses + self._draws
+        if total == 0:
+            p.fillRect(0, 0, w, bar_h, QColor(220, 220, 220))
+            p.setPen(QColor(120, 120, 120))
+            p.drawText(0, 0, w, bar_h, Qt.AlignCenter, "ライバルを選択してください")
+            p.end()
+            return
+
+        w_w = round(w * self._wins   / total) if self._wins   else 0
+        l_w = round(w * self._losses / total) if self._losses else 0
+        d_w = w - w_w - l_w
+
+        if w_w > 0:
+            p.fillRect(0,         0, w_w, bar_h, QColor(60, 130, 220))
+        if d_w > 0:
+            p.fillRect(w_w,       0, d_w, bar_h, QColor(180, 180, 180))
+        if l_w > 0:
+            p.fillRect(w_w + d_w, 0, l_w, bar_h, QColor(210, 60, 60))
+
+        font = p.font()
+        font.setPixelSize(11)
+        p.setFont(font)
+        if w_w >= 50:
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(0, 0, w_w, bar_h, Qt.AlignCenter, f"自分: {self._wins}")
+        if d_w >= 50:
+            p.setPen(QColor(40, 40, 40))
+            p.drawText(w_w, 0, d_w, bar_h, Qt.AlignCenter, f"引き分け: {self._draws}")
+        if l_w >= 50:
+            p.setPen(QColor(255, 255, 255))
+            p.drawText(w_w + d_w, 0, l_w, bar_h, Qt.AlignCenter, f"ライバル: {self._losses}")
+
+        font.setPixelSize(10)
+        p.setFont(font)
+        p.setPen(QColor(40, 40, 40))
+        p.drawText(0, bar_h, w, self.height() - bar_h, Qt.AlignCenter,
+                   f"自分 {self._wins}  /  引き分け {self._draws}  /  ライバル {self._losses}")
+        p.end()
+
+
 class _SortItem(QTableWidgetItem):
     """数値ソート対応テーブルアイテム"""
     def __lt__(self, other: QTableWidgetItem) -> bool:
@@ -154,17 +221,25 @@ class ScoreViewer(QMainWindow):
                 'Last Played', 'Plays', 'Rival Score', 'Rival Lamp', 'Score Diff']
 
     def __init__(self, config: Config, result_database: ResultDatabase,
-                 rival_manager: RivalManager = None, parent=None):
+                 rival_manager: RivalManager = None,
+                 portal_manager: 'PortalManager' = None,
+                 parent=None):
         super().__init__(parent)
         self.config = config
         self.result_database = result_database
         self.rival_manager = rival_manager
+        self.portal_manager = portal_manager
         self._bests: dict = {}
         self._history_map: dict[int, object] = {}
         self._current_rival: str | None = None
         self._selected_title: str | None = None
         self._selected_diff = None
         self._selected_score: int | None = None
+        # title → 4th難易度名 (MXM/INF/GRV/HVN/VVD/XCD)
+        self._4th_diff_map: dict[str, str] = {}
+        # スコアテーブルのソート状態（デフォルト: VF降順）
+        self._sort_col   = self._COL_VF
+        self._sort_order = Qt.DescendingOrder
 
         self.setWindowTitle("Score Viewer - SDVX Helper")
         self.setMinimumSize(1000, 680)
@@ -219,6 +294,7 @@ class ScoreViewer(QMainWindow):
         self._score_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._score_table.setAlternatingRowColors(True)
         self._score_table.itemSelectionChanged.connect(self._on_score_selected)
+        self._score_table.horizontalHeader().sortIndicatorChanged.connect(self._on_sort_changed)
 
         root.addWidget(self._score_table, stretch=1)
 
@@ -306,6 +382,10 @@ class ScoreViewer(QMainWindow):
         rival_row.addWidget(self._rival_combo)
         layout.addLayout(rival_row)
 
+        # 勝敗バー
+        self._win_loss_bar = _WinLossBar()
+        layout.addWidget(self._win_loss_bar)
+
         # 更新ボタン
         refresh_btn = QPushButton("データ更新")
         refresh_btn.clicked.connect(self.refresh_data)
@@ -390,6 +470,9 @@ class ScoreViewer(QMainWindow):
     def refresh_data(self):
         """DBからデータを再読み込みして表示を更新"""
         try:
+            # portalマスタがあれば4th難易度名マップを更新
+            if self.portal_manager and self.portal_manager.master_db:
+                self._4th_diff_map = self.portal_manager.get_4th_diff_map()
             self._bests = self.result_database.get_all_best_results()
             self._refresh_rival_combo()
             self._populate_score_table()
@@ -420,6 +503,7 @@ class ScoreViewer(QMainWindow):
         for row, best in enumerate(self._bests.values()):
             self._set_score_row(row, best)
         self._score_table.setSortingEnabled(True)
+        self._score_table.sortByColumn(self._sort_col, self._sort_order)
         self._apply_filter()
 
     def _set_score_row(self, row: int, best: OneBestData):
@@ -452,8 +536,10 @@ class ScoreViewer(QMainWindow):
         self._score_table.setItem(row, self._COL_DATE,  _mk(best.last_play_date))
         self._score_table.setItem(row, self._COL_PLAYS, _mk(best.play_count, best.play_count))
 
-        # 難易度テキスト
-        diff_item = _mk(str(diff))
+        # 難易度テキスト（4th枠はportalマスタの実際の名前を使用 MXM/INF/GRV/HVN/VVD/XCD）
+        diff_label = (self._4th_diff_map.get(best.title, str(diff))
+                      if diff == difficulty.maximum else str(diff))
+        diff_item = _mk(diff_label)
         diff_item.setForeground(QBrush(diff_fg))
         self._score_table.setItem(row, self._COL_DIFF, diff_item)
 
@@ -464,6 +550,11 @@ class ScoreViewer(QMainWindow):
         lamp_item.setBackground(QBrush(lamp_bg))
         lamp_item.setForeground(QBrush(lamp_fg))
         self._score_table.setItem(row, self._COL_LAMP, lamp_item)
+
+    def _on_sort_changed(self, col: int, order: Qt.SortOrder):
+        """スコアテーブルのソート変更を記録する"""
+        self._sort_col   = col
+        self._sort_order = order
 
     # ── レベルフィルタ操作 ────────────────────────────────────────────────────
 
@@ -493,11 +584,30 @@ class ScoreViewer(QMainWindow):
 
     def _on_rivals_loaded(self):
         """rival_manager の読み込み/フェッチ完了時に呼ばれる"""
+        # 4th難易度名マップを更新し、変化があった場合のみDiff列テキストを差し替える
+        new_map: dict[str, str] = {}
+        if self.portal_manager and self.portal_manager.master_db:
+            new_map = self.portal_manager.get_4th_diff_map()
+        if new_map != self._4th_diff_map:
+            self._4th_diff_map = new_map
+            self._update_diff_column()
         self._refresh_rival_combo()
-        if self._current_rival:
-            self._apply_filter()
+        self._apply_filter()
         if self._selected_title:
             self._update_rival_panel(self._selected_title, self._selected_diff)
+
+    def _update_diff_column(self):
+        """4th難易度名マップ更新時にDiff列のテキストのみ差し替える（MXM枠対象）"""
+        for row in range(self._score_table.rowCount()):
+            title_item = self._score_table.item(row, self._COL_TITLE)
+            diff_item  = self._score_table.item(row, self._COL_DIFF)
+            if not title_item or not diff_item:
+                continue
+            diff_enum = convert_difficulty(diff_item.text())
+            if diff_enum != difficulty.maximum:
+                continue  # NOV/ADV/EXH は変わらない
+            new_label = self._4th_diff_map.get(title_item.text(), 'MXM')
+            diff_item.setText(new_label)
 
     def _update_rival_panel(self, title: str = None, diff_enum=None):
         """ライバルパネルを更新。選択曲がある場合は全プレーヤーのスコアを表示"""
@@ -584,6 +694,7 @@ class ScoreViewer(QMainWindow):
                 self._rival_table.setItem(row, 4, diff_item)
 
         self._rival_table.setSortingEnabled(True)
+        self._rival_table.sortByColumn(1, Qt.DescendingOrder)  # Score降順
 
     # ── フィルター ────────────────────────────────────────────────────────────
 
@@ -603,6 +714,7 @@ class ScoreViewer(QMainWindow):
                     break
 
         visible = 0
+        win_count = loss_count = draw_count = 0
         for row in range(self._score_table.rowCount()):
             diff_item  = self._score_table.item(row, self._COL_DIFF)
             lv_item    = self._score_table.item(row, self._COL_LV)
@@ -610,7 +722,8 @@ class ScoreViewer(QMainWindow):
             if not (diff_item and lv_item and title_item):
                 continue
             diff_str  = diff_item.text()
-            diff_enum = next((d for d in difficulty if str(d) == diff_str), None)
+            # INF/GRV/HVN/VVD/XCD など4th枠の実名表示にも対応
+            diff_enum = convert_difficulty(diff_str)
             lv        = lv_item.data(Qt.UserRole) or 0
             # lv==0 はレベル不明。全レベル選択時のみ表示する
             lv_hidden    = (lv == 0 and not all_lv) or (lv != 0 and lv not in enabled_lvs)
@@ -619,9 +732,19 @@ class ScoreViewer(QMainWindow):
             if rival_scores:
                 s_item   = self._score_table.item(row, self._COL_SCORE)
                 my_score = (s_item.data(Qt.UserRole) or 0) if s_item else 0
-                entry    = rival_scores.get((title_item.text(), diff_str))
+                # rival_scores のキーは "MXM" に正規化済みなので変換して照合
+                norm_diff = str(diff_enum) if diff_enum else diff_str
+                entry    = rival_scores.get((title_item.text(), norm_diff))
                 r_score  = entry.score if entry else 0
                 rival_hidden = my_score > r_score
+                # diff/lv/search フィルターを通過した行のみ勝敗カウント
+                if not (diff_enum not in enabled_diffs or lv_hidden or search_hidden):
+                    if my_score > r_score:
+                        win_count += 1
+                    elif my_score < r_score:
+                        loss_count += 1
+                    else:
+                        draw_count += 1
             else:
                 rival_hidden = False
             hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or rival_hidden)
@@ -629,6 +752,7 @@ class ScoreViewer(QMainWindow):
             if not hide:
                 visible += 1
 
+        self._win_loss_bar.set_data(win_count, loss_count, draw_count)
         self.statusBar().showMessage(
             f"表示: {visible} 件  |  総VF: {self.result_database.get_total_vf() / 1000:.3f}"
         )
@@ -647,7 +771,7 @@ class ScoreViewer(QMainWindow):
             return
         title     = t_item.text()
         diff_str  = d_item.text()
-        diff_enum = next((d for d in difficulty if str(d) == diff_str), None)
+        diff_enum = convert_difficulty(diff_str)  # INF/GRV/HVN/VVD/XCD → difficulty.maximum
         my_score  = s_item.data(Qt.UserRole) if s_item else None
 
         self._selected_title = title
@@ -695,6 +819,7 @@ class ScoreViewer(QMainWindow):
             self._hist_table.setItem(row, 5, _mk(f"{r.vf / 10:.1f}", r.vf))
 
         self._hist_table.setSortingEnabled(True)
+        self._hist_table.sortByColumn(1, Qt.DescendingOrder)  # Score降順
         self._del_btn.setEnabled(False)
 
     def _delete_play(self):
@@ -726,13 +851,12 @@ class ScoreViewer(QMainWindow):
 
     def _reselect_song(self, title: str, diff_enum):
         """refresh_data 後にスコアテーブルで同じ曲を再選択し履歴を再表示する"""
-        diff_str = str(diff_enum) if diff_enum is not None else ''
         for row in range(self._score_table.rowCount()):
             if self._score_table.isRowHidden(row):
                 continue
             t = self._score_table.item(row, self._COL_TITLE)
             d = self._score_table.item(row, self._COL_DIFF)
-            if t and d and t.text() == title and d.text() == diff_str:
+            if t and d and t.text() == title and convert_difficulty(d.text()) == diff_enum:
                 self._score_table.selectRow(row)
                 # selectRow が itemSelectionChanged を発火するので履歴更新は自動的に行われる
                 return
@@ -742,16 +866,18 @@ class ScoreViewer(QMainWindow):
     # ── フィルター状態の保存・復元 ────────────────────────────────────────────
 
     def _save_filter_state(self):
-        """難易度・レベルのチェック状態を Config に書き込む"""
+        """難易度・レベルのチェック状態とソート状態を Config に書き込む"""
         self.config.score_viewer_diff_checks = [
             str(d) for d, cb in self._diff_checks.items() if cb.isChecked()
         ]
         self.config.score_viewer_lv_checks = [
             lv for lv, cb in self._lv_checks.items() if cb.isChecked()
         ]
+        self.config.score_viewer_sort_column = self._sort_col
+        self.config.score_viewer_sort_order  = self._sort_order.value
 
     def _restore_filter_state(self):
-        """Config からチェック状態を復元する（_init_ui() の後に呼ぶ）"""
+        """Config からチェック状態とソート状態を復元する（_init_ui() の後に呼ぶ）"""
         saved_diffs = self.config.score_viewer_diff_checks
         if saved_diffs:
             for d, cb in self._diff_checks.items():
@@ -769,6 +895,10 @@ class ScoreViewer(QMainWindow):
             self._lv_all_cb.blockSignals(True)
             self._lv_all_cb.setChecked(all_checked)
             self._lv_all_cb.blockSignals(False)
+
+        # ソート状態を復元
+        self._sort_col   = self.config.score_viewer_sort_column
+        self._sort_order = Qt.SortOrder(self.config.score_viewer_sort_order)
 
     # ── ウィンドウ管理 ────────────────────────────────────────────────────────
 

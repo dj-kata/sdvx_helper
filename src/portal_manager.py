@@ -211,6 +211,23 @@ class PortalManager:
             logger.error(f'ポータルライバル取得失敗:\n{traceback.format_exc()}')
             return {}
 
+    def get_4th_diff_map(self) -> dict[str, str]:
+        """title → 4th難易度名 (MXM/INF/GRV/HVN/VVD/XCD) のマップを返す。
+
+        master_db が空の場合は空 dict を返す。
+        """
+        result: dict[str, str] = {}
+        for music in self.master_db:
+            title = music.get('title', '')
+            if not title:
+                continue
+            for chart in music.get('charts', []):
+                cdiff = chart.get('difficulty', '')
+                if cdiff not in ('NOV', 'ADV', 'EXH'):
+                    result[title] = cdiff
+                    break
+        return result
+
     def _find_chart(self, title: str, diff: difficulty):
         """楽曲マスタから指定の譜面を検索。
 

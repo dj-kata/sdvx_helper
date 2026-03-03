@@ -265,7 +265,8 @@ class MainWindow(MainWindowUI):
             return
         self.score_viewer = ScoreViewer(
             self.config, self.result_database,
-            rival_manager=self.rival_manager, parent=self
+            rival_manager=self.rival_manager,
+            portal_manager=self.portal_manager,
         )
         self.score_viewer.show()
 
