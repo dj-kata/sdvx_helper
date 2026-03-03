@@ -248,7 +248,10 @@ class MainWindow(MainWindowUI):
         """設定ダイアログを開く"""
         dialog = ConfigDialog(self.config, self.result_database,
                               rival_manager=self.rival_manager,
-                              portal_manager=self.portal_manager, parent=self)
+                              portal_manager=self.portal_manager,
+                              screen_reader=self.screen_reader, parent=self)
+        dialog.result_images_import_requested.connect(self._on_result_images_imported)
+        dialog.import_finished.connect(self._on_any_data_imported)
         if dialog.exec():
             self._apply_config_changes()
             # トークンが更新された場合は楽曲マスタを再取得
@@ -275,6 +278,16 @@ class MainWindow(MainWindowUI):
             portal_manager=self.portal_manager,
         )
         self.score_viewer.show()
+
+    def _on_result_images_imported(self):
+        """画像インポート完了時の処理"""
+        if self.score_viewer is not None and self.score_viewer.isVisible():
+            self.score_viewer.refresh_data()
+
+    def _on_any_data_imported(self):
+        """何らかのデータ（alllog / images）がインポートされた際の処理"""
+        if self.score_viewer is not None and self.score_viewer.isVisible():
+            self.score_viewer.refresh_data()
 
     def _apply_config_changes(self):
         """設定変更を全モジュールに反映"""
@@ -542,6 +555,7 @@ class MainWindow(MainWindowUI):
         self._execute_obs_triggers('app_end')
         self.remove_global_hotkeys()
         self.obs_manager.disconnect()
+        self.rival_manager.shutdown()
         self.result_database.shutdown()
         self.save_window_geometry()
 
@@ -550,9 +564,8 @@ class MainWindow(MainWindowUI):
         self.result_database.write_best_csv(csv_path=csv_path)
 
         # Portal: 今日のプレーログをバックグラウンドで送信（最大15秒待機）
-        # upload_scores 内で master_db が空の場合は自動取得する。
-        # daemon=False で Python 終了前に必ず完了させる（join timeout=15 で上限を設定）。
-        if self.config.portal_token:
+        # 起動直後などでプレー回数が 0 の場合はスキップして高速終了
+        if self.config.portal_token and (self.play_count > 0 or self.result_database.get_today_results(self.start_time_with_offset)):
             import threading
             total_vf = self.result_database.get_total_vf()
             def _upload():

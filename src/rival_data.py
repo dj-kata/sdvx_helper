@@ -20,6 +20,7 @@ from PySide6.QtCore import QObject, QThread, Signal, Qt
 from src.classes import clear_lamp
 from src.funcs import convert_lamp, convert_difficulty
 from src.logger import get_logger
+from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
 
@@ -66,7 +67,8 @@ class RivalFetchWorker(QThread):
 
     def cancel(self):
         self._is_cancelled = True
-        self.wait()
+        # wait() は QThread 内でブロックされる可能性があるため、
+        # ここではフラグを立てるのみに留め、呼び出し側で wait(timeout) する。
 
     def run(self):
         try:
@@ -261,10 +263,17 @@ class RivalManager(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.db = SQLiteDatabase()  # デフォルトパス sdvx_helper.db
         self.rivals:            List[RivalData]         = []
         self._worker:           Optional[RivalFetchWorker] = None
         self.last_fetch_time:   Optional[str]           = None
-        self._save_lock         = threading.Lock()
+
+    def shutdown(self):
+        """アプリ終了時のクリーンアップ"""
+        if self._worker and self._worker.isRunning():
+            logger.info("ライバル取得スレッドをキャンセル中...")
+            self._worker.cancel()
+            self._worker.wait(1000) # 1秒だけ待つ
 
     # ── キャッシュ ────────────────────────────────────────────────────────
 
@@ -272,49 +281,69 @@ class RivalManager(QObject):
     _PORTAL_ID_PATTERN = re.compile(r'^rival_\d+$')
 
     def load_cache(self):
-        """起動時にキャッシュを読み込んで即座に反映する。
-        portal内部IDが名前になっている古いキャッシュは無視してフェッチを促す。
-        """
+        """SQLite からライバルデータを読み込む。初回は旧キャッシュからの移行。"""
+        # 1. 移行チェック
+        if os.path.exists(self.CACHE_PATH):
+            self._migrate_from_bz2pkl()
+
+        # 2. SQLite から読み込み
+        try:
+            rival_names = [r['rival_name'] for r in self.db.execute("SELECT DISTINCT rival_name FROM rival_scores").fetchall()]
+            new_rivals = []
+            for name in rival_names:
+                rd = RivalData(name)
+                rows = self.db.get_rival_scores(name)
+                for r in rows:
+                    entry = RivalScoreEntry()
+                    entry.lamp = clear_lamp(r['lamp'])
+                    entry.score = r['score']
+                    entry.exscore = r['exscore']
+                    rd.scores[(r['title'], r['difficulty'])] = entry
+                new_rivals.append(rd)
+            
+            self.rivals = new_rivals
+            logger.info(f"ライバルDB読み込み完了 ({len(self.rivals)} 人)")
+            self.rivals_loaded.emit()
+        except Exception as e:
+            logger.error(f"ライバルDBロード失敗: {e}")
+
+    def _migrate_from_bz2pkl(self):
+        """旧 rival_scores.sdvxh (bz2pkl) から SQLite へデータを移行する"""
+        logger.info(f"ライバルキャッシュの移行を開始します: {self.CACHE_PATH}")
         try:
             with bz2.BZ2File(self.CACHE_PATH, 'rb') as f:
-                loaded = pickle.load(f)
-            # 古い形式チェック: portal内部ID (rival_1 など) が名前に含まれていれば破棄
-            if any(self._PORTAL_ID_PATTERN.match(r.name) for r in loaded):
-                logger.info("古いフォーマットのキャッシュを検出。フェッチで上書きします。")
-                return
-            self.rivals = loaded
-            ok = len([r for r in self.rivals if not r.error])
-            logger.info(f"ライバルキャッシュ読み込み完了 ({ok} 人)")
-            self.rivals_loaded.emit()
-        except FileNotFoundError:
-            logger.debug("ライバルキャッシュが見つかりません")
-        except Exception:
-            logger.warning(f"ライバルキャッシュ読み込み失敗:\n{traceback.format_exc()}")
+                old_rivals = pickle.load(f)
+            
+            for rd in old_rivals:
+                for (title, diff_str), entry in rd.scores.items():
+                    self.db.upsert_rival_score(
+                        rd.name, title, diff_str, 
+                        entry.score, entry.lamp.value, entry.exscore
+                    )
+            self.db.commit()
+            
+            backup_path = self.CACHE_PATH + '.bak'
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            os.rename(self.CACHE_PATH, backup_path)
+            logger.info(f"ライバルキャッシュ移行完了: {len(old_rivals)} 人分。")
+        except Exception as e:
+            logger.error(f"ライバルキャッシュ移行失敗: {e}\n{traceback.format_exc()}")
 
     def _save_cache(self):
-        """ライバルデータをキャッシュファイルに保存する（バックグラウンド実行）"""
-        rivals_copy = list(self.rivals)
-
-        def _save():
-            if not self._save_lock.acquire(blocking=True, timeout=5):
-                return
-            try:
-                os.makedirs('out', exist_ok=True)
-                temp_path = self.CACHE_PATH + ".tmp"
-                # compresslevel=1 で高速保存
-                with bz2.BZ2File(temp_path, 'wb', compresslevel=1) as f:
-                    pickle.dump(rivals_copy, f)
-                
-                if os.path.exists(self.CACHE_PATH):
-                    os.remove(self.CACHE_PATH)
-                os.rename(temp_path, self.CACHE_PATH)
-                logger.debug("ライバルキャッシュ保存完了 (bg)")
-            except Exception:
-                logger.error(f"ライバルキャッシュ保存失敗:\n{traceback.format_exc()}")
-            finally:
-                self._save_lock.release()
-
-        threading.Thread(target=_save, daemon=True).start()
+        """SQLite への保存 (逐次 upsert するため、fetch 完了時の一括保存のみ担当)"""
+        try:
+            for rd in self.rivals:
+                if rd.error: continue
+                for (title, diff_str), entry in rd.scores.items():
+                    self.db.upsert_rival_score(
+                        rd.name, title, diff_str,
+                        entry.score, entry.lamp.value, entry.exscore
+                    )
+            self.db.commit()
+            logger.debug("ライバルDB保存完了")
+        except Exception as e:
+            logger.error(f"ライバルDB保存失敗: {e}")
 
     # ── フェッチ ──────────────────────────────────────────────────────────
 

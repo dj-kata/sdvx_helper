@@ -335,13 +335,6 @@ class PortalManager:
         if not self.token:
             logger.info('トークン未設定のためスキップ')
             return None
-        if not self.master_db:
-            logger.info('楽曲マスタ未取得のため取得を試みます...')
-            if not self.get_musiclist() or not self.master_db:
-                logger.warning('楽曲マスタ取得失敗のためスキップ')
-                return None
-
-        # ── 送信対象リザルトを収集 ──────────────────────────────────────────
         if upload_all:
             bests = result_database.get_all_best_results()
             candidates = [
@@ -366,6 +359,12 @@ class PortalManager:
         if not candidates:
             logger.info('送信データなし')
             return None
+
+        if not self.master_db:
+            logger.info('楽曲マスタ未取得のため取得を試みます...')
+            if not self.get_musiclist() or not self.master_db:
+                logger.warning('楽曲マスタ取得失敗のためスキップ')
+                return None
 
         # ── portal 楽曲マスタとマッチング ────────────────────────────────────
         tmp: dict = {}  # key: "music_id___difficulty" → dict

@@ -667,6 +667,51 @@ class ScoreViewer(QMainWindow):
         self._score_table.sortByColumn(self._sort_col, self._sort_order)
         self._apply_filter()
 
+    def _find_song_row(self, title: str, diff: difficulty) -> Optional[int]:
+        """現在のテーブルから曲名と難易度が一致する行インデックスを探す。"""
+        # タイトル列で検索して候補を絞る
+        items = self._score_table.findItems(title, Qt.MatchExactly)
+        for it in items:
+            if it.column() != self._COL_TITLE:
+                continue
+            row = it.row()
+            d_item = self._score_table.item(row, self._COL_DIFF)
+            if d_item and convert_difficulty(d_item.text()) == diff:
+                return row
+        return None
+
+    def _refresh_song_row(self, title: str, diff: difficulty):
+        """特定の譜面の行だけを更新する。"""
+        row = self._find_song_row(title, diff)
+        
+        # ResultDatabase から最新のベスト情報を取得
+        best = self.result_database.get_all_best_results().get((title, diff))
+        
+        # 内部キャッシュを更新
+        if best:
+            self._bests[(title, diff)] = best
+        else:
+            self._bests.pop((title, diff), None)
+
+        if row is None:
+            # 既に表示されているはずなのになければ、全体リフレッシュが必要（新規追加等）
+            self.refresh_data()
+            return
+
+        if best:
+            # ソートを一時停止して更新（setItem による意図しない行移動を防ぐ）
+            was_enabled = self._score_table.isSortingEnabled()
+            self._score_table.setSortingEnabled(False)
+            self.setUpdatesEnabled(False)
+            try:
+                self._set_score_row(row, best)
+            finally:
+                self.setUpdatesEnabled(True)
+                self._score_table.setSortingEnabled(was_enabled)
+        else:
+            # 履歴がなくなったなら行を消す必要がある
+            self.refresh_data()
+
     def _set_score_row(self, row: int, best: OneBestData):
         """スコアテーブルの1行をセット"""
         lv      = best.level or 0
@@ -1301,8 +1346,7 @@ class ScoreViewer(QMainWindow):
         )
         added = self.result_database.add(result)
         if added:
-            self.result_database.save()
-            self.refresh_data()
+            self._refresh_song_row(title, diff)
             prefix = "自動登録" if auto else "登録"
             self.statusBar().showMessage(
                 f"{prefix}完了: {title} [{diff}] score:{score} lamp:{lamp}"
@@ -1324,17 +1368,13 @@ class ScoreViewer(QMainWindow):
             QMessageBox.Yes | QMessageBox.No
         )
         if reply == QMessageBox.Yes:
-            try:
-                self.result_database.results.remove(result)
-                self.result_database.save()
-                # 削除前に選択曲を保存しておき、refresh 後に復元する
+            if self.result_database.delete(result):
+                # 削除後のベスト情報を取得
                 title_to_restore    = self._selected_title
                 diff_to_restore     = self._selected_diff
-                self.refresh_data()
+                self._refresh_song_row(result.title, result.difficulty)
                 if title_to_restore is not None:
                     self._reselect_song(title_to_restore, diff_to_restore)
-            except ValueError:
-                QMessageBox.warning(self, "エラー", "削除に失敗しました")
 
     def _reselect_song(self, title: str, diff_enum):
         """refresh_data 後にスコアテーブルで同じ曲を再選択し履歴を再表示する"""

@@ -18,8 +18,11 @@ from src.result import OneResult, OneBestData
 from src.volforce import calc_total_vf, VF_TOP_N
 from src.songinfo import SongDatabase
 from src.logger import get_logger
+from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
+
+_DB_PATH = 'sdvx_helper.db'
 
 _PLAYLOG_PATH = Path('playlog.sdvxh')
 _RIVAL_PATH   = Path('rival.sdvxh')
@@ -32,11 +35,9 @@ def _ws_broadcast(ws_method_name: str):
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
-            if self.ws_server is None:
-                return
             try:
                 data = func(self, *args, **kwargs)
-                if data is not None:
+                if self.ws_server is not None and data is not None:
                     getattr(self.ws_server, ws_method_name)(data)
             except Exception:
                 logger.error(f"{func.__name__} エラー:\n{traceback.format_exc()}")
@@ -45,28 +46,25 @@ def _ws_broadcast(ws_method_name: str):
 
 
 class ResultDatabase:
-    """全リザルトを保存・検索するクラス。"""
+    """全リザルトを保存・検索するクラス。SQLite3 をバックエンドに使用。"""
 
     def __init__(self, config=None):
         self.song_database = SongDatabase()
-        self.results: List[OneResult] = []
+        self.db = SQLiteDatabase(_DB_PATH)
+        self.results: List[OneResult] = []  # メモリ上のキャッシュ
+        self._bests_cache: Dict[Tuple[str, difficulty], OneBestData] = {}
 
         self.config = config
         self.ws_server = None
         self.ws_loop = None
         self.ws_thread = None
-        # 複数ライバル (旧形式互換): {name: [OneResult, ...]}
-        self.rival_results: dict = {}
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
         
-        self._save_lock = threading.Lock()
-
         if config is not None:
             self._init_websocket_server()
 
         self.load()
-        self.save()
 
     # ─── WebSocket ────────────────────────────────────────────────────────────
 
@@ -93,6 +91,7 @@ class ResultDatabase:
             self.ws_server.stop()
         if self.ws_loop:
             self.ws_loop.call_soon_threadsafe(self.ws_loop.stop)
+        self.db.close()
         logger.info("WebSocketサーバーを停止しました")
 
     # ─── WebSocket 配信 ──────────────────────────────────────────────────────
@@ -111,15 +110,12 @@ class ResultDatabase:
 
     # ─── 登録 ─────────────────────────────────────────────────────────────────
 
-    def add(self, result: OneResult) -> bool:
+    def add(self, result: OneResult, commit: bool = True) -> bool:
         """リザルトを DB に追加する。
 
-        - detect_mode.play / detect_mode.detect は登録しない
-        - score / lamp がない場合は登録しない
-        - 重複チェック（同じ hash）
-        - detect_mode.select は DB に更新がない場合はスキップ
-        - 登録前に DB から pre_best を引いて bestscore/bestexscore を補完する
-
+        Args:
+            result: 登録するリザルト
+            commit: SQLite へ即座に commit するかどうか（大量投入時は False を推奨）
         Returns:
             bool: 実際に登録された場合 True
         """
@@ -147,75 +143,161 @@ class ResultDatabase:
                 logger.info(f"select result skipped (no update): {result}")
                 return False
 
+        # レベル情報が欠損している場合はSongDatabaseから補完
+        if result.level is None:
+            info = self.song_database.get_song_info(result.title)
+            if info:
+                result.level = info.get_level(result.difficulty)
+
+        # SQLite へ保存
+        data = {
+            'title': result.title,
+            'difficulty': result.difficulty.value,
+            'lamp': result.lamp.value,
+            'score': result.score,
+            'exscore': result.exscore,
+            'level': result.level,
+            'timestamp': result.timestamp,
+            'detect_mode': result.detect_mode.value if result.detect_mode else None,
+            'bestscore': result.bestscore,
+            'bestexscore': result.bestexscore
+        }
+        self.db.insert_personal_result(data)
+        if commit:
+            self.db.commit()
+
+        # 追加した行の ID を取得してセット
+        last_id = self.db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        result.id = last_id
+
+        # メモリキャッシュ更新
         self.results.append(result)
-        logger.info(f"result added! len:{len(self.results)} {result}")
+
+        # ベストキャッシュ更新
+        key = (result.title, result.difficulty)
+        if key not in self._bests_cache:
+            self._bests_cache[key] = OneBestData()
+        self._bests_cache[key].update(result)
+
+        logger.debug(f"result added! len:{len(self.results)} {result}")
         return True
+
+    def delete(self, result: OneResult) -> bool:
+        """リザルトを DB とメモリキャッシュから削除する。"""
+        try:
+            row_id = getattr(result, 'id', None)
+            if row_id is not None:
+                self.db.delete_personal_result(row_id)
+                self.db.commit()
+            
+            if result in self.results:
+                self.results.remove(result)
+            
+            # ベストキャッシュ再点検
+            self._refresh_best_cache(result.title, result.difficulty)
+            return True
+        except Exception as e:
+            logger.error(f"削除失敗: {e}")
+            return False
+
+    def _refresh_best_cache(self, title: str, diff: difficulty):
+        """特定の譜面のベスト情報を再集計してキャッシュを更新する。"""
+        results = self.search(title=title, diff=diff)
+        target = [r for r in results
+                  if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        
+        key = (title, diff)
+        if not target:
+            self._bests_cache.pop(key, None)
+            return
+
+        best_data = OneBestData()
+        for r in target:
+            best_data.update(r)
+        self._bests_cache[key] = best_data
+
+    def commit(self):
+        """SQLite の変更を確定する。"""
+        self.db.commit()
 
     # ─── 永続化 ───────────────────────────────────────────────────────────────
 
     def load(self):
-        """保存済みリザルトをロードする。"""
+        """SQLite からリザルトをロードする。初回は playlog.sdvxh からの移行。"""
+        # 1. 移行チェック
+        if os.path.exists(_PLAYLOG_PATH):
+            self._migrate_from_bz2pkl()
+
+        # 2. SQLite から全ロード
+        try:
+            rows = self.db.get_all_personal_results()
+            self.results = []
+            for r in rows:
+                res = OneResult(
+                    title=r['title'],
+                    difficulty=difficulty(r['difficulty']),
+                    lamp=clear_lamp(r['lamp']),
+                    score=r['score'],
+                    exscore=r['exscore'],
+                    level=r['level'],
+                    timestamp=r['timestamp'],
+                    detect_mode=detect_mode(r['detect_mode']) if r['detect_mode'] is not None else None,
+                    bestscore=r['bestscore'],
+                    bestexscore=r['bestexscore']
+                )
+                res.id = r['id']
+                self.results.append(res)
+            
+            # ベストキャッシュの初期構築
+            self._bests_cache = self.get_all_best_results(use_cache=False)
+            logger.info(f"DBロード完了: {len(self.results)} 件 (ベストキャッシュ: {len(self._bests_cache)} 譜面)")
+        except Exception as e:
+            logger.error(f"DBロード失敗: {e}\n{traceback.format_exc()}")
+
+    def _migrate_from_bz2pkl(self):
+        """旧 playlog.sdvxh (bz2pkl) から SQLite へデータを移行する"""
+        logger.info(f"旧データ形式からの移行を開始します: {_PLAYLOG_PATH}")
         try:
             with bz2.BZ2File(_PLAYLOG_PATH, 'rb') as f:
-                self.results = pickle.load(f)
-            logger.info(f"playlog ロード完了: {len(self.results)} 件")
-        except FileNotFoundError:
-            logger.info("playlog が見つかりません。新規作成します。")
-        except Exception:
-            logger.error(f"playlog ロード失敗:\n{traceback.format_exc()}")
+                old_results = pickle.load(f)
+            
+            # トランザクションで一括投入
+            for res in old_results:
+                data = {
+                    'title': res.title,
+                    'difficulty': res.difficulty.value,
+                    'lamp': res.lamp.value,
+                    'score': res.score,
+                    'exscore': res.exscore,
+                    'level': res.level,
+                    'timestamp': res.timestamp,
+                    'detect_mode': res.detect_mode.value if res.detect_mode else None,
+                    'bestscore': res.bestscore,
+                    'bestexscore': res.bestexscore
+                }
+                self.db.insert_personal_result(data)
+            self.db.commit()
+            
+            # 移行済みファイルをリネーム
+            backup_path = _PLAYLOG_PATH.with_suffix('.sdvxh.bak')
+            if os.path.exists(backup_path):
+                os.remove(backup_path)
+            os.rename(_PLAYLOG_PATH, backup_path)
+            logger.info(f"移行完了: {len(old_results)} 件をSQLiteへ。旧ファイルは .bak に退避しました。")
+        except Exception as e:
+            logger.error(f"移行失敗: {e}\n{traceback.format_exc()}")
 
     def save(self):
-        """全リザルトをファイルに保存する（バックグラウンドで実行）。"""
-        results_copy = list(self.results)
-
-        def _save():
-            if not self._save_lock.acquire(blocking=True, timeout=5):
-                logger.warning("save lock 取得タイムアウト (保存スキップ)")
-                return
-            try:
-                temp_path = _PLAYLOG_PATH.with_suffix('.tmp')
-                # compresslevel=1 で高速保存
-                with bz2.BZ2File(temp_path, 'wb', compresslevel=1) as f:
-                    pickle.dump(results_copy, f)
-                
-                # Atomic replace
-                if os.path.exists(_PLAYLOG_PATH):
-                    os.remove(_PLAYLOG_PATH)
-                os.rename(temp_path, _PLAYLOG_PATH)
-                
-                logger.debug(f"playlog 保存完了: {len(results_copy)} 件 (bg)")
-            except Exception:
-                logger.error(f"playlog 保存失敗:\n{traceback.format_exc()}")
-            finally:
-                self._save_lock.release()
-        
-        threading.Thread(target=_save, daemon=True).start()
+        """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""
+        pass
 
     def load_rivals(self):
-        """ライバルデータをロードする。"""
-        try:
-            with bz2.BZ2File(_RIVAL_PATH, 'rb') as f:
-                data = pickle.load(f)
-            # 旧形式 (list) → 新形式 (dict) への移行
-            if isinstance(data, list):
-                self.rival_results = {'rival': data} if data else {}
-            else:
-                self.rival_results = data
-            total = sum(len(v) for v in self.rival_results.values())
-            logger.info(f"rival playlog ロード完了: {len(self.rival_results)} 人 {total} 件")
-        except FileNotFoundError:
-            logger.info("rival playlog が見つかりません。")
-        except Exception:
-            logger.error(f"rival playlog ロード失敗:\n{traceback.format_exc()}")
+        """以前のライバルデータロードロジックを統合 (SQLite化に伴い不要だが互換性のため維持)"""
+        pass
 
     def save_rivals(self):
-        """ライバルデータをファイルに保存する。"""
-        try:
-            # ライバルデータも1で十分
-            with bz2.BZ2File(_RIVAL_PATH, 'wb', compresslevel=1) as f:
-                pickle.dump(self.rival_results, f)
-        except Exception:
-            logger.error(f"rival playlog 保存失敗:\n{traceback.format_exc()}")
+        """以前のライバルデータ保存ロジックを統合 (SQLite化に伴い不要だが互換性のため維持)"""
+        pass
 
     def import_rival_csv(self, name: str, source: str) -> int:
         """指定ライバルのデータをCSVからインポートする（そのライバルの既存データは全て置き換え）。
@@ -389,6 +471,14 @@ class ResultDatabase:
         未プレーの場合は (None, None, clear_lamp.noplay)。
         detect_mode.play / detect は集計対象外。
         """
+        # キャッシュ（OneBestData）があればそれを使う（O(1)）
+        # chart_id しかない場合はキャッシュキーが作れないため検索にフォールバック
+        if title and diff:
+            key = (title, diff)
+            best = self._bests_cache.get(key)
+            if best:
+                return best.best_score, best.best_exscore, best.best_lamp
+
         results = self.search(title=title, diff=diff, chart_id=chart_id)
         target = [r for r in results
                   if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
@@ -401,12 +491,17 @@ class ResultDatabase:
         best_lamp   = max((r.lamp for r in target), default=clear_lamp.noplay)
         return best_score, best_ex, best_lamp
 
-    def get_all_best_results(self) -> Dict[Tuple[str, difficulty], OneBestData]:
+    def get_all_best_results(self, use_cache: bool = True) -> Dict[Tuple[str, difficulty], OneBestData]:
         """全譜面の自己ベストを OneBestData として集計する。
 
+        Args:
+            use_cache: Trueなら事前に構築されたキャッシュを返す。
         Returns:
             Dict[(title, difficulty), OneBestData]
         """
+        if use_cache:
+            return self._bests_cache
+
         bests: Dict[Tuple[str, difficulty], OneBestData] = {}
 
         for result in self.results:

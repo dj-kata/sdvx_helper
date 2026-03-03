@@ -113,7 +113,10 @@ class AlllogImportWorker(QThread):
             for i, item in enumerate(data):
                 if self._cancelled:
                     break
-                self.progress.emit(i + 1, total)
+                
+                # 100件ごと、または最初と最後のみ進捗を更新してUIへの負荷を下げる
+                if i == 0 or (i + 1) % 100 == 0 or (i + 1) == total:
+                    self.progress.emit(i + 1, total)
 
                 try:
                     # 難易度変換（フルネーム・短縮形の両方に対応）
@@ -152,18 +155,101 @@ class AlllogImportWorker(QThread):
                         timestamp   = ts,
                         detect_mode = detect_mode.result,
                     )
-                    if self.result_database.add(result):
+                    if self.result_database.add(result, commit=False):
                         registered += 1
                 except Exception:
-                    logger.debug(f"alllog item skip: {traceback.format_exc()}")
+                    # ログ出力を制限（大量に失敗するとここも負荷になるため）
+                    if registered % 100 == 0:
+                        logger.debug(f"alllog item skip: {traceback.format_exc()}")
                     continue
 
             if registered > 0:
-                self.result_database.save()
+                self.result_database.commit()
 
             self.finished.emit(registered, total)
 
         except Exception as e:
+            self.error.emit(str(e))
+
+
+
+class ImageImportWorker(QThread):
+    """リザルト画像フォルダをスキャンしてインポートするワーカー"""
+    progress = Signal(int, int)   # (current, total)
+    finished = Signal(int, int)   # (registered, total)
+    error    = Signal(str)
+
+    def __init__(self, folder_path: str, result_database, screen_reader):
+        super().__init__()
+        self.folder_path     = folder_path
+        self.result_database = result_database
+        self.screen_reader   = screen_reader
+        self._cancelled      = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            from pathlib import Path
+            from PIL import Image
+            import os
+
+            p = Path(self.folder_path)
+            files = sorted(list(p.glob("*.png")))
+            total = len(files)
+            registered = 0
+
+            for i, f in enumerate(files):
+                if self._cancelled:
+                    break
+                
+                self.progress.emit(i + 1, total)
+
+                try:
+                    with Image.open(f) as img:
+                        self.screen_reader.update_screen(img)
+                        mode = self.screen_reader.detect_screen()
+                        
+                        if mode == detect_mode.result:
+                            data = self.screen_reader.read_from_result()
+                            if not data:
+                                continue
+
+                            score   = data.get('score')
+                            lamp    = data.get('lamp')
+                            exscore = data.get('exscore')
+                            title   = data.get('title')
+                            diff    = data.get('difficulty')
+
+                            if score is None or lamp is None:
+                                continue
+
+                            # ファイルの更新日時をタイムスタンプとして使用
+                            ts = int(os.path.getmtime(f))
+
+                            result = OneResult(
+                                title=title or "UNKNOWN",
+                                difficulty=diff,
+                                lamp=lamp,
+                                score=score,
+                                exscore=exscore,
+                                timestamp=ts,
+                                detect_mode=detect_mode.result,
+                            )
+                            if self.result_database.add(result, commit=False):
+                                registered += 1
+                except Exception as e:
+                    logger.debug(f"Image import skip ({f.name}): {e}")
+                    continue
+
+            if registered > 0:
+                self.result_database.commit()
+
+            self.finished.emit(registered, total)
+
+        except Exception as e:
+            logger.error(f"ImageImportWorker error: {traceback.format_exc()}")
             self.error.emit(str(e))
 
 
@@ -210,14 +296,21 @@ class ConfigDialog(QDialog):
     # リザルト画像フォルダ取り込みリクエスト (folder_path)
     result_images_import_requested = Signal(str)
 
+    # インポート完了通知 (alllog / images)
+    import_finished = Signal()
+
     def __init__(self, config: Config, result_database=None,
-                 rival_manager=None, portal_manager=None, parent=None):
+                 rival_manager=None, portal_manager=None,
+                 screen_reader=None, parent=None):
         super().__init__(parent)
         self.config = config
         self.result_database: ResultDatabase = result_database
         self.rival_manager: RivalManager = rival_manager
         self.portal_manager: PortalManager = portal_manager
+        self.screen_reader = screen_reader
         self.ui: UIText = load_ui_text(config)
+        self._alllog_worker = None
+        self._img_worker = None
 
         self.setWindowTitle(self.ui.window.settings_title)
         self.setMinimumWidth(500)
@@ -463,9 +556,23 @@ class ConfigDialog(QDialog):
         img_path_row.addWidget(img_browse_btn)
         img_layout.addRow(self.ui.import_data.result_image_label, img_path_row)
 
-        img_import_btn = QPushButton(self.ui.import_data.result_image_button)
-        img_import_btn.clicked.connect(self._on_result_images_import)
-        img_layout.addRow(img_import_btn)
+        self._img_import_btn = QPushButton(self.ui.import_data.result_image_button)
+        self._img_import_btn.clicked.connect(self._on_result_images_import)
+        img_layout.addRow(self._img_import_btn)
+
+        self._img_progress = QProgressBar()
+        self._img_progress.setVisible(False)
+        img_layout.addRow(self._img_progress)
+
+        img_status_row = QHBoxLayout()
+        self._img_status_label = QLabel("")
+        self._img_cancel_btn = QPushButton("キャンセル")
+        self._img_cancel_btn.setVisible(False)
+        self._img_cancel_btn.clicked.connect(self._on_result_images_import_cancel)
+        img_status_row.addWidget(self._img_status_label)
+        img_status_row.addStretch()
+        img_status_row.addWidget(self._img_cancel_btn)
+        img_layout.addRow(img_status_row)
 
         layout.addWidget(img_group)
         layout.addStretch()
@@ -679,6 +786,7 @@ class ConfigDialog(QDialog):
         self._alllog_progress.setValue(self._alllog_progress.maximum())
         self._alllog_status_label.setText(f"完了: {registered} / {total} 件登録")
         self._alllog_worker = None
+        self.import_finished.emit()
 
     def _on_alllog_error(self, msg: str):
         self._alllog_import_btn.setEnabled(True)
@@ -737,7 +845,50 @@ class ConfigDialog(QDialog):
         if not path or not os.path.isdir(path):
             QMessageBox.warning(self, self.ui.message.warning_title, "有効なフォルダを指定してください")
             return
-        self.result_images_import_requested.emit(path)
+        
+        if self.screen_reader is None:
+            QMessageBox.warning(self, self.ui.message.warning_title, "認識エンジンが準備できていません")
+            return
+
+        self._img_import_btn.setEnabled(False)
+        self._img_progress.setVisible(True)
+        self._img_progress.setValue(0)
+        self._img_status_label.setText("解析中...")
+        self._img_cancel_btn.setVisible(True)
+
+        self._img_worker = ImageImportWorker(path, self.result_database, self.screen_reader)
+        self._img_worker.progress.connect(self._on_img_import_progress)
+        self._img_worker.finished.connect(self._on_img_import_finished)
+        self._img_worker.error.connect(self._on_img_import_error)
+        self._img_worker.start()
+
+    def _on_img_import_progress(self, current, total):
+        self._img_progress.setMaximum(total)
+        self._img_progress.setValue(current)
+        self._img_status_label.setText(f"解析中... ({current}/{total})")
+
+    def _on_img_import_finished(self, registered, total):
+        self._img_import_btn.setEnabled(True)
+        self._img_progress.setVisible(False)
+        self._img_cancel_btn.setVisible(False)
+        self._img_status_label.setText(f"完了: {registered}/{total} 件を登録しました")
+        self._img_worker = None
+        self.import_finished.emit()
+        # MainWindow側でデータを再読み込みさせるためにリクエストを飛ばす
+        self.result_images_import_requested.emit(self.result_image_path_edit.text().strip())
+
+    def _on_img_import_error(self, message):
+        self._img_import_btn.setEnabled(True)
+        self._img_progress.setVisible(False)
+        self._img_cancel_btn.setVisible(False)
+        self._img_status_label.setText(f"エラー: {message}")
+        self._img_worker = None
+
+    def _on_result_images_import_cancel(self):
+        if self._img_worker:
+            self._img_worker.cancel()
+            self._img_status_label.setText("キャンセル中...")
+            self._img_cancel_btn.setEnabled(False)
 
     # ── 設定読み書き ─────────────────────────────────────────────────────────
 
