@@ -622,6 +622,7 @@ class ScoreViewer(QMainWindow):
 
     def refresh_data(self):
         """DBからデータを再読み込みして表示を更新"""
+        self.setUpdatesEnabled(False)
         try:
             # portalマスタがあれば4th難易度名マップ・ティアマップを更新
             if self.portal_manager and self.portal_manager.master_db:
@@ -640,6 +641,8 @@ class ScoreViewer(QMainWindow):
             )
         except Exception:
             logger.error(f"refresh_data エラー:\n{traceback.format_exc()}")
+        finally:
+            self.setUpdatesEnabled(True)
 
     def _refresh_rival_combo(self):
         """ライバルコンボボックスを最新状態に更新"""
@@ -754,22 +757,26 @@ class ScoreViewer(QMainWindow):
 
     def _on_rivals_loaded(self):
         """rival_manager の読み込み/フェッチ完了時に呼ばれる"""
-        # 4th難易度名マップ・ティアマップを更新し、変化があった場合のみ列テキストを差し替える
-        new_diff_map: dict[str, str] = {}
-        new_tier_map: dict = {}
-        if self.portal_manager and self.portal_manager.master_db:
-            new_diff_map = self.portal_manager.get_4th_diff_map()
-            new_tier_map = self.portal_manager.get_tier_map()
-        if new_diff_map != self._4th_diff_map:
-            self._4th_diff_map = new_diff_map
-            self._update_diff_column()
-        if new_tier_map != self._tier_map:
-            self._tier_map = new_tier_map
-            self._update_tier_columns()
-        self._refresh_rival_combo()
-        self._apply_filter()
-        if self._selected_title:
-            self._update_rival_panel(self._selected_title, self._selected_diff)
+        self.setUpdatesEnabled(False)
+        try:
+            # 4th難易度名マップ・ティアマップを更新し、変化があった場合のみ列テキストを差し替える
+            new_diff_map: dict[str, str] = {}
+            new_tier_map: dict = {}
+            if self.portal_manager and self.portal_manager.master_db:
+                new_diff_map = self.portal_manager.get_4th_diff_map()
+                new_tier_map = self.portal_manager.get_tier_map()
+            if new_diff_map != self._4th_diff_map:
+                self._4th_diff_map = new_diff_map
+                self._update_diff_column()
+            if new_tier_map != self._tier_map:
+                self._tier_map = new_tier_map
+                self._update_tier_columns()
+            self._refresh_rival_combo()
+            self._apply_filter()
+            if self._selected_title:
+                self._update_rival_panel(self._selected_title, self._selected_diff)
+        finally:
+            self.setUpdatesEnabled(True)
 
     def _update_diff_column(self):
         """4th難易度名マップ更新時にDiff列のテキストのみ差し替える（MXM枠対象）"""
@@ -904,62 +911,66 @@ class ScoreViewer(QMainWindow):
 
     def _apply_filter(self):
         """フィルター条件で行を表示/非表示"""
-        enabled_diffs = {d for d, cb in self._diff_checks.items() if cb.isChecked()}
-        enabled_lvs   = {lv for lv, cb in self._lv_checks.items() if cb.isChecked()}
-        all_lv        = len(enabled_lvs) == len(self._lv_checks)
-        search        = self._search_edit.text().lower()
+        self.setUpdatesEnabled(False)
+        try:
+            enabled_diffs = {d for d, cb in self._diff_checks.items() if cb.isChecked()}
+            enabled_lvs   = {lv for lv, cb in self._lv_checks.items() if cb.isChecked()}
+            all_lv        = len(enabled_lvs) == len(self._lv_checks)
+            search        = self._search_edit.text().lower()
 
-        # ライバルフィルター: 自分が勝っている行を非表示にする
-        rival_scores: dict = {}
-        if self._current_rival and self.rival_manager:
-            for rd in self.rival_manager.rivals:
-                if rd.name == self._current_rival:
-                    rival_scores = rd.scores
-                    break
+            # ライバルフィルター: 自分が勝っている行を非表示にする
+            rival_scores: dict = {}
+            if self._current_rival and self.rival_manager:
+                for rd in self.rival_manager.rivals:
+                    if rd.name == self._current_rival:
+                        rival_scores = rd.scores
+                        break
 
-        visible = 0
-        win_count = loss_count = draw_count = 0
-        for row in range(self._score_table.rowCount()):
-            diff_item  = self._score_table.item(row, self._COL_DIFF)
-            lv_item    = self._score_table.item(row, self._COL_LV)
-            title_item = self._score_table.item(row, self._COL_TITLE)
-            if not (diff_item and lv_item and title_item):
-                continue
-            diff_str  = diff_item.text()
-            # INF/GRV/HVN/VVD/XCD など4th枠の実名表示にも対応
-            diff_enum = convert_difficulty(diff_str)
-            lv        = lv_item.data(Qt.UserRole) or 0
-            # lv==0 はレベル不明。全レベル選択時のみ表示する
-            lv_hidden    = (lv == 0 and not all_lv) or (lv != 0 and lv not in enabled_lvs)
-            search_hidden = bool(search) and search not in title_item.text().lower()
-            # ライバルフィルター: 勝っている曲（自スコア > ライバルスコア）を非表示
-            if rival_scores:
-                s_item   = self._score_table.item(row, self._COL_SCORE)
-                my_score = (s_item.data(Qt.UserRole) or 0) if s_item else 0
-                # rival_scores のキーは "MXM" に正規化済みなので変換して照合
-                norm_diff = str(diff_enum) if diff_enum else diff_str
-                entry    = rival_scores.get((title_item.text(), norm_diff))
-                r_score  = entry.score if entry else 0
-                rival_hidden = my_score > r_score
-                # diff/lv/search フィルターを通過した行のみ勝敗カウント
-                if not (diff_enum not in enabled_diffs or lv_hidden or search_hidden):
-                    if my_score > r_score:
-                        win_count += 1
-                    elif my_score < r_score:
-                        loss_count += 1
-                    else:
-                        draw_count += 1
-            else:
-                rival_hidden = False
-            hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or rival_hidden)
-            self._score_table.setRowHidden(row, hide)
-            if not hide:
-                visible += 1
+            visible = 0
+            win_count = loss_count = draw_count = 0
+            for row in range(self._score_table.rowCount()):
+                diff_item  = self._score_table.item(row, self._COL_DIFF)
+                lv_item    = self._score_table.item(row, self._COL_LV)
+                title_item = self._score_table.item(row, self._COL_TITLE)
+                if not (diff_item and lv_item and title_item):
+                    continue
+                diff_str  = diff_item.text()
+                # INF/GRV/HVN/VVD/XCD など4th枠の実名表示にも対応
+                diff_enum = convert_difficulty(diff_str)
+                lv        = lv_item.data(Qt.UserRole) or 0
+                # lv==0 はレベル不明。全レベル選択時のみ表示する
+                lv_hidden    = (lv == 0 and not all_lv) or (lv != 0 and lv not in enabled_lvs)
+                search_hidden = bool(search) and search not in title_item.text().lower()
+                # ライバルフィルター: 勝っている曲（自スコア > ライバルスコア）を非表示
+                if rival_scores:
+                    s_item   = self._score_table.item(row, self._COL_SCORE)
+                    my_score = (s_item.data(Qt.UserRole) or 0) if s_item else 0
+                    # rival_scores のキーは "MXM" に正規化済みなので変換して照合
+                    norm_diff = str(diff_enum) if diff_enum else diff_str
+                    entry    = rival_scores.get((title_item.text(), norm_diff))
+                    r_score  = entry.score if entry else 0
+                    rival_hidden = my_score > r_score
+                    # diff/lv/search フィルターを通過した行のみ勝敗カウント
+                    if not (diff_enum not in enabled_diffs or lv_hidden or search_hidden):
+                        if my_score > r_score:
+                            win_count += 1
+                        elif my_score < r_score:
+                            loss_count += 1
+                        else:
+                            draw_count += 1
+                else:
+                    rival_hidden = False
+                hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or rival_hidden)
+                self._score_table.setRowHidden(row, hide)
+                if not hide:
+                    visible += 1
 
-        self._win_loss_bar.set_data(win_count, loss_count, draw_count)
-        self.statusBar().showMessage(
-            f"表示: {visible} 件  |  総VF: {self.result_database.get_total_vf() / 1000:.3f}"
-        )
+            self._win_loss_bar.set_data(win_count, loss_count, draw_count)
+            self.statusBar().showMessage(
+                f"表示: {visible} 件  |  総VF: {self.result_database.get_total_vf() / 1000:.3f}"
+            )
+        finally:
+            self.setUpdatesEnabled(True)
 
     # ── プレー履歴 ────────────────────────────────────────────────────────────
 

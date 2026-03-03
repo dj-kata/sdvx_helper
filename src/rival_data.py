@@ -11,6 +11,7 @@ import pickle
 import re
 import traceback
 import datetime
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Callable, Dict, List, Tuple, Optional
 
@@ -110,10 +111,45 @@ class RivalFetchWorker(QThread):
         rival = RivalData(cfg['name'])
         try:
             import requests
-            url  = self._convert_to_direct_url(cfg.get('url', ''))
-            resp = requests.get(url, timeout=20)
+            session = requests.Session()
+            # User-Agent を設定してブラウザを装う（警告画面の解析精度を上げるため）
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            })
+            
+            url = self._convert_to_direct_url(cfg.get('url', ''))
+            
+            # 1回目試行
+            resp = session.get(url, timeout=20)
             resp.raise_for_status()
-            text = resp.content.decode('utf-8-sig')
+            
+            # Google Drive の「ウイルススキャン実行不可」警告画面チェック
+            content_text = resp.content.decode('utf-8', errors='replace')
+            if 'confirm=' in content_text:
+                # 複数のクォート形式やエスケープに対応した正規表現
+                confirm_m = re.search(r'confirm=([a-zA-Z0-9_-]+)', content_text)
+                if confirm_m:
+                    confirm_token = confirm_m.group(1)
+                    # URLを再構築（export=download を確実に含める）
+                    file_id_m = re.search(r'id=([\w-]+)', url)
+                    if file_id_m:
+                        file_id = file_id_m.group(1)
+                        download_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm={confirm_token}"
+                        resp = session.get(download_url, timeout=20)
+                        resp.raise_for_status()
+            
+            # エンコーディング判定とデコード
+            try:
+                # まず utf-8-sig (BOMあり) を試す
+                text = resp.content.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                # 失敗したら cp932 (Windows-31J / Shift-JIS) を試す
+                try:
+                    text = resp.content.decode('cp932')
+                except UnicodeDecodeError:
+                    # それでもダメなら utf-8 でエラーを置換しながらデコード
+                    text = resp.content.decode('utf-8', errors='replace')
+            
             self._parse_csv(text, rival)
             logger.info(f"ライバル '{rival.name}' CSV取得完了 ({len(rival.scores)} 件)")
         except Exception as e:
@@ -124,10 +160,8 @@ class RivalFetchWorker(QThread):
     @staticmethod
     def _convert_to_direct_url(url: str) -> str:
         """Google Drive 共有 URL / ファイル ID を直接ダウンロード URL に変換"""
-        m = re.search(r'/file/d/([^/?]+)', url)
-        if m:
-            return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-        m = re.search(r'[?&]id=([^&]+)', url)
+        # /file/d/ID/view や open?id=ID などの形式から ID を抽出
+        m = re.search(r'(?:/file/d/|[\?&]id=)([\w-]+)', url)
         if m:
             return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
         if re.fullmatch(r'[\w-]+', url):
@@ -158,11 +192,11 @@ class RivalFetchWorker(QThread):
             return ''
 
         for row in reader:
-            title    = _get(row, 'title')
-            diff_raw = _get(row, 'difficulty').upper()
-            score_s  = _get(row, 'score')
-            lamp_s   = _get(row, 'lamp')
-            ex_s     = _get(row, 'exscore')
+            title    = _get(row, 'title', '楽曲名')
+            diff_raw = _get(row, 'difficulty', '難易度').upper()
+            score_s  = _get(row, 'score', 'ハイスコア', 'スコア')
+            lamp_s   = _get(row, 'lamp', 'クリアランク', 'クリア')
+            ex_s     = _get(row, 'exscore', 'exスコア')
 
             if not title or not score_s:
                 continue
@@ -230,6 +264,7 @@ class RivalManager(QObject):
         self.rivals:            List[RivalData]         = []
         self._worker:           Optional[RivalFetchWorker] = None
         self.last_fetch_time:   Optional[str]           = None
+        self._save_lock         = threading.Lock()
 
     # ── キャッシュ ────────────────────────────────────────────────────────
 
@@ -257,15 +292,29 @@ class RivalManager(QObject):
             logger.warning(f"ライバルキャッシュ読み込み失敗:\n{traceback.format_exc()}")
 
     def _save_cache(self):
-        """ライバルデータをキャッシュファイルに保存する"""
-        try:
-            os.makedirs('out', exist_ok=True)
-            # compresslevel=1 で高速保存（ファイルサイズはやや大きいが十分小さい）
-            with bz2.BZ2File(self.CACHE_PATH, 'wb', compresslevel=1) as f:
-                pickle.dump(self.rivals, f)
-            logger.info("ライバルキャッシュ保存完了")
-        except Exception:
-            logger.error(f"ライバルキャッシュ保存失敗:\n{traceback.format_exc()}")
+        """ライバルデータをキャッシュファイルに保存する（バックグラウンド実行）"""
+        rivals_copy = list(self.rivals)
+
+        def _save():
+            if not self._save_lock.acquire(blocking=True, timeout=5):
+                return
+            try:
+                os.makedirs('out', exist_ok=True)
+                temp_path = self.CACHE_PATH + ".tmp"
+                # compresslevel=1 で高速保存
+                with bz2.BZ2File(temp_path, 'wb', compresslevel=1) as f:
+                    pickle.dump(rivals_copy, f)
+                
+                if os.path.exists(self.CACHE_PATH):
+                    os.remove(self.CACHE_PATH)
+                os.rename(temp_path, self.CACHE_PATH)
+                logger.debug("ライバルキャッシュ保存完了 (bg)")
+            except Exception:
+                logger.error(f"ライバルキャッシュ保存失敗:\n{traceback.format_exc()}")
+            finally:
+                self._save_lock.release()
+
+        threading.Thread(target=_save, daemon=True).start()
 
     # ── フェッチ ──────────────────────────────────────────────────────────
 

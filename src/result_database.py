@@ -7,6 +7,7 @@ import datetime
 import functools
 import os
 import pickle
+import threading
 import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -58,6 +59,8 @@ class ResultDatabase:
         self.rival_results: dict = {}
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
+        
+        self._save_lock = threading.Lock()
 
         if config is not None:
             self._init_websocket_server()
@@ -162,12 +165,31 @@ class ResultDatabase:
             logger.error(f"playlog ロード失敗:\n{traceback.format_exc()}")
 
     def save(self):
-        """全リザルトをファイルに保存する。"""
-        try:
-            with bz2.BZ2File(_PLAYLOG_PATH, 'wb', compresslevel=9) as f:
-                pickle.dump(self.results, f)
-        except Exception:
-            logger.error(f"playlog 保存失敗:\n{traceback.format_exc()}")
+        """全リザルトをファイルに保存する（バックグラウンドで実行）。"""
+        results_copy = list(self.results)
+
+        def _save():
+            if not self._save_lock.acquire(blocking=True, timeout=5):
+                logger.warning("save lock 取得タイムアウト (保存スキップ)")
+                return
+            try:
+                temp_path = _PLAYLOG_PATH.with_suffix('.tmp')
+                # compresslevel=1 で高速保存
+                with bz2.BZ2File(temp_path, 'wb', compresslevel=1) as f:
+                    pickle.dump(results_copy, f)
+                
+                # Atomic replace
+                if os.path.exists(_PLAYLOG_PATH):
+                    os.remove(_PLAYLOG_PATH)
+                os.rename(temp_path, _PLAYLOG_PATH)
+                
+                logger.debug(f"playlog 保存完了: {len(results_copy)} 件 (bg)")
+            except Exception:
+                logger.error(f"playlog 保存失敗:\n{traceback.format_exc()}")
+            finally:
+                self._save_lock.release()
+        
+        threading.Thread(target=_save, daemon=True).start()
 
     def load_rivals(self):
         """ライバルデータをロードする。"""
@@ -189,7 +211,8 @@ class ResultDatabase:
     def save_rivals(self):
         """ライバルデータをファイルに保存する。"""
         try:
-            with bz2.BZ2File(_RIVAL_PATH, 'wb', compresslevel=9) as f:
+            # ライバルデータも1で十分
+            with bz2.BZ2File(_RIVAL_PATH, 'wb', compresslevel=1) as f:
                 pickle.dump(self.rival_results, f)
         except Exception:
             logger.error(f"rival playlog 保存失敗:\n{traceback.format_exc()}")
