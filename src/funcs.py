@@ -99,10 +99,12 @@ _LAMP_MAP = {
     'PLAYED':   clear_lamp.played,
     'FAILED':   clear_lamp.played,   # CSV旧形式
     'CLEAR':    clear_lamp.clear,
-    'COMP':     clear_lamp.clear,    # CSV旧形式
+    'COMP':     clear_lamp.clear,    # portal/CSV旧形式
     'EXC-COMP': clear_lamp.exc,
+    'EX_COMP':  clear_lamp.exc,      # portal形式
     'EXC':      clear_lamp.exc,      # CSV旧形式
     'MAXXIVE':  clear_lamp.maxxive,
+    'MAX_COMP': clear_lamp.maxxive,  # portal形式
     'UC':       clear_lamp.uc,
     'PUC':      clear_lamp.puc,
 }

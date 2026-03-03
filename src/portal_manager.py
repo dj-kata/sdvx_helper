@@ -153,6 +153,64 @@ class PortalManager:
             self.master_db = []
             return False
 
+    def get_rivals(self) -> dict:
+        """ポータルに登録されているライバルのスコアを取得する。
+
+        master_db を使って music_id → title を解決し、
+        {rival_name: [{"title":str,"difficulty":str,"score":int,
+                       "exscore":int|None,"lamp":str}]} 形式で返す。
+        失敗時は空 dict を返す。
+        """
+        if not _REQUESTS_AVAILABLE:
+            return {}
+        if not self.token:
+            return {}
+        try:
+            # master_db 未取得なら先に取得（music_id → title マップに必要）
+            if not self.master_db:
+                self.get_musiclist()
+
+            r = requests.post(
+                PORTAL_URL + '/api/v1/export/rival_scores',
+                headers={'X-Auth-Token': self.token},
+                timeout=20,
+            )
+            r.raise_for_status()
+            raw = r.json().get('datas') or {}
+
+            # music_id → title マップを master_db から構築
+            id_to_title: dict[str, str] = {
+                m['music_id']: m.get('title', '')
+                for m in self.master_db
+                if m.get('music_id')
+            }
+
+            # レスポンスを正規化: {rival_name: [{title,difficulty,score,...}]}
+            normalized: dict[str, list] = {}
+            for _key, val in raw.items():
+                if not isinstance(val, dict):
+                    continue
+                rival_name = val.get('rival_name') or _key
+                norm_scores = []
+                for s in val.get('scores', []):
+                    title = id_to_title.get(s.get('music_id', ''), '')
+                    if not title:
+                        continue
+                    norm_scores.append({
+                        'title':      title,
+                        'difficulty': s.get('difficulty_type', ''),
+                        'score':      s.get('score_value', 0),
+                        'exscore':    s.get('exscore_value'),
+                        'lamp':       s.get('lamp') or s.get('clear_type') or '',
+                    })
+                normalized[rival_name] = norm_scores
+
+            logger.info(f'ポータルライバル取得完了: {len(normalized)} 人')
+            return normalized
+        except Exception:
+            logger.error(f'ポータルライバル取得失敗:\n{traceback.format_exc()}')
+            return {}
+
     def _find_chart(self, title: str, diff: difficulty):
         """楽曲マスタから指定の譜面を検索。
 
@@ -306,7 +364,7 @@ class PortalManager:
             with open(csv_path, 'rb') as f:
                 file_binary = f.read()
             files = {'regist_score': (csv_path, file_binary)}
-            res   = requests.post(url, files=files, headers=header, timeout=30)
+            res   = requests.post(url, files=files, headers=header, timeout=10)
             logger.info(f'portal upload: status={res.status_code}')
             logger.debug(f'portal response: {res.text[:200]}')
 

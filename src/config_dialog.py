@@ -613,7 +613,9 @@ class ConfigDialog(QDialog):
         self._rival_load_del_combo()
         if self.rival_manager is not None:
             self._rival_status_label.setText("取得中...")
-            self.rival_manager.start_fetch(self.config.rivals)
+            portal_fn = (self.portal_manager.get_rivals
+                         if self.portal_manager and self.config.portal_token else None)
+            self.rival_manager.start_fetch(self.config.rivals, portal_fetch_fn=portal_fn)
 
     def _rival_delete(self):
         """選択ライバルを削除"""
@@ -637,7 +639,9 @@ class ConfigDialog(QDialog):
             self._rival_status_label.setText("未登録")
             return
         self._rival_status_label.setText("取得中...")
-        self.rival_manager.start_fetch(self.config.rivals)
+        portal_fn = (self.portal_manager.get_rivals
+                     if self.portal_manager and self.config.portal_token else None)
+        self.rival_manager.start_fetch(self.config.rivals, portal_fetch_fn=portal_fn)
 
     # ── ボタンハンドラ ────────────────────────────────────────────────────────
 

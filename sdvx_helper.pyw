@@ -65,16 +65,19 @@ class MainWindow(MainWindowUI):
         self.obs_manager.set_config(self.config)
         self.obs_manager.connection_changed.connect(self.on_obs_connection_changed)
 
-        # ライバルマネージャー
-        self.rival_manager = RivalManager(parent=self)
-        self.rival_manager.load_cache()
-        self.result_database.rival_manager = self.rival_manager
-        QTimer.singleShot(2000, lambda: self.rival_manager.start_fetch(self.config.rivals))
-
         # Portal連携マネージャー
         self.portal_manager = PortalManager(token=self.config.portal_token)
         if self.config.portal_token:
             QTimer.singleShot(3000, self._portal_fetch_musiclist)
+
+        # ライバルマネージャー（Portal取得も同時に行う）
+        self.rival_manager = RivalManager(parent=self)
+        self.rival_manager.load_cache()
+        self.result_database.rival_manager = self.rival_manager
+        portal_fn = (self.portal_manager.get_rivals
+                     if self.config.portal_token else None)
+        QTimer.singleShot(2000, lambda: self.rival_manager.start_fetch(
+            self.config.rivals, portal_fetch_fn=portal_fn))
 
         # アプリケーション状態
         self.current_mode: detect_mode = detect_mode.init
@@ -535,18 +538,23 @@ class MainWindow(MainWindowUI):
         csv_path = self.config.csv_export_path or None
         self.result_database.write_best_csv(csv_path=csv_path)
 
-        # Portal: 今日のプレーログを送信
+        # Portal: 今日のプレーログをバックグラウンドで送信（最大5秒待機）
         if self.config.portal_token and self.portal_manager.master_db:
-            try:
-                total_vf = self.result_database.get_total_vf()
-                self.portal_manager.upload_scores(
-                    self.result_database,
-                    start_time=self.start_time_with_offset,
-                    player_name=self.config.player_name or 'NONAME',
-                    volforce=f'{total_vf / 1000:.3f}',
-                )
-            except Exception:
-                logger.error(f'Portal送信エラー:\n{traceback.format_exc()}')
+            import threading
+            total_vf = self.result_database.get_total_vf()
+            def _upload():
+                try:
+                    self.portal_manager.upload_scores(
+                        self.result_database,
+                        start_time=self.start_time_with_offset,
+                        player_name=self.config.player_name or 'NONAME',
+                        volforce=f'{total_vf / 1000:.3f}',
+                    )
+                except Exception:
+                    logger.error(f'Portal送信エラー:\n{traceback.format_exc()}')
+            t = threading.Thread(target=_upload, daemon=True)
+            t.start()
+            t.join(timeout=5)
 
         if self.score_viewer is not None:
             self.score_viewer.close()

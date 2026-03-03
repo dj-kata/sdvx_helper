@@ -46,6 +46,11 @@ logger = get_logger(__name__)
 # 連続N回認識失敗したら向き再検出
 _REDETECT_THRESHOLD = 30
 
+# 正規化後の期待サイズ（縦画像基準）
+_EXPECTED_SIZE = (1080, 1920)
+# 黒帯判定輝度閾値（0-255）
+_BLACKBAR_LUM_TH = 20
+
 # ─── 数字認識 輝度補正パラメータ ───────────────────────────────────────────
 _DIGIT_AMBIGUITY_TH  = 4    # 0/8混同: この距離差以内なら輝度で判別
 _DIGIT_68_AMBIGUITY_TH = 10 # 6/8混同: 互いの距離差がこれ以内なら輝度で判別
@@ -88,7 +93,8 @@ class ScreenReader:
                 self._fail_count = 0
 
         if self._orientation is not None:
-            self._img = self._rotate_img(img, self._orientation)
+            rotated = self._rotate_img(img, self._orientation)
+            self._img = self._normalize_portrait(rotated)
         else:
             self._img = img  # 向き不明でも仮セット
 
@@ -97,57 +103,99 @@ class ScreenReader:
         angle = orientation.rotate_angle()
         return img.rotate(angle, expand=True) if angle else img
 
+    @staticmethod
+    def _normalize_portrait(img: Image.Image) -> Image.Image:
+        """黒帯を除去したうえで _EXPECTED_SIZE (1080×1920) にリサイズする。
+
+        OBSがレターボックス付きでキャプチャした場合や、
+        想定外の解像度で入力された場合に座標系を統一する。
+        """
+        if img.size == _EXPECTED_SIZE:
+            return img
+
+        # グレースケールで輝度を調べ、黒帯行・列を検出
+        arr = np.array(img.convert('L'))
+        row_max = arr.max(axis=1)   # shape (h,)
+        col_max = arr.max(axis=0)   # shape (w,)
+
+        non_black_rows = np.where(row_max > _BLACKBAR_LUM_TH)[0]
+        non_black_cols = np.where(col_max > _BLACKBAR_LUM_TH)[0]
+
+        if len(non_black_rows) > 0 and len(non_black_cols) > 0:
+            y1 = int(non_black_rows[0])
+            y2 = int(non_black_rows[-1]) + 1
+            x1 = int(non_black_cols[0])
+            x2 = int(non_black_cols[-1]) + 1
+            w, h = img.size
+            # 全体の5%以上が黒帯と判断できる場合だけクロップ
+            if x1 > w * 0.05 or x2 < w * 0.95 or y1 > h * 0.05 or y2 < h * 0.95:
+                img = img.crop((x1, y1, x2, y2))
+
+        if img.size != _EXPECTED_SIZE:
+            img = img.resize(_EXPECTED_SIZE, Image.LANCZOS)
+
+        return img
+
     def _auto_detect_orientation(self, img: Image.Image) -> screen_orientation | None:
-        """3方向を試し、最初に画面認識できた向きを返す。"""
+        """3方向を試し、最初に画面認識できた向きを返す。
+
+        各方向に回転したのち黒帯除去・リサイズで正規化してからハッシュ照合する。
+        自動検出用の閾値は通常判定より少し緩めにしている。
+        """
         for orient in screen_orientation:
-            rotated = self._rotate_img(img, orient)
-            if (self._check_onselect(rotated)
-                    or self._check_ondetect(rotated)
-                    or self._check_onplay(rotated)
-                    or self._check_onresult(rotated)):
-                logger.info(f"画面向き自動検出: {orient.name}")
+            rotated    = self._rotate_img(img, orient)
+            normalized = self._normalize_portrait(rotated)
+            if (self._check_onselect(normalized, threshold=8)
+                    or self._check_ondetect(normalized, threshold=8)
+                    or self._check_onplay(normalized, threshold=15)
+                    or self._check_onresult(normalized, threshold=15)):
+                logger.info(
+                    f"画面向き自動検出: {orient.name} "
+                    f"(入力サイズ={img.size}, 正規化後={normalized.size})"
+                )
                 return orient
+        logger.debug(f"画面向き自動検出失敗: 入力サイズ={img.size}")
         return None
 
     # ─── 画面識別 (static) ────────────────────────────────────────────────────
 
     @staticmethod
-    def _check_onselect(img: Image.Image) -> bool:
+    def _check_onselect(img: Image.Image, threshold: int = 5) -> bool:
         if HASH_ONSELECT is None:
             return False
         h = imagehash.average_hash(img.crop(RECT_ONSELECT))
-        return abs(HASH_ONSELECT - h) < 5
+        return abs(HASH_ONSELECT - h) < threshold
 
     @staticmethod
-    def _check_ondetect(img: Image.Image) -> bool:
+    def _check_ondetect(img: Image.Image, threshold: int = 5) -> bool:
         if HASH_ONDETECT is None:
             return False
         region = img.crop(RECT_ONDETECT)
         h = imagehash.average_hash(region)
-        if abs(HASH_ONDETECT - h) >= 5:
+        if abs(HASH_ONDETECT - h) >= threshold:
             return False
         rgb_sum = int(np.array(region).sum())
         return rgb_sum > ONDETECT_RGBSUM_THRESHOLD
 
     @staticmethod
-    def _check_onplay(img: Image.Image) -> bool:
+    def _check_onplay(img: Image.Image, threshold: int = 10) -> bool:
         if HASH_ONPLAY1 is None or HASH_ONPLAY2 is None:
             return False
         h1 = imagehash.average_hash(img.crop(RECT_ONPLAY1))
         h2 = imagehash.average_hash(img.crop(RECT_ONPLAY2))
-        return abs(HASH_ONPLAY1 - h1) < 10 and abs(HASH_ONPLAY2 - h2) < 10
+        return abs(HASH_ONPLAY1 - h1) < threshold and abs(HASH_ONPLAY2 - h2) < threshold
 
     @staticmethod
-    def _check_onresult(img: Image.Image) -> bool:
+    def _check_onresult(img: Image.Image, threshold: int = 10) -> bool:
         if HASH_ONRESULT1 is None or HASH_ONRESULT2 is None:
             return False
         h0 = imagehash.average_hash(img.crop(RECT_ONRESULT_VAL0))
         h1 = imagehash.average_hash(img.crop(RECT_ONRESULT_VAL1))
-        if abs(HASH_ONRESULT1 - h0) >= 10 or abs(HASH_ONRESULT2 - h1) >= 10:
+        if abs(HASH_ONRESULT1 - h0) >= threshold or abs(HASH_ONRESULT2 - h1) >= threshold:
             return False
         if ONRESULT_ENABLE_HEAD and HASH_ONRESULT_HEAD is not None:
             hh = imagehash.average_hash(img.crop(RECT_ONRESULT_HEAD))
-            if abs(HASH_ONRESULT_HEAD - hh) >= 10:
+            if abs(HASH_ONRESULT_HEAD - hh) >= threshold:
                 return False
         return True
 

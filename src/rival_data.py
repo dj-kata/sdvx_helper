@@ -1,6 +1,6 @@
 """SDVX ライバルスコアデータの取得・管理モジュール
 
-sdvx_helper の out/sdvx_score.csv 形式を扱う。
+sdvx_helper の out/sdvx_score.csv 形式、および SDVX Helper Portal API を扱う。
 CSV ヘッダー: LV, Title, Difficulty, Lamp, Score, EXScore, Grade, VF, Last Played
 """
 import bz2
@@ -11,12 +11,13 @@ import pickle
 import re
 import traceback
 import datetime
-from typing import Dict, List, Tuple, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Callable, Dict, List, Tuple, Optional
 
 from PySide6.QtCore import QObject, QThread, Signal
 
 from src.classes import clear_lamp
-from src.funcs import convert_lamp
+from src.funcs import convert_lamp, convert_difficulty
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -43,13 +44,23 @@ class RivalData:
 
 
 class RivalFetchWorker(QThread):
-    """バックグラウンドでライバルCSVを取得するワーカー"""
+    """バックグラウンドでライバルデータを取得するワーカー
+
+    CSV ライバルは ThreadPoolExecutor で並列取得。
+    portal_fetch_fn が渡された場合はポータル登録ライバルも並列で取得し、
+    同名ライバルは CSV 側が優先される（CSV が上書き）。
+    """
 
     finished = Signal(list)   # List[RivalData]
 
-    def __init__(self, rival_configs: List[Dict[str, str]]):
+    def __init__(
+        self,
+        rival_configs: List[Dict[str, str]],
+        portal_fetch_fn: Optional[Callable[[], list]] = None,
+    ):
         super().__init__()
         self.rival_configs   = rival_configs
+        self.portal_fetch_fn = portal_fetch_fn
         self._is_cancelled   = False
 
     def cancel(self):
@@ -58,30 +69,59 @@ class RivalFetchWorker(QThread):
 
     def run(self):
         try:
-            results: List[RivalData] = []
-            for cfg in self.rival_configs:
-                if self._is_cancelled:
-                    break
-                rival = RivalData(cfg['name'])
-                try:
-                    import requests
-                    url      = self._convert_to_direct_url(cfg.get('url', ''))
-                    resp     = requests.get(url, timeout=20)
-                    resp.raise_for_status()
-                    text     = resp.content.decode('utf-8-sig')
-                    self._parse_csv(text, rival)
-                    logger.info(f"ライバル '{rival.name}' の CSV 取得完了 ({len(rival.scores)} 件)")
-                except Exception as e:
-                    rival.error = str(e)
-                    logger.warning(f"ライバル '{cfg['name']}' の CSV 取得失敗: {e}")
-                results.append(rival)
-            self.finished.emit(results)
+            results_by_name: Dict[str, RivalData] = {}
+
+            with ThreadPoolExecutor(max_workers=8) as pool:
+                csv_futures  = {pool.submit(self._fetch_one_csv, cfg): cfg
+                                for cfg in self.rival_configs}
+                portal_future = (pool.submit(self.portal_fetch_fn)
+                                 if self.portal_fetch_fn else None)
+
+                # ポータルライバルを先に収集（低優先）
+                if portal_future:
+                    try:
+                        for rd in self._parse_portal_rivals(portal_future.result()):
+                            results_by_name[rd.name] = rd
+                    except Exception as e:
+                        logger.warning(f'ポータルライバル取得エラー: {e}')
+
+                # CSV ライバルを収集（高優先・同名は上書き）
+                for future, cfg in csv_futures.items():
+                    if self._is_cancelled:
+                        break
+                    try:
+                        rd = future.result()
+                        results_by_name[rd.name] = rd
+                    except Exception as e:
+                        name = cfg.get('name', '?')
+                        logger.warning(f"ライバル '{name}' 取得エラー: {e}")
+                        rd = RivalData(name)
+                        rd.error = str(e)
+                        results_by_name[rd.name] = rd
+
+            self.finished.emit(list(results_by_name.values()))
         except Exception:
             logger.error(traceback.format_exc())
         finally:
             self.finished.disconnect()
 
-    # ── URL 変換 ────────────────────────────────────────────────────────────
+    # ── CSV 取得 ──────────────────────────────────────────────────────────────
+
+    def _fetch_one_csv(self, cfg: Dict[str, str]) -> RivalData:
+        """1ライバルの CSV を取得してパース（スレッドプールから呼ばれる）"""
+        rival = RivalData(cfg['name'])
+        try:
+            import requests
+            url  = self._convert_to_direct_url(cfg.get('url', ''))
+            resp = requests.get(url, timeout=20)
+            resp.raise_for_status()
+            text = resp.content.decode('utf-8-sig')
+            self._parse_csv(text, rival)
+            logger.info(f"ライバル '{rival.name}' CSV取得完了 ({len(rival.scores)} 件)")
+        except Exception as e:
+            rival.error = str(e)
+            logger.warning(f"ライバル '{cfg['name']}' CSV取得失敗: {e}")
+        return rival
 
     @staticmethod
     def _convert_to_direct_url(url: str) -> str:
@@ -92,12 +132,9 @@ class RivalFetchWorker(QThread):
         m = re.search(r'[?&]id=([^&]+)', url)
         if m:
             return f"https://drive.google.com/uc?export=download&id={m.group(1)}"
-        # 英数字・ハイフン・アンダースコアのみ → ファイルID単体とみなす
         if re.fullmatch(r'[\w-]+', url):
             return f"https://drive.google.com/uc?export=download&id={url}"
         return url
-
-    # ── CSV パース ─────────────────────────────────────────────────────────
 
     @staticmethod
     def _parse_csv(csv_text: str, rival: RivalData):
@@ -105,13 +142,12 @@ class RivalFetchWorker(QThread):
 
         ヘッダーは大文字小文字どちらでも受け入れる。
         必須列: Title(title), Difficulty(difficulty), Score(score)
-        任意列: Lamp(lamp)
+        任意列: Lamp(lamp), ExScore(exscore)
         """
         reader = csv.DictReader(io.StringIO(csv_text))
         if reader.fieldnames is None:
             return
 
-        # ヘッダーを case-insensitive に正規化するための対応表
         lower_map: Dict[str, str] = {
             (fn or '').lower(): fn for fn in reader.fieldnames
         }
@@ -125,7 +161,7 @@ class RivalFetchWorker(QThread):
 
         for row in reader:
             title    = _get(row, 'title')
-            diff_str = _get(row, 'difficulty').upper()
+            diff_raw = _get(row, 'difficulty').upper()
             score_s  = _get(row, 'score')
             lamp_s   = _get(row, 'lamp')
             ex_s     = _get(row, 'exscore')
@@ -137,11 +173,51 @@ class RivalFetchWorker(QThread):
             except ValueError:
                 continue
 
+            # INF/GRV/HVN/VVD/XCD はすべて "MXM" に正規化してキーを統一
+            diff_enum = convert_difficulty(diff_raw)
+            diff_key  = str(diff_enum) if diff_enum else diff_raw
+
             entry         = RivalScoreEntry()
             entry.score   = score
             entry.lamp    = convert_lamp(lamp_s) if lamp_s else clear_lamp.noplay
             entry.exscore = int(ex_s) if ex_s.isdigit() else None
-            rival.scores[(title, diff_str)] = entry
+            rival.scores[(title, diff_key)] = entry
+
+    # ── ポータルライバルパース ────────────────────────────────────────────────
+
+    @staticmethod
+    def _parse_portal_rivals(rival_data: dict) -> List[RivalData]:
+        """portal_manager.get_rivals() の正規化済みレスポンスを RivalData リストに変換。
+
+        フォーマット: {rival_name: [{"title":str,"difficulty":str,
+                                      "score":int,"exscore":int|None,"lamp":str}]}
+        """
+        results: List[RivalData] = []
+        for name, scores in rival_data.items():
+            if not name:
+                continue
+            rd = RivalData(name)
+            for s in scores:
+                if not isinstance(s, dict):
+                    continue
+                title    = s.get('title', '')
+                diff_raw = s.get('difficulty', '').upper()
+                score    = s.get('score', 0)
+                if not title or not diff_raw:
+                    continue
+                # INF/GRV/HVN/VVD/XCD はすべて "MXM" に正規化してキーを統一
+                diff_enum = convert_difficulty(diff_raw)
+                diff_key  = str(diff_enum) if diff_enum else diff_raw
+                entry         = RivalScoreEntry()
+                entry.score   = int(score) if score else 0
+                raw_ex        = s.get('exscore')
+                entry.exscore = int(raw_ex) if raw_ex is not None else None
+                lamp_s        = s.get('lamp', '')
+                entry.lamp    = convert_lamp(lamp_s) if lamp_s else clear_lamp.noplay
+                rd.scores[(title, diff_key)] = entry
+            logger.info(f"ポータルライバル '{name}' パース完了 ({len(rd.scores)} 件)")
+            results.append(rd)
+        return results
 
 
 class RivalManager(QObject):
@@ -159,11 +235,21 @@ class RivalManager(QObject):
 
     # ── キャッシュ ────────────────────────────────────────────────────────
 
+    # portal内部IDパターン (rival_1, rival_2, ...) → 古いキャッシュと判定
+    _PORTAL_ID_PATTERN = re.compile(r'^rival_\d+$')
+
     def load_cache(self):
-        """起動時にキャッシュを読み込んで即座に反映する"""
+        """起動時にキャッシュを読み込んで即座に反映する。
+        portal内部IDが名前になっている古いキャッシュは無視してフェッチを促す。
+        """
         try:
             with bz2.BZ2File(self.CACHE_PATH, 'rb') as f:
-                self.rivals = pickle.load(f)
+                loaded = pickle.load(f)
+            # 古い形式チェック: portal内部ID (rival_1 など) が名前に含まれていれば破棄
+            if any(self._PORTAL_ID_PATTERN.match(r.name) for r in loaded):
+                logger.info("古いフォーマットのキャッシュを検出。フェッチで上書きします。")
+                return
+            self.rivals = loaded
             ok = len([r for r in self.rivals if not r.error])
             logger.info(f"ライバルキャッシュ読み込み完了 ({ok} 人)")
             self.rivals_loaded.emit()
@@ -176,7 +262,8 @@ class RivalManager(QObject):
         """ライバルデータをキャッシュファイルに保存する"""
         try:
             os.makedirs('out', exist_ok=True)
-            with bz2.BZ2File(self.CACHE_PATH, 'wb', compresslevel=9) as f:
+            # compresslevel=1 で高速保存（ファイルサイズはやや大きいが十分小さい）
+            with bz2.BZ2File(self.CACHE_PATH, 'wb', compresslevel=1) as f:
                 pickle.dump(self.rivals, f)
             logger.info("ライバルキャッシュ保存完了")
         except Exception:
@@ -184,9 +271,19 @@ class RivalManager(QObject):
 
     # ── フェッチ ──────────────────────────────────────────────────────────
 
-    def start_fetch(self, rival_configs: List[Dict[str, str]]):
-        """全ライバルの CSV をバックグラウンドで取得開始"""
-        if not rival_configs:
+    def start_fetch(
+        self,
+        rival_configs: List[Dict[str, str]],
+        portal_fetch_fn: Optional[Callable[[], list]] = None,
+    ):
+        """全ライバルのデータをバックグラウンドで取得開始。
+
+        Args:
+            rival_configs:  CSV ライバル設定リスト [{'name': str, 'url': str}]
+            portal_fetch_fn: ポータル API からライバルリストを返す callable。
+                             None の場合はポータル取得をスキップ。
+        """
+        if not rival_configs and portal_fetch_fn is None:
             self.rivals = []
             self.rivals_loaded.emit()
             return
@@ -195,7 +292,7 @@ class RivalManager(QObject):
             self._worker.cancel()
             self._worker.wait(2000)
 
-        self._worker = RivalFetchWorker(rival_configs)
+        self._worker = RivalFetchWorker(rival_configs, portal_fetch_fn=portal_fetch_fn)
         self._worker.finished.connect(self._on_fetch_finished)
         self._worker.start()
 

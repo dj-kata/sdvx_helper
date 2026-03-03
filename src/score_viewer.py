@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QLineEdit, QLabel, QGroupBox,
     QPushButton, QMessageBox, QComboBox,
-    QRadioButton, QButtonGroup,
 )
 from PySide6.QtCore import Qt, QByteArray
 from PySide6.QtGui import QColor, QBrush
@@ -119,6 +118,12 @@ QStatusBar { background-color: #F0F0F0; }
 """
 
 
+_GRADE_ORDER: dict[str, int] = {
+    'S': 9, 'AAA+': 8, 'AAA': 7, 'AA+': 6, 'AA': 5,
+    'A+': 4, 'A': 3, 'B': 2, 'C': 1, 'D': 0,
+}
+
+
 class _SortItem(QTableWidgetItem):
     """数値ソート対応テーブルアイテム"""
     def __lt__(self, other: QTableWidgetItem) -> bool:
@@ -160,7 +165,6 @@ class ScoreViewer(QMainWindow):
         self._selected_title: str | None = None
         self._selected_diff = None
         self._selected_score: int | None = None
-        self._rival_sort_ex: bool = False
 
         self.setWindowTitle("Score Viewer - SDVX Helper")
         self.setMinimumSize(1000, 680)
@@ -361,21 +365,6 @@ class ScoreViewer(QMainWindow):
         self._rival_detail_label.setWordWrap(True)
         rival_v.addWidget(self._rival_detail_label)
 
-        # ソート切り替え
-        sort_row = QHBoxLayout()
-        sort_row.addWidget(QLabel("ソート:"))
-        self._sort_score_radio = QRadioButton("Score")
-        self._sort_score_radio.setChecked(True)
-        self._sort_ex_radio = QRadioButton("EXScore")
-        _sort_grp = QButtonGroup(rival_box)
-        _sort_grp.addButton(self._sort_score_radio)
-        _sort_grp.addButton(self._sort_ex_radio)
-        self._sort_score_radio.toggled.connect(self._on_rival_sort_changed)
-        sort_row.addWidget(self._sort_score_radio)
-        sort_row.addWidget(self._sort_ex_radio)
-        sort_row.addStretch()
-        rival_v.addLayout(sort_row)
-
         self._rival_table = QTableWidget()
         self._rival_table.setColumnCount(5)
         self._rival_table.setHorizontalHeaderLabels(
@@ -385,6 +374,7 @@ class ScoreViewer(QMainWindow):
         hdr.setSectionResizeMode(0, QHeaderView.Stretch)
         for col in range(1, 5):
             hdr.setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self._rival_table.setSortingEnabled(True)
         self._rival_table.setSelectionBehavior(QTableWidget.SelectRows)
         self._rival_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self._rival_table.setAlternatingRowColors(True)
@@ -455,7 +445,7 @@ class ScoreViewer(QMainWindow):
         self._score_table.setItem(row, self._COL_TITLE,
             _mk(best.title, align=Qt.AlignLeft | Qt.AlignVCenter))
         self._score_table.setItem(row, self._COL_SCORE, _mk(best.best_score, best.best_score))
-        self._score_table.setItem(row, self._COL_GRADE, _mk(best.grade))
+        self._score_table.setItem(row, self._COL_GRADE, _mk(best.grade, _GRADE_ORDER.get(best.grade, -1)))
         ex = best.best_exscore if best.best_exscore is not None else ''
         self._score_table.setItem(row, self._COL_EX,    _mk(ex, best.best_exscore or 0))
         self._score_table.setItem(row, self._COL_VF,    _mk(f"{best.vf / 10:.1f}", best.vf))
@@ -474,36 +464,6 @@ class ScoreViewer(QMainWindow):
         lamp_item.setBackground(QBrush(lamp_bg))
         lamp_item.setForeground(QBrush(lamp_fg))
         self._score_table.setItem(row, self._COL_LAMP, lamp_item)
-
-        # ライバル列
-        if self._current_rival:
-            rival_score, _, rival_lamp = self.result_database.get_rival_best(
-                name=self._current_rival, title=best.title, diff=best.difficulty
-            )
-            rival_lamp_bg = _LAMP_BG.get(rival_lamp, QColor(185, 185, 185))
-
-            r_score_item = _mk(rival_score if rival_score is not None else '', rival_score or 0)
-            self._score_table.setItem(row, self._COL_RIVAL_SCORE, r_score_item)
-
-            r_lum = (rival_lamp_bg.red() * 299 + rival_lamp_bg.green() * 587
-                     + rival_lamp_bg.blue() * 114) // 1000
-            r_lamp_item = _mk(str(rival_lamp), rival_lamp.value)
-            r_lamp_item.setBackground(QBrush(rival_lamp_bg))
-            r_lamp_item.setForeground(QBrush(
-                QColor(20, 20, 20) if r_lum > 150 else QColor(255, 255, 255)
-            ))
-            self._score_table.setItem(row, self._COL_RIVAL_LAMP, r_lamp_item)
-
-            if rival_score is not None:
-                diff_val  = best.best_score - rival_score
-                diff_text = f'+{diff_val}' if diff_val >= 0 else str(diff_val)
-                diff_item2 = _mk(diff_text, diff_val)
-                diff_item2.setForeground(QBrush(
-                    QColor(0, 150, 0) if diff_val >= 0 else QColor(190, 0, 0)
-                ))
-                self._score_table.setItem(row, self._COL_SCORE_DIFF, diff_item2)
-            else:
-                self._score_table.setItem(row, self._COL_SCORE_DIFF, _mk(''))
 
     # ── レベルフィルタ操作 ────────────────────────────────────────────────────
 
@@ -528,27 +488,20 @@ class ScoreViewer(QMainWindow):
 
     def _on_rival_changed(self, index: int):
         self._current_rival = self._rival_combo.currentText() if index > 0 else None
-        has_rival = self._current_rival is not None
-        for col in [self._COL_RIVAL_SCORE, self._COL_RIVAL_LAMP, self._COL_SCORE_DIFF]:
-            self._score_table.setColumnHidden(col, not has_rival)
         self._update_rival_panel()
-        self._populate_score_table()
-
-    def _on_rival_sort_changed(self):
-        """ソートキー切り替え → パネル再描画"""
-        self._rival_sort_ex = self._sort_ex_radio.isChecked()
-        if self._selected_title:
-            self._update_rival_panel(self._selected_title, self._selected_diff)
+        self._apply_filter()
 
     def _on_rivals_loaded(self):
         """rival_manager の読み込み/フェッチ完了時に呼ばれる"""
         self._refresh_rival_combo()
-        # 選択曲があればライバル比較を更新
+        if self._current_rival:
+            self._apply_filter()
         if self._selected_title:
             self._update_rival_panel(self._selected_title, self._selected_diff)
 
     def _update_rival_panel(self, title: str = None, diff_enum=None):
         """ライバルパネルを更新。選択曲がある場合は全プレーヤーのスコアを表示"""
+        self._rival_table.setSortingEnabled(False)
         self._rival_table.setRowCount(0)
 
         if title is None:
@@ -556,6 +509,7 @@ class ScoreViewer(QMainWindow):
             self._rival_detail_label.setText(
                 f"登録ライバル: {len(names)} 人  ―  譜面を選択するとスコアを比較します"
             )
+            self._rival_table.setSortingEnabled(True)
             return
 
         diff_str = str(diff_enum) if diff_enum is not None else ''
@@ -586,12 +540,6 @@ class ScoreViewer(QMainWindow):
                     name=name, title=title, diff=diff_enum
                 )
                 rows.append((name, s or 0, None, lp, False))
-
-        # ── ソート（降順）──
-        if self._rival_sort_ex:
-            rows.sort(key=lambda e: (e[2] if e[2] is not None else -1), reverse=True)
-        else:
-            rows.sort(key=lambda e: e[1], reverse=True)
 
         # ── テーブル描画 ──
         def _mk(text, sort_val=None) -> QTableWidgetItem:
@@ -635,6 +583,8 @@ class ScoreViewer(QMainWindow):
                 ))
                 self._rival_table.setItem(row, 4, diff_item)
 
+        self._rival_table.setSortingEnabled(True)
+
     # ── フィルター ────────────────────────────────────────────────────────────
 
     def _apply_filter(self):
@@ -643,6 +593,14 @@ class ScoreViewer(QMainWindow):
         enabled_lvs   = {lv for lv, cb in self._lv_checks.items() if cb.isChecked()}
         all_lv        = len(enabled_lvs) == len(self._lv_checks)
         search        = self._search_edit.text().lower()
+
+        # ライバルフィルター: 自分が勝っている行を非表示にする
+        rival_scores: dict = {}
+        if self._current_rival and self.rival_manager:
+            for rd in self.rival_manager.rivals:
+                if rd.name == self._current_rival:
+                    rival_scores = rd.scores
+                    break
 
         visible = 0
         for row in range(self._score_table.rowCount()):
@@ -657,7 +615,16 @@ class ScoreViewer(QMainWindow):
             # lv==0 はレベル不明。全レベル選択時のみ表示する
             lv_hidden    = (lv == 0 and not all_lv) or (lv != 0 and lv not in enabled_lvs)
             search_hidden = bool(search) and search not in title_item.text().lower()
-            hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden)
+            # ライバルフィルター: 勝っている曲（自スコア > ライバルスコア）を非表示
+            if rival_scores:
+                s_item   = self._score_table.item(row, self._COL_SCORE)
+                my_score = (s_item.data(Qt.UserRole) or 0) if s_item else 0
+                entry    = rival_scores.get((title_item.text(), diff_str))
+                r_score  = entry.score if entry else 0
+                rival_hidden = my_score > r_score
+            else:
+                rival_hidden = False
+            hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or rival_hidden)
             self._score_table.setRowHidden(row, hide)
             if not hide:
                 visible += 1
@@ -719,7 +686,7 @@ class ScoreViewer(QMainWindow):
 
             self._hist_table.setItem(row, 0, _mk(ts, r.timestamp))
             self._hist_table.setItem(row, 1, _mk(r.score   or '', r.score   or 0))
-            self._hist_table.setItem(row, 2, _mk(r.grade))
+            self._hist_table.setItem(row, 2, _mk(r.grade, _GRADE_ORDER.get(r.grade, -1)))
             self._hist_table.setItem(row, 3, _mk(r.exscore or '', r.exscore or 0))
             lamp_item = _mk(str(r.lamp), r.lamp.value)
             lamp_item.setBackground(QBrush(lamp_bg))
