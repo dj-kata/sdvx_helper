@@ -36,7 +36,7 @@
             font-family: 'Inter', 'RocknRoll One', sans-serif;
             color: var(--text-main);
             background-color: #050510;
-            background-image: url("sdvx_stats_background.png");
+            /* background-image: url("sdvx_stats_background.png"); */
             background-size: cover;
             background-position: center;
             height: 100vh;
@@ -249,6 +249,52 @@
             background-color: var(--lamp-noplay);
         }
 
+        /* Color Helpers for Text */
+        .color-puc {
+            color: var(--lamp-puc);
+            font-weight: bold;
+        }
+
+        .color-uc {
+            color: var(--lamp-uc);
+            font-weight: bold;
+        }
+
+        .color-exc {
+            color: var(--lamp-exc);
+            font-weight: bold;
+        }
+
+        .color-mxx {
+            color: var(--lamp-maxxive);
+            font-weight: bold;
+        }
+
+        .color-clr {
+            color: var(--lamp-clear);
+            font-weight: bold;
+        }
+
+        .color-fld {
+            color: var(--lamp-failed);
+            font-weight: bold;
+        }
+
+        .color-s {
+            color: var(--rank-s);
+            font-weight: bold;
+        }
+
+        .color-aaa-plus {
+            color: var(--rank-aaa-plus);
+            font-weight: bold;
+        }
+
+        .color-aaa {
+            color: var(--rank-aaa);
+            font-weight: bold;
+        }
+
         /* Rank Colors */
         .rank-s {
             background-color: var(--accent-yellow);
@@ -401,7 +447,7 @@
                 <div class="panel-title">VF BESTS (TOP 50)</div>
                 <div id="vf-bests-container"
                     style="flex: 1; height: calc(100% - 40px); overflow: hidden; position: relative;">
-                    <iframe src="total_vf_v2_ws.html"
+                    <iframe src="total_vf.html"
                         style="width: 100%; height: 100%; border: none; background: transparent;"
                         id="vf-frame"></iframe>
                 </div>
@@ -411,7 +457,7 @@
                 <div class="panel-title">LEVEL STATS</div>
                 <div class="stats-scroll-area">
                     <script>
-                        for (let lv = 20; lv >= 14; lv--) {
+                        for (let lv = 14; lv <= 20; lv++) {
                             document.write(`
                         <div class="lv-card" id="lv-${lv}-card">
                             <div class="lv-header">
@@ -431,7 +477,7 @@
                                     <div class="segment mxx" id="lv-${lv}-mxx-bar" style="width: 0%"></div>
                                     <div class="segment clr" id="lv-${lv}-clr-bar" style="width: 0%"></div>
                                     <div class="segment fld" id="lv-${lv}-fld-bar" style="width: 0%"></div>
-                                    <div class="segment noplay" id="lv-${lv}-noplay-bar" style="width: 100%"></div>
+                                    <div class="segment noplay" id="lv-${lv}-noplay-bar" style="width: 0%; display: none;"></div>
                                 </div>
                             </div>
 
@@ -527,33 +573,49 @@
                     const played = s.played || 0;
                     const noplay = total - played;
 
+                    const barDenominator = played || 1; // プレー済みを基準にする
+
                     // Update text
                     const aveEl = document.getElementById(`lv-${lv}-ave`);
                     if (aveEl) aveEl.innerText = s.average.toLocaleString();
                     const playedRatioEl = document.getElementById(`lv-${lv}-played-ratio`);
                     if (playedRatioEl) playedRatioEl.innerText = `${played}/${total}`;
                     const rankInfoEl = document.getElementById(`lv-${lv}-rank-info`);
-                    if (rankInfoEl) rankInfoEl.innerText = `S: ${s.s || 0} | AAA+: ${s.aaa_plus || 0}`;
+                    if (rankInfoEl) {
+                        rankInfoEl.innerHTML = `
+                            <span class="color-puc">P:${s.puc || 0}</span> 
+                            <span class="color-uc">U:${s.uc || 0}</span> 
+                            <span class="color-exc">E:${s.exc || 0}</span> 
+                            <span class="color-clr">C:${s.clr || 0}</span> | 
+                            <span class="color-s">S:${s.s || 0}</span> 
+                            <span class="color-aaa-plus">A+: ${s.aaa_plus || 0}</span>
+                        `.trim();
+                    }
 
                     // Update Progress Bars
                     const setWidth = (id, val) => {
                         const el = document.getElementById(id);
-                        if (el) el.style.width = ((val / total) * 100) + '%';
+                        if (el) el.style.width = played > 0 ? ((val / barDenominator) * 100) + '%' : '0%';
                     };
 
                     setWidth(`lv-${lv}-puc-bar`, s.puc);
                     setWidth(`lv-${lv}-uc-bar`, s.uc);
                     setWidth(`lv-${lv}-exc-bar`, s.exc);
-                    setWidth(`lv-${lv}-mxx-bar`, s.mxx); // Fixed: was maxxive
-                    setWidth(`lv-${lv}-clr-bar`, s.clr); // Fixed: was clear
+                    setWidth(`lv-${lv}-mxx-bar`, s.mxx);
+                    setWidth(`lv-${lv}-clr-bar`, s.clr);
                     setWidth(`lv-${lv}-fld-bar`, s.fld);
-                    setWidth(`lv-${lv}-noplay-bar`, noplay); // Fixed: added noplay
+
+                    const noPlayEl = document.getElementById(`lv-${lv}-noplay-bar`);
+                    if (noPlayEl) {
+                        noPlayEl.style.width = '0%';
+                        noPlayEl.style.display = 'none';
+                    }
 
                     setWidth(`lv-${lv}-rank-s-bar`, s.s);
                     setWidth(`lv-${lv}-rank-aaa-plus-bar`, s.aaa_plus);
                     setWidth(`lv-${lv}-rank-aaa-bar`, s.aaa);
 
-                    const otherRankCount = total - (s.s || 0) - (s.aaa_plus || 0) - (s.aaa || 0);
+                    const otherRankCount = played - (s.s || 0) - (s.aaa_plus || 0) - (s.aaa || 0);
                     setWidth(`lv-${lv}-rank-other-bar`, otherRankCount);
 
                     // Update Detail Stats

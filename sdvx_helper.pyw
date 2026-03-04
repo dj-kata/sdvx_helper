@@ -73,6 +73,9 @@ class MainWindow(MainWindowUI):
         # Portal連携マネージャー
         self.portal_manager = PortalManager(token=self.config.portal_token)
         self.portal_manager.load_cache()   # 前回キャッシュを即時反映
+        self.result_database.portal_manager = self.portal_manager # ResultDatabaseにPortalManagerを連携
+        self.result_database.broadcast_vf_data()   # マスタ反映後のデータを配信
+        self.result_database.broadcast_stats_data()
         if self.config.portal_token:
             QTimer.singleShot(3000, self._portal_fetch_musiclist)
 
@@ -240,6 +243,9 @@ class MainWindow(MainWindowUI):
             ok = self.portal_manager.get_musiclist()
             if ok:
                 logger.info(f'Portal楽曲マスタ取得完了: {len(self.portal_manager.master_db)} 曲')
+                # 取得完了後に再配信
+                self.result_database.broadcast_vf_data()
+                self.result_database.broadcast_stats_data()
             else:
                 logger.warning('Portal楽曲マスタ取得失敗')
         threading.Thread(target=_fetch, daemon=True).start()

@@ -49,8 +49,8 @@ _DIFF_COLORS = {
 _LAMP_FILE: Dict[clear_lamp, str] = {
     clear_lamp.puc:     'log_lamp_puc.png',
     clear_lamp.uc:      'log_lamp_uc.png',
-    clear_lamp.exc:     'log_lamp_exh.png',
-    clear_lamp.maxxive: 'log_lamp_hard.png',
+    clear_lamp.exc:     'log_lamp_hard.png', # 指摘に基づき修正: EXCESSIVE CLEAR (Hard)
+    clear_lamp.maxxive: 'log_lamp_exh.png',  # 指摘に基づき修正: MAXXIVE CLEAR
     clear_lamp.clear:   'log_lamp_clear.png',
     clear_lamp.played:  'log_lamp_failed.png',
     clear_lamp.noplay:  'log_lamp_failed.png',

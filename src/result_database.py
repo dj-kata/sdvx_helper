@@ -58,6 +58,8 @@ class ResultDatabase:
         self.config = config
         self.ws_server = None
         self.ws_loop = None
+        
+        self.portal_manager = None  # メインウィンドウからセットされる
         self.ws_thread = None
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
@@ -616,18 +618,34 @@ class ResultDatabase:
         """VFランキングデータをWebSocket送信用の辞書で返す。"""
         ranking = self.get_vf_ranking()
         total_vf = calc_total_vf([b.vf for b in self.get_all_best_results().values()])
+        
+        # 難易度名 (INF/GRV/...) 解決用 (正規化タイトル -> Lv -> cdiff)
+        norm_diff_map = {}
+        if self.portal_manager:
+            for (title, lv), cdiff in self.portal_manager.get_4th_diff_map().items():
+                norm_diff_map[(title.strip().lower(), lv)] = cdiff
+        
+        from src.summary_generator import _LAMP_FILE
+        
         items = []
         for i, b in enumerate(ranking, 1):
+            # difficulty.maximum の場合のみ、マスタから個別名称を引く
+            cdiff = None
+            if b.difficulty == difficulty.maximum:
+                cdiff = norm_diff_map.get((b.title.strip().lower(), b.level))
+                
             items.append({
                 'rank':       i,
                 'chart_id':   b.chart_id,
                 'title':      b.title,
                 'difficulty': get_chart_name(b.difficulty),
+                'cdiff':      cdiff,
                 'lv':         str(b.level),
                 'score':      b.best_score,
                 'exscore':    b.best_exscore,
                 'grade':      b.grade,
                 'lamp':       b.best_lamp.value,
+                'lamp_img':   _LAMP_FILE.get(b.best_lamp),
                 'vf':         b.vf,
             })
         return {'total_vf': total_vf, 'items': items}

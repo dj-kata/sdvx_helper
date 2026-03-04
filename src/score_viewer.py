@@ -755,7 +755,7 @@ class ScoreViewer(QMainWindow):
         self._score_table.setItem(row, self._COL_PLAYS, _mk(best.play_count, best.play_count))
 
         # 難易度テキスト（4th枠はportalマスタの実際の名前を使用 MXM/INF/GRV/HVN/VVD/XCD）
-        diff_label = (self._4th_diff_map.get(best.title, str(diff))
+        diff_label = (self._4th_diff_map.get((best.title, lv), str(diff))
                       if diff == difficulty.maximum else str(diff))
         diff_item = _mk(diff_label)
         diff_item.setForeground(QBrush(diff_fg))

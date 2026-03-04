@@ -37,7 +37,7 @@
 
         .vf-item {
             display: grid;
-            grid-template-columns: 24px 36px 1fr 34px 44px;
+            grid-template-columns: 24px 36px 1fr 24px 34px 44px;
             align-items: center;
             background: var(--glass-bg);
             border: 1px solid var(--glass-border);
@@ -87,29 +87,87 @@
             overflow: hidden;
             text-overflow: ellipsis;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .diff-lv {
             font-size: 9px;
             display: flex;
             gap: 4px;
+            font-weight: bold;
+            font-family: 'Black Ops One', sans-serif;
         }
 
-        .diff.MAXIMUM {
-            color: #ff00ff;
+        /* 難易度別の色分け */
+        .diff.MAXIMUM,
+        .diff.MXM {
+            color: #f2f;
         }
 
-        .diff.EXHAUST {
-            color: #ff4444;
+        .diff.EXHAUST,
+        .diff.EXH {
+            color: #f44;
         }
 
-        .diff.ADVANCED {
+        .diff.ADVANCED,
+        .diff.ADV {
+            color: #ff4;
+        }
+
+        .diff.NOVICE,
+        .diff.NOV {
+            color: #44f;
+        }
+
+        .diff.INF {
+            color: #ff80ff;
+        }
+
+        .diff.GRV {
+            color: #ff8000;
+        }
+
+        .diff.HVN {
+            color: #00ffff;
+        }
+
+        .diff.VVD {
+            color: #ff0040;
+        }
+
+        .diff.XCD {
+            color: #ccff00;
+        }
+
+        /* レベル別の色分け */
+        .lv.lv17 {
+            color: #ffffff;
+        }
+
+        .lv.lv18 {
             color: #ffff44;
         }
 
-        .diff.NOVICE {
-            color: #4444ff;
+        .lv.lv19 {
+            color: #ff4444;
+        }
+
+        .lv.lv20 {
+            color: #ff00ff;
+        }
+
+        .lamp-container {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lamp-img {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
         }
 
         .score {
@@ -189,6 +247,10 @@
         }
 
         function updateVFList(items) {
+            console.log('Updating VF List, items:', items.length);
+            if (items.length > 0) {
+                console.log('First item sample:', items[0]);
+            }
             const list = document.getElementById('vf-list');
             list.innerHTML = '';
 
@@ -196,6 +258,9 @@
                 const div = document.createElement('div');
                 div.className = 'vf-item';
                 div.style.animationDelay = `${index * 0.01}s`;
+
+                const displayDiff = item.cdiff || item.difficulty;
+                const lvClass = `lv${item.lv}`;
 
                 div.innerHTML = `
                     <div class="rank">${item.rank}</div>
@@ -205,9 +270,12 @@
                     <div class="title-diff">
                         <div class="title">${item.title}</div>
                         <div class="diff-lv">
-                            <span class="diff ${item.difficulty}">${item.difficulty}</span>
-                            <span class="lv">Lv.${item.lv}</span>
+                            <span class="diff ${displayDiff}">${displayDiff}</span>
+                            <span class="lv ${lvClass}">Lv.${item.lv}</span>
                         </div>
+                    </div>
+                    <div class="lamp-container">
+                        ${item.lamp_img ? `<img class="lamp-img" src="../resources/${item.lamp_img}">` : ''}
                     </div>
                     <div class="score">${Math.floor(item.score / 10000).toLocaleString()}</div>
                     <div class="vf-val">${(item.vf / 10).toFixed(1)}</div>
