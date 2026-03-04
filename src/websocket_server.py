@@ -33,6 +33,7 @@ class DataWebSocketServer:
         self.cursong_data       = None
         self.today_results_data = None
         self.vf_data            = None
+        self.stats_data         = None
 
     # ── 接続管理 ─────────────────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ class DataWebSocketServer:
             ('cursong',       self.cursong_data),
             ('today_results', self.today_results_data),
             ('vf',            self.vf_data),
+            ('stats',         self.stats_data),
         ]:
             if data is not None:
                 try:
@@ -97,6 +99,10 @@ class DataWebSocketServer:
     async def _broadcast_vf(self, data: dict):
         self.vf_data = data
         await self._broadcast('vf', data)
+
+    async def _broadcast_stats(self, data: dict):
+        self.stats_data = data
+        await self._broadcast('stats', data)
 
     # ── サーバー制御 ─────────────────────────────────────────────────────────
 
@@ -151,4 +157,11 @@ class DataWebSocketServer:
         if self.loop:
             asyncio.run_coroutine_threadsafe(
                 self._broadcast_vf(data), self.loop
+            )
+
+    def update_stats_data(self, data: dict):
+        """統計データを更新して配信"""
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(
+                self._broadcast_stats(data), self.loop
             )

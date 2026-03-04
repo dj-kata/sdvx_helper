@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>VF TOP 50</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=RocknRoll+One&family=Black+Ops+One&family=Monomaniac+One&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff00cc;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            color: #fff;
+            font-family: "RocknRoll One", sans-serif;
+            overflow-x: hidden;
+            font-size: 14px;
+        }
+
+        #vf-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 5px;
+            justify-content: flex-start;
+        }
+
+        .vf-item {
+            display: grid;
+            grid-template-columns: 24px 36px 1fr 34px 44px;
+            align-items: center;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            padding: 4px 6px;
+            gap: 6px;
+            width: calc(33.33% - 8px);
+            min-width: 250px;
+            box-sizing: border-box;
+            transition: background 0.2s;
+        }
+
+        .vf-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .rank {
+            font-family: 'Black Ops One';
+            color: var(--accent-cyan);
+            font-size: 14px;
+            text-align: right;
+        }
+
+        .jacket-container {
+            width: 36px;
+            height: 36px;
+            border-radius: 2px;
+            overflow: hidden;
+            background: #222;
+        }
+
+        .jacket {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .title-diff {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            line-height: 1.2;
+        }
+
+        .title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .diff-lv {
+            font-size: 9px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .diff.MAXIMUM {
+            color: #ff00ff;
+        }
+
+        .diff.EXHAUST {
+            color: #ff4444;
+        }
+
+        .diff.ADVANCED {
+            color: #ffff44;
+        }
+
+        .diff.NOVICE {
+            color: #4444ff;
+        }
+
+        .score {
+            font-family: 'Monomaniac One';
+            text-align: right;
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .vf-val {
+            font-family: 'Black Ops One';
+            color: var(--accent-magenta);
+            text-align: right;
+            font-size: 14px;
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .vf-item {
+            animation: slideIn 0.3s ease-out both;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 2px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="vf-list">
+        <!-- Items will be populated by JS -->
+    </div>
+
+    <script>
+        function connect() {
+            const socket = new WebSocket('ws://localhost:8767');
+
+            socket.onopen = () => {
+                console.log('VF View Connected');
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'vf') {
+                        updateVFList(msg.data.items);
+                    }
+                } catch (e) {
+                    console.error('Error in VF onmessage:', e);
+                }
+            };
+
+            socket.onclose = () => {
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function updateVFList(items) {
+            const list = document.getElementById('vf-list');
+            list.innerHTML = '';
+
+            items.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'vf-item';
+                div.style.animationDelay = `${index * 0.01}s`;
+
+                div.innerHTML = `
+                    <div class="rank">${item.rank}</div>
+                    <div class="jacket-container">
+                        <img class="jacket" src="../jackets/${item.chart_id}.png" onerror="this.src='../resources/no_jacket.png';">
+                    </div>
+                    <div class="title-diff">
+                        <div class="title">${item.title}</div>
+                        <div class="diff-lv">
+                            <span class="diff ${item.difficulty}">${item.difficulty}</span>
+                            <span class="lv">Lv.${item.lv}</span>
+                        </div>
+                    </div>
+                    <div class="score">${Math.floor(item.score / 10000).toLocaleString()}</div>
+                    <div class="vf-val">${(item.vf / 10).toFixed(1)}</div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        connect();
+    </script>
+</body>
+
+</html>

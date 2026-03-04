@@ -1,0 +1,576 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>SDVX Helper Stats v2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;700&family=Mochiy+Pop+P+One&family=RocknRoll+One&family=Dela+Gothic+One&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: rgba(10, 10, 25, 0.9);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff00cc;
+            --accent-yellow: #ffff00;
+            --text-main: #ffffff;
+            --text-dim: #b0b0c0;
+
+            --lamp-puc: #ffff00;
+            --lamp-uc: #ff7777;
+            --lamp-exc: #dddddd;
+            --lamp-maxxive: #c477ff;
+            --lamp-clear: #77ff77;
+            --lamp-failed: #ff2828;
+            --lamp-noplay: #444444;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', 'RocknRoll One', sans-serif;
+            color: var(--text-main);
+            background-color: #050510;
+            background-image: url("sdvx_stats_background.png");
+            background-size: cover;
+            background-position: center;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Container with Overlay blur */
+        .container {
+            width: 100%;
+            height: 100%;
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Header Area */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 40px;
+            background: linear-gradient(90deg, rgba(0, 242, 255, 0.1), rgba(255, 0, 204, 0.1));
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+
+        .title-brand {
+            font-family: 'Black Ops One', cursive;
+            font-size: 32px;
+            letter-spacing: 2px;
+            background: linear-gradient(to right, var(--accent-cyan), #ffffff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .stat-badge {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 5px 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: 'Black Ops One';
+        }
+
+        .player-name {
+            font-family: 'Mochiy Pop P One';
+            font-size: 24px;
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+            flex: 1;
+            overflow: hidden;
+            padding: 0 10px;
+        }
+
+        /* VF Section */
+        .vf-section {
+            display: flex;
+            flex-direction: column;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        /* Stats Sidebar */
+        .stats-sidebar {
+            display: flex;
+            flex-direction: column;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            overflow: hidden;
+            gap: 10px;
+        }
+
+        .stats-scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-right: 5px;
+        }
+
+        .lv-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            transition: transform 0.2s;
+        }
+
+        .lv-card:hover {
+            transform: scale(1.02);
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .lv-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: 3px;
+        }
+
+        .lv-num {
+            font-family: 'Black Ops One';
+            font-size: 20px;
+            color: var(--accent-magenta);
+        }
+
+        .lv-ave {
+            font-size: 11px;
+            color: var(--accent-cyan);
+        }
+
+        /* Progress Bars */
+        .progress-container {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .bar-label {
+            font-size: 9px;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+            text-transform: uppercase;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .segment {
+            height: 100%;
+            transition: width 0.5s ease-out;
+        }
+
+        /* Lamp Colors */
+        .puc {
+            background-color: var(--lamp-puc);
+            box-shadow: 0 0 10px var(--lamp-puc);
+        }
+
+        .uc {
+            background-color: var(--lamp-uc);
+        }
+
+        .exc {
+            background-color: var(--lamp-exc);
+        }
+
+        .mxx {
+            background-color: var(--lamp-maxxive);
+        }
+
+        .clr {
+            background-color: var(--lamp-clear);
+        }
+
+        .fld {
+            background-color: var(--lamp-failed);
+        }
+
+        .noplay {
+            background-color: var(--lamp-noplay);
+        }
+
+        /* Rank Colors */
+        .rank-s {
+            background-color: var(--accent-yellow);
+        }
+
+        .rank-aaa-plus {
+            background-color: #77ffff;
+        }
+
+        .rank-aaa {
+            background-color: #7777ff;
+        }
+
+        .rank-other {
+            background-color: #444444;
+        }
+
+        /* Detail Stats */
+        .detail-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            font-size: 11px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 2px 5px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .count {
+            font-weight: bold;
+        }
+
+        /* Right Panel (Today / Recent) */
+        .right-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-title {
+            font-family: 'Dela Gothic One';
+            font-size: 18px;
+            color: var(--accent-cyan);
+            border-left: 4px solid var(--accent-cyan);
+            padding-left: 10px;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .live-indicator {
+            width: 10px;
+            height: 10px;
+            background-color: #00ff00;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            box-shadow: 0 0 8px #00ff00;
+        }
+
+        .connected .live-indicator {
+            animation: pulse 2s infinite;
+        }
+
+        .disconnected .live-indicator {
+            background-color: #ff0000;
+            box-shadow: 0 0 8px #ff0000;
+            animation: none;
+        }
+
+        .debug-panel {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            font-family: monospace;
+            padding: 10px;
+            font-size: 12px;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #0f0;
+            display: none;
+            /* 初期は非表示 */
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container disconnected" id="main-container">
+        <header>
+            <div class="title-brand">VOLFORCE TARGET CHARTS</div>
+            <div class="player-info">
+                <div id="connection-status">
+                    <span class="live-indicator"></span>
+                    <span id="status-text" style="font-size: 12px; color: var(--text-dim);">CONNECTING...</span>
+                </div>
+                <div class="player-name" id="player-name">---</div>
+                <div class="stat-badge">
+                    <span class="stat-label">Volforce</span>
+                    <span class="stat-value" id="total-vf">0.000</span>
+                </div>
+                <div class="stat-badge">
+                    <span class="stat-label">Last Update</span>
+                    <span class="stat-value" id="last-update" style="font-size: 14px;">---</span>
+                </div>
+            </div>
+        </header>
+
+        <div id="debug-log" class="debug-panel"></div>
+
+        <div class="main-content">
+            <div class="vf-section">
+                <div class="panel-title">VF BESTS (TOP 50)</div>
+                <div id="vf-bests-container"
+                    style="flex: 1; height: calc(100% - 40px); overflow: hidden; position: relative;">
+                    <iframe src="total_vf_v2_ws.html"
+                        style="width: 100%; height: 100%; border: none; background: transparent;"
+                        id="vf-frame"></iframe>
+                </div>
+            </div>
+
+            <div class="stats-sidebar" id="stats-grid">
+                <div class="panel-title">LEVEL STATS</div>
+                <div class="stats-scroll-area">
+                    <script>
+                        for (let lv = 20; lv >= 14; lv--) {
+                            document.write(`
+                        <div class="lv-card" id="lv-${lv}-card">
+                            <div class="lv-header">
+                                <span class="lv-num">LV.${lv}</span>
+                                <span class="lv-ave">Ave: <span id="lv-${lv}-ave">0,000,000</span></span>
+                            </div>
+                            
+                            <div class="progress-container">
+                                <div class="bar-label">
+                                    <span>LAMP</span>
+                                    <span id="lv-${lv}-played-ratio">0/0</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="segment puc" id="lv-${lv}-puc-bar" style="width: 0%"></div>
+                                    <div class="segment uc" id="lv-${lv}-uc-bar" style="width: 0%"></div>
+                                    <div class="segment exc" id="lv-${lv}-exc-bar" style="width: 0%"></div>
+                                    <div class="segment mxx" id="lv-${lv}-mxx-bar" style="width: 0%"></div>
+                                    <div class="segment clr" id="lv-${lv}-clr-bar" style="width: 0%"></div>
+                                    <div class="segment fld" id="lv-${lv}-fld-bar" style="width: 0%"></div>
+                                    <div class="segment noplay" id="lv-${lv}-noplay-bar" style="width: 100%"></div>
+                                </div>
+                            </div>
+
+                            <div class="progress-container">
+                                <div class="bar-label">
+                                    <span>RANK</span>
+                                    <span id="lv-${lv}-rank-info">S: 0</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="segment rank-s" id="lv-${lv}-rank-s-bar" style="width: 0%"></div>
+                                    <div class="segment rank-aaa-plus" id="lv-${lv}-rank-aaa-plus-bar" style="width: 0%"></div>
+                                    <div class="segment rank-aaa" id="lv-${lv}-rank-aaa-bar" style="width: 0%"></div>
+                                    <div class="segment rank-other" id="lv-${lv}-rank-other-bar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                        `);
+                        }
+                    </script>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statsGrid = document.getElementById('stats-grid');
+        const mainContainer = document.getElementById('main-container');
+        const statusText = document.getElementById('status-text');
+
+        function log(msg) {
+            console.log(msg);
+            const div = document.getElementById('debug-log');
+            if (div) { // Check if div exists before trying to modify it
+                div.innerText += msg + "\n";
+                if (div.innerText.length > 5000) div.innerText = div.innerText.substring(div.innerText.length - 5000);
+                div.scrollTop = div.scrollHeight; // Auto-scroll to bottom
+            }
+        }
+
+        function connect() {
+            log('Connecting to WebSocket...');
+            const socket = new WebSocket('ws://localhost:8767');
+            const statusIndicator = document.querySelector('.live-indicator'); // Assuming this is the indicator
+            const statusText = document.getElementById('status-text');
+
+            socket.onopen = () => {
+                log('WebSocket connected');
+                mainContainer.classList.remove('disconnected');
+                mainContainer.classList.add('connected');
+                statusText.innerText = 'LIVE';
+                if (statusIndicator) statusIndicator.classList.add('active'); // Add active class if needed for styling
+            };
+
+            socket.onmessage = (event) => {
+                try {
+                    log('Message received: ' + event.data.substring(0, Math.min(event.data.length, 100)) + '...');
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'stats') {
+                        updateStats(msg.data);
+                    }
+                } catch (e) {
+                    log('ERROR in onmessage: ' + e);
+                }
+            };
+
+            socket.onclose = () => {
+                log('WebSocket disconnected. Retrying in 3s...');
+                mainContainer.classList.remove('connected');
+                mainContainer.classList.add('disconnected');
+                statusText.innerText = 'DISCONNECTED';
+                if (statusIndicator) statusIndicator.classList.remove('active'); // Remove active class
+                setTimeout(connect, 3000);
+            };
+
+            socket.onerror = (error) => {
+                log('WebSocket Error: ' + (error.message || 'Unknown error'));
+                socket.close();
+            };
+        }
+
+        function updateStats(data) {
+            try {
+                log('Updating stats for: ' + (data.player_name || 'NONAME') + ' at ' + (data.date || '---'));
+                // Player info
+                document.getElementById('player-name').innerText = data.player_name || 'NONAME';
+                document.getElementById('total-vf').innerText = data.total_vf || '0.000';
+                document.getElementById('last-update').innerText = data.date || '---';
+
+                const lvs = data.lvs;
+                for (const lv in lvs) {
+                    const s = lvs[lv];
+                    const total = s.total || 1;
+                    const played = s.played || 0;
+                    const noplay = total - played;
+
+                    // Update text
+                    const aveEl = document.getElementById(`lv-${lv}-ave`);
+                    if (aveEl) aveEl.innerText = s.average.toLocaleString();
+                    const playedRatioEl = document.getElementById(`lv-${lv}-played-ratio`);
+                    if (playedRatioEl) playedRatioEl.innerText = `${played}/${total}`;
+                    const rankInfoEl = document.getElementById(`lv-${lv}-rank-info`);
+                    if (rankInfoEl) rankInfoEl.innerText = `S: ${s.s || 0} | AAA+: ${s.aaa_plus || 0}`;
+
+                    // Update Progress Bars
+                    const setWidth = (id, val) => {
+                        const el = document.getElementById(id);
+                        if (el) el.style.width = ((val / total) * 100) + '%';
+                    };
+
+                    setWidth(`lv-${lv}-puc-bar`, s.puc);
+                    setWidth(`lv-${lv}-uc-bar`, s.uc);
+                    setWidth(`lv-${lv}-exc-bar`, s.exc);
+                    setWidth(`lv-${lv}-mxx-bar`, s.mxx); // Fixed: was maxxive
+                    setWidth(`lv-${lv}-clr-bar`, s.clr); // Fixed: was clear
+                    setWidth(`lv-${lv}-fld-bar`, s.fld);
+                    setWidth(`lv-${lv}-noplay-bar`, noplay); // Fixed: added noplay
+
+                    setWidth(`lv-${lv}-rank-s-bar`, s.s);
+                    setWidth(`lv-${lv}-rank-aaa-plus-bar`, s.aaa_plus);
+                    setWidth(`lv-${lv}-rank-aaa-bar`, s.aaa);
+
+                    const otherRankCount = total - (s.s || 0) - (s.aaa_plus || 0) - (s.aaa || 0);
+                    setWidth(`lv-${lv}-rank-other-bar`, otherRankCount);
+
+                    // Update Detail Stats
+                    if (document.getElementById(`lv-${lv}-puc`)) document.getElementById(`lv-${lv}-puc`).innerText = s.puc || 0;
+                    if (document.getElementById(`lv-${lv}-uc`)) document.getElementById(`lv-${lv}-uc`).innerText = s.uc || 0;
+                    if (document.getElementById(`lv-${lv}-exc`)) document.getElementById(`lv-${lv}-exc`).innerText = s.exc || 0;
+                    if (document.getElementById(`lv-${lv}-mxx`)) document.getElementById(`lv-${lv}-mxx`).innerText = s.mxx || 0;
+                    if (document.getElementById(`lv-${lv}-clr`)) document.getElementById(`lv-${lv}-clr`).innerText = s.clr || 0;
+                    if (document.getElementById(`lv-${lv}-fld`)) document.getElementById(`lv-${lv}-fld`).innerText = s.fld || 0;
+                }
+            } catch (e) {
+                log('ERROR in updateStats: ' + (e.message || e));
+            }
+        }
+
+        connect();
+    </script>
+</body>
+
+</html>

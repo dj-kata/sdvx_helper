@@ -18,6 +18,7 @@ from src.result import OneResult, OneBestData
 from src.volforce import calc_total_vf, VF_TOP_N
 from src.songinfo import SongDatabase
 from src.logger import get_logger
+from PIL import Image
 from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
@@ -60,11 +61,15 @@ class ResultDatabase:
         self.ws_thread = None
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
-        
+        self.jacket_dir = Path('jackets')
+        self.jacket_dir.mkdir(exist_ok=True)
+        self.load()
+
         if config is not None:
             self._init_websocket_server()
-
-        self.load()
+            # 初期データ配信
+            self.broadcast_stats_data()
+            self.broadcast_vf_data()
 
     # ─── WebSocket ────────────────────────────────────────────────────────────
 
@@ -107,6 +112,10 @@ class ResultDatabase:
     @_ws_broadcast('update_vf_data')
     def broadcast_vf_data(self):
         return self.get_vf_data()
+
+    @_ws_broadcast('update_stats_data')
+    def broadcast_stats_data(self):
+        return self.get_stats_data()
 
     # ─── 登録 ─────────────────────────────────────────────────────────────────
 
@@ -611,6 +620,7 @@ class ResultDatabase:
         for i, b in enumerate(ranking, 1):
             items.append({
                 'rank':       i,
+                'chart_id':   b.chart_id,
                 'title':      b.title,
                 'difficulty': get_chart_name(b.difficulty),
                 'lv':         str(b.level),
@@ -621,6 +631,132 @@ class ResultDatabase:
                 'vf':         b.vf,
             })
         return {'total_vf': total_vf, 'items': items}
+
+    def save_jacket_image(self, chart_id: str, image: Image.Image) -> bool:
+        """指定したchart_idのジャケット画像が未保存の場合、保存する。"""
+        if not chart_id or image is None:
+            return False
+        
+        path = self.jacket_dir / f"{chart_id}.png"
+        if path.exists():
+            return False
+        
+        try:
+            image.save(str(path))
+            logger.info(f"ジャケット画像を保存しました: {chart_id}")
+            return True
+        except Exception:
+            logger.error(f"ジャケット画像の保存に失敗しました: {chart_id}")
+            return False
+
+    def batch_generate_jackets(self, screen_reader):
+        """保存済み画像フォルダをスキャンし、ジャケット画像を生成・保存する。"""
+        if not self.config or not hasattr(self.config, 'image_save_path'):
+            return
+        
+        import re
+        from src.define import RECT_RESULT_JACKET
+        from src.funcs import convert_difficulty
+        
+        save_path = Path(self.config.image_save_path)
+        if not save_path.exists():
+            return
+        
+        count = 0
+        # ファイル名パターン: sdvx_{title}_{diff}_{score}_{ex}_{lamp}_{date}.png
+        # または単に diff と title が入っていれば chart_id が作れる
+        for img_path in save_path.glob("*.png"):
+            basename = img_path.stem
+            # アンダースコアで分割して推測を試みる
+            parts = basename.split("_")
+            if len(parts) < 3:
+                continue
+            
+            # title = parts[1], diff = parts[2] (MainWindow.save_image の形式準拠)
+            title = parts[1]
+            diff_str = parts[2]
+            diff = convert_difficulty(diff_str)
+            if not diff:
+                continue
+            
+            cid = calc_chart_id(title, diff)
+            if not cid:
+                continue
+            
+            if (self.jacket_dir / f"{cid}.png").exists():
+                continue
+            
+            try:
+                img = Image.open(img_path)
+                jacket = img.crop(RECT_RESULT_JACKET)
+                if self.save_jacket_image(cid, jacket):
+                    count += 1
+            except Exception:
+                continue
+        
+        if count > 0:
+            logger.info(f"一括ジャケット生成完了: {count}件")
+        return count
+
+    def get_stats_data(self) -> dict:
+        """レベル別（14-20）の統計情報をWebSocket送信用の辞書で返す。"""
+        bests = self.get_all_best_results()
+        
+        # 楽曲マスターからレベルごとの総譜面数をカウント
+        total_charts = {lv: 0 for lv in range(14, 21)}
+        for song in self.song_database._songs.values():
+            for diff in difficulty:
+                lv = song.get_level(diff)
+                if lv and 14 <= lv <= 20:
+                    total_charts[lv] += 1
+        
+        logger.info(f"Stats aggregate: total_charts={total_charts}")
+
+        stats_by_lv = {}
+        for lv in range(14, 21):
+            # 当該レベルのベストデータを抽出
+            lv_bests = [b for b in bests.values() if b.level == lv]
+            
+            puc = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.puc)
+            uc  = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.uc)
+            exc = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.exc)
+            mxx = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.maxxive)
+            clr = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.clear)
+            fld = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.played)
+            
+            played_count = len(lv_bests)
+            noplay = total_charts[lv] - played_count
+            
+            # ランク別
+            s   = sum(1 for b in lv_bests if b.best_score >= 9900000)
+            aaa_plus = sum(1 for b in lv_bests if 9800000 <= b.best_score < 9900000)
+            aaa = sum(1 for b in lv_bests if 9700000 <= b.best_score < 9800000)
+            
+            avg = int(sum(b.best_score for b in lv_bests) / played_count) if played_count > 0 else 0
+            
+            stats_by_lv[lv] = {
+                'lv': lv,
+                'total': total_charts[lv],
+                'played': played_count,
+                'noplay': noplay,
+                'puc': puc,
+                'uc': uc,
+                'exc': exc,
+                'maxxive': mxx,
+                'clear': clr,
+                'failed': fld,
+                's': s,
+                'aaa_plus': aaa_plus,
+                'aaa': aaa,
+                'average': avg
+            }
+
+        return {
+            'date': datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'),
+            'player_name': self.config.player_name if self.config else 'NONAME',
+            'total_vf': f"{self.get_total_vf() / 1000:.3f}",
+            'lvs': stats_by_lv
+        }
 
     # ─── CSV 出力 ─────────────────────────────────────────────────────────────
 

@@ -635,6 +635,7 @@ class ScreenReader:
                 'score':      score,
                 'exscore':    exscore,
                 'lamp':       lamp,
+                'jacket_img': jacket_img,
             }
         except Exception:
             logger.error(f"read_from_result 失敗:\n{traceback.format_exc()}")

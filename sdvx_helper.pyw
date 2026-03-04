@@ -482,6 +482,8 @@ class MainWindow(MainWindowUI):
             return
 
         if self.result_database.add(result):
+            # ジャケット画像を保存
+            self.result_database.save_jacket_image(result.chart_id, data.get('jacket_img'))
             self.result_database.save()
             self.play_count += 1
             self.last_saved_song = get_title_with_chart(title, diff)
@@ -492,6 +494,7 @@ class MainWindow(MainWindowUI):
             self.result_database.broadcast_today_results_data(self.start_time_with_offset)
             self.result_database.broadcast_vf_data()
             self.result_database.broadcast_cursong_data(title, diff)
+            self.result_database.broadcast_stats_data()
 
             # テキスト版サマリー画像生成（バックグラウンドで実行）
             generate_summary(
