@@ -13,13 +13,17 @@ def save(dat:dict):
         pickle.dump(dat, f)
 
 if __name__ == '__main__':
+    #a['titles']['Prayer '] = ['Prayer ', '溝口ゆうま feat. 大瀬良あい', '183', 6,12,15,18] スペースでごまかしてる
     a = load()
 
-    ##a['titles']['title'] = ['title', 'artist', 'bpm', 6,12,15,None]
-    a['titles']['弾幕信仰'] = ['弾幕信仰', '豚乙女×BEMANI Sound Team "PON"', '', 5,13,16,18]
-    a['titles']['Blue Fire'] = ['Blue Fire', 'REDALiCE feat. 野宮あゆみ', '', 4,8,12,16]
-    a['titles']['閉塞的フレーション'] = ['閉塞的フレーション', 'Pizuya\'s Cell VS BEMANI Sound Team "dj TAKA"', '', 4,12,15,18]
-    a['titles']['SUPER HEROINE!!'] = ['SUPER HEROINE!!', 'Amateras Records vs BEMANI Sound Team "TATSUYA" feat. miko', '', 3,12,15,17]
-    a['titles']['残像ニ繋ガレタ追憶ノHIDEAWAY'] = ['残像ニ繋ガレタ追憶ノHIDEAWAY', 'SOUND HOLIC Vs. BEMANI Sound Team "KE!JU" feat. Nana Takahashi', '', 3,11,14,17]
+    artist = '不知火フレア'
+    title = '架空と本当'
+    a['titles'][title] = [title, artist, '', 2,9,13,16]
+    title = 'Silent Flame,Never Fade'
+    a['titles'][title] = [title, artist, '', 3,11,14,17]
+    title = 'Smile & Go!!'
+    a['titles'][title] = [title, artist, '', 4,13,16,18]
+    title = 'Homesick Pt.2&3'
+    a['titles'][title] = [title, artist, '', 5,11,14,17]
 
     save(a)
