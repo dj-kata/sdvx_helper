@@ -37,5 +37,7 @@ if __name__ == '__main__':
         read_select(f)
     for f in glob.glob('debug/select2/*png'):
         read_select(f)
+    import time
+    time.sleep(4)
     # for f in glob.glob('debug/select/exh_996*png'):
     #     read_select(f)
