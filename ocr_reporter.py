@@ -2,25 +2,23 @@
 # 曲一覧を持っておき、各hash値に曲名情報を入れてpickleに追加する
 # pickleをwebhookで送信する
 
-# bemaniwikiから全曲情報を取得
+# maya2の楽曲マスタから全曲情報を取得
 # 自動保存フォルダの画像を確認し、認識できないものを一通り抽出
 # リストビュー+選択したファイルについてジャケット、曲名を出すビュー
 # 
 import PySimpleGUI as sg
-from bs4 import BeautifulSoup
 import sys
-import requests
 import pickle
 import threading
 from collections import defaultdict
 from gen_summary import *
 from manage_settings import *
+from sdvxh_classes import ManageMaya2
 from params_secret import *
 import traceback
 import urllib
 import logging, logging.handlers
 from tkinter import filedialog
-import re
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
@@ -49,7 +47,7 @@ class Reporter:
             self.update_musiclist()
         self.gen_summary = GenSummary(start)
         self.load_musiclist()
-        self.read_bemaniwiki()
+        self.read_maya2_music_master()
         self.ico=self.ico_path('icon.ico')
         self.num_added_fumen = 0 # 登録した譜面数
         self.flg_registered = {} # key:ファイル名、値:登録済みならTrue.do_coloringの結果保存用。
@@ -98,7 +96,7 @@ class Reporter:
             with open('resources/musiclist.pkl', 'rb') as f:
                 self.musiclist = pickle.load(f)
             print(f"認識用DB: {len(self.musiclist['jacket']['exh'])}")
-            print(f'曲情報(bemaniwikiベース): {len(self.musiclist["titles"].keys())}')
+            print(f'曲情報(maya2マスタベース): {len(self.musiclist["titles"].keys())}')
         except:
             logger.debug('musiclist読み込み時エラー。新規作成します。')
             self.musiclist = {}
@@ -141,108 +139,45 @@ class Reporter:
         with open('resources/musiclist.pkl', 'wb') as f:
             pickle.dump(self.musiclist, f)
 
-    def read_bemaniwiki(self):
-        req = requests.get('https://bemaniwiki.com/index.php?%A5%B3%A5%CA%A5%B9%A5%C6/SOUND+VOLTEX+EXCEED+GEAR/%B3%DA%B6%CA%A5%EA%A5%B9%A5%C8')
+    def read_maya2_music_master(self):
+        token = self.settings.get('maya2_token')
+        maya2 = ManageMaya2(token, load_rivals=False)
+        if not maya2.master_db:
+            logger.debug('maya2楽曲マスタを取得できませんでした。既存の曲情報を維持します。')
+            self.titles = self.musiclist['titles']
+            print(f"read_maya2_music_master skipped. (total {len(self.titles):,} songs)")
+            return
 
-        soup = BeautifulSoup(req.text, 'html.parser')
-        titles = self.musiclist['titles']
-        for tr in soup.find_all('tr'):
-            tds = tr.find_all('td')
-            numtd = len(tds)
-            if numtd in (7,8):
-                if tds[2].text != 'BPM':
-                    tmp = [tds[0].text, tds[1].text, tds[2].text]
-                    
-                    novText = tds[3].text
-                    if novText.startswith('[STOP]') :
-                        novText = novText[len('[STOP]')].strip()
-                    tmp.append(int(novText))
-                    
-                    advText = tds[4].text
-                    if advText.startswith('[STOP]') :
-                        advText = advText[len('[STOP]')].strip()
-                    tmp.append(int(advText))
-                                        
-                    exhText = tds[5].text
-                    if exhText.startswith('[STOP]') :
-                        exhText = exhText[len('[STOP]')].strip()
-                    tmp.append(int(exhText))
-                                        
-                    if tds[6].text not in ('', '-'):
-                        appendText = tds[6].text
-                        if appendText.startswith('[STOP]') :
-                            appendText = appendText[len('[STOP]')].strip()
-                        tmp.append(int(appendText))
-                    else:
-                        tmp.append(None)
-                    titles[tds[0].text] = tmp
+        titles = {}
+        for music in maya2.master_db:
+            title = music.get('title')
+            if not title:
+                continue
 
-        urls = [
-            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%B5%EC%B6%CA%A5%EA%A5%B9%A5%C8',
-            'https://bemaniwiki.com/index.php?SOUND+VOLTEX+EXCEED+GEAR/%BF%B7%B6%CA%A5%EA%A5%B9%A5%C8'
-        ]
-        # AC版のwikiを読む
-        for url in urls:
-            req = requests.get(url)
-            soup = BeautifulSoup(req.text, 'html.parser')
-            # rowspanのカウンタ。日付分は正規表現で見るので不要
-            cnt_rowspan_artist = 0
-            cnt_rowspan_bpm    = 0
-            pre_artist = ''
-            pre_bpm    = ''
-            for tr in soup.find_all('tr'):
-                tds = tr.find_all('td')
-                numtd = len(tds)
-                title_flg = 0
-                rowspan_flg = 0
-                if re.search('\d{4}/\d{2}/\d{2}', tds[0].text):
-                    title_flg = 1 # タイトル行がどっちかのみ、これ以降ずらさない
-                    rowspan_flg = 1 # 難易度の先頭ポインタ
-                if numtd in (7+rowspan_flg,8+rowspan_flg):
-                    if tds[3].text != 'BPM':
-                        title  = tds[0+title_flg].text
-                        artist = tds[1+title_flg].text
-                        bpm    = tds[2+title_flg].text
-                        if re.search('\A\d{4}/\d{2}/\d{2}\Z', tds[0].text):
-                            title = tds[1].text
-                        #print(tds)
-                        if 'rowspan' in tds[1+title_flg].attrs.keys(): # rowspanありの行はずらさない
-                            cnt_rowspan_artist = int(tds[1+title_flg].attrs['rowspan'])
-                            pre_artist = tds[1+title_flg].text
-                        elif cnt_rowspan_artist > 0: # rowspanの次の行以降はカウンタが正なら1ずらす
-                            rowspan_flg -= 1
-                            artist = pre_artist
-                            bpm    = tds[1+title_flg].text
-                        if 'rowspan' in tds[2+title_flg].attrs.keys():
-                            cnt_rowspan_bpm = int(tds[2+title_flg].attrs['rowspan'])
-                            pre_bpm = tds[2+title_flg].text
-                        elif cnt_rowspan_bpm > 0:
-                            rowspan_flg -= 1
-                            bpm = pre_bpm
-                        if tds[3+rowspan_flg].text != '-': # ごりらがいるんだ等、1つ上と曲違いのやつ
-                            tmp = [title, artist, bpm]
-                            tmp.append(int(re.findall('\d+', tds[3+rowspan_flg].text)[-1]))
-                            tmp.append(int(re.findall('\d+', tds[4+rowspan_flg].text)[-1]))
-                            tmp.append(int(re.findall('\d+', tds[5+rowspan_flg].text)[-1]))
-                            if tds[6+rowspan_flg].text not in ('', '-'):
-                                tmp.append(int(re.findall('\d+', tds[6+rowspan_flg].text)[-1]))
-                            else:
-                                tmp.append(None)
-                            if title not in titles:
-                                titles[title] = tmp
-                        else:
-                            tmp[-1] = int(re.findall('\d+', tds[6+rowspan_flg].text)[-1])
-                            titles[title] = tmp
-                        #if ('Spear of Justice' in tds[0].text) or ('ASGORE' in tds[1].text):
-                        #    print([tds[i].text for i in range(len(tds))])
-                        #    print(f"tflg:{title_flg}, rflg:{rowspan_flg}, title:{title}, artist:{artist}(pre:{pre_artist}), bpm:{bpm}(pre:{pre_bpm})")
-                        #    print()
-                cnt_rowspan_artist = max(0, cnt_rowspan_artist - 1)
-                cnt_rowspan_bpm    = max(0, cnt_rowspan_bpm - 1)
+            levels = {'nov': None, 'adv': None, 'exh': None, 'APPEND': None}
+            for chart in music.get('charts', []):
+                difficulty = chart.get('difficulty')
+                level = chart.get('level')
+                if difficulty is None or level is None:
+                    continue
+                try:
+                    level = int(level)
+                except (TypeError, ValueError):
+                    continue
+
+                difficulty = difficulty.upper()
+                if difficulty in ('NOV', 'ADV', 'EXH'):
+                    levels[difficulty.lower()] = level
+                elif levels['APPEND'] is None or level > levels['APPEND']:
+                    levels['APPEND'] = level
+
+            artist = music.get('artist') or music.get('artist_name') or ''
+            bpm = music.get('bpm') or music.get('bpm_disp') or ''
+            titles[title] = [title, artist, bpm, levels['nov'], levels['adv'], levels['exh'], levels['APPEND']]
 
         self.titles = titles
         self.musiclist['titles'] = titles
-        print(f"read_bemaniwiki end. (total {len(titles):,} songs)")
+        print(f"read_maya2_music_master end. (total {len(titles):,} songs)")
 
     def send_webhook(self, title, difficulty, hash_jacket, hash_info):
         try:
@@ -358,7 +293,7 @@ class Reporter:
         self.window['files'].update(filelist, row_colors=bgcs)
         self.get_dblist()
 
-    # bemaniwikiから取得した曲一覧を返す
+    # maya2楽曲マスタから取得した曲一覧を返す
     def get_musiclist(self):
         ret = []
         for s in self.musiclist['titles'].values():

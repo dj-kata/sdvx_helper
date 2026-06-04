@@ -1231,8 +1231,9 @@ class Maya2TitleConverter:
         return ret
 
 class ManageMaya2:
-    def __init__(self, token=None):
+    def __init__(self, token=None, load_rivals=True):
         self.update_token(token)
+        self.load_rivals = load_rivals
         self.master_db = []
         self.rival_scores = {}
         self.conv_table = Maya2TitleConverter()
@@ -1247,8 +1248,9 @@ class ManageMaya2:
         logger.info(f'{time.time() - start:.2f}, settings loaded')
         self.get_musiclist()
         logger.info(f'{time.time() - start:.2f}, musiclist loaded')
-        self.get_rival_scores()
-        logger.info(f'{time.time() - start:.2f}, rival scores loaded')
+        if self.load_rivals:
+            self.get_rival_scores()
+            logger.info(f'{time.time() - start:.2f}, rival scores loaded')
 
     def update_token(self, token):
         self.token = token
