@@ -1152,11 +1152,10 @@ class SDVXHelper:
             maya2_logs = []
             if self.sdvx_logger.maya2.is_alive():
                 # 曲ID取得
-                key = self.sdvx_logger.maya2.conv_table.forward(title)
-                chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
+                chart = self.sdvx_logger.maya2.search_fumeninfo(title, diff)
                 if chart is not None:
                     diff = chart['difficulty']
-                    music = self.sdvx_logger.maya2.search_musicinfo(key)
+                    music = self.sdvx_logger.maya2.search_musicinfo(title)
                     music_id = music.get('music_id')
                     for i,d in enumerate(self.mng.scores):
                         # d.disp()
@@ -1432,7 +1431,7 @@ class SDVXHelper:
             self.register_gui_search_key = val
         if self.settings['enable_register_gui']:
             target = self.register_gui_search_key
-            result = [item for item in self.gen_summary.musiclist['titles'] if all(word in item for word in re.findall('\S+', target))]
+            result = [item for item in self.gen_summary.musiclist['titles'] if all(word in item for word in re.findall(r'\S+', target))]
             if self.register_gui_show_unregistered_charts: # 未送信のものだけ絞り込み
                 uploaded = []
                 for s in self.sdvx_logger.best_allfumen: # 登録済みリストを作っておく

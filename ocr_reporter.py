@@ -19,10 +19,24 @@ import traceback
 import urllib
 import logging, logging.handlers
 from tkinter import filedialog
+import re
 
 SETTING_FILE = 'settings.json'
 sg.theme('SystemDefault')
 diff_table = ['nov', 'adv', 'exh', 'APPEND']
+maya2_display_level_overrides = {
+    ('ИEXTAGE', 'MXM'): 18,
+}
+
+def get_maya2_display_level(title, chart):
+    """maya2の小数難易度があれば切り捨て、なければ公式Lvを返す。"""
+    difficulty = chart.get('difficulty')
+    if (title, difficulty) in maya2_display_level_overrides:
+        return maya2_display_level_overrides[(title, difficulty)]
+    p_tier = chart.get('p_tier')
+    if isinstance(p_tier, str) and re.match(r'^\d+\.\d+$', p_tier):
+        return int(float(p_tier))
+    return int(float(chart.get('level')))
 
 os.makedirs('log', exist_ok=True)
 os.makedirs('out', exist_ok=True)
@@ -161,7 +175,7 @@ class Reporter:
                 if difficulty is None or level is None:
                     continue
                 try:
-                    level = int(level)
+                    level = get_maya2_display_level(title, chart)
                 except (TypeError, ValueError):
                     continue
 

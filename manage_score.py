@@ -382,11 +382,10 @@ class ScoreViewer:
             # maya2側
             if self.sdvx_logger.maya2.is_alive():
                 # 曲ID取得
-                key = self.sdvx_logger.maya2.conv_table.forward(title)
-                chart = self.sdvx_logger.maya2.search_fumeninfo(key, diff)
-                diff = chart['difficulty']
+                chart = self.sdvx_logger.maya2.search_fumeninfo(title, diff)
                 if chart is not None:
-                    music = self.sdvx_logger.maya2.search_musicinfo(key)
+                    diff = chart['difficulty']
+                    music = self.sdvx_logger.maya2.search_musicinfo(title)
                     music_id = music.get('music_id')
                     maya2_logs = []
                     for i,d in enumerate(self.mng.scores):
