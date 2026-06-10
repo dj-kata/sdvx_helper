@@ -1465,7 +1465,7 @@ class SDVXHelper:
         """
         # 表示上のランプをhelper内部形式に変更
         lamp_table = ['puc', 'uc', 'exh', 'hard', 'clear', 'failed']
-        convlamp_rev = {'PUC':'puc', 'UC':'uc', 'MAXXIVE':'exh', 'EXCOMP':'exh', 'COMP':'clear', 'FAILED':'failed', 'PLAYED':'failed'}
+        convlamp_rev = {'PUC':'puc', 'UC':'uc', 'MAXXIVE':'exh', 'EXCOMP':'hard', 'COMP':'clear', 'FAILED':'failed', 'PLAYED':'failed'}
         self.register_gui_lamp = convlamp_rev[val['register_gui_lamp']]
         # 自己べ検索
         best = None
