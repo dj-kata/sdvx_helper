@@ -7,7 +7,7 @@ import sys
 import time
 from ctypes import wintypes
 
-from PIL import Image
+from PIL import Image, ImageGrab
 from PySide6.QtGui import QGuiApplication, QImage
 
 from src.config import Config
@@ -49,18 +49,13 @@ class DirectWindowCapture:
                 self.hwnd = None
                 return None
 
-            screen = QGuiApplication.primaryScreen()
-            if screen is None:
-                self.last_error = "画面キャプチャ用のQScreenを取得できません"
-                return None
-
-            pixmap = screen.grabWindow(hwnd, x, y, width, height)
-            if pixmap.isNull():
+            image = self._grab_client_area(hwnd, x, y, width, height)
+            if image is None:
                 self.last_error = "対象ウィンドウの画像取得に失敗しました"
                 self.hwnd = None
                 return None
 
-            return self._normalize_size(self._qimage_to_pil(pixmap.toImage()))
+            return self._normalize_size(image)
         except Exception as e:
             self.last_error = str(e)
             self.hwnd = None
@@ -163,6 +158,37 @@ class DirectWindowCapture:
         width = client_rect.right - client_rect.left
         height = client_rect.bottom - client_rect.top
         return x, y, width, height
+
+    def _client_screen_bbox(self, hwnd: int) -> tuple[int, int, int, int] | None:
+        user32 = ctypes.windll.user32
+        client_rect = wintypes.RECT()
+        if not user32.GetClientRect(hwnd, ctypes.byref(client_rect)):
+            return None
+
+        top_left = wintypes.POINT(client_rect.left, client_rect.top)
+        bottom_right = wintypes.POINT(client_rect.right, client_rect.bottom)
+        if not user32.ClientToScreen(hwnd, ctypes.byref(top_left)):
+            return None
+        if not user32.ClientToScreen(hwnd, ctypes.byref(bottom_right)):
+            return None
+        return top_left.x, top_left.y, bottom_right.x, bottom_right.y
+
+    def _grab_client_area(self, hwnd: int, x: int, y: int, width: int, height: int) -> Image.Image | None:
+        bbox = self._client_screen_bbox(hwnd)
+        if bbox is not None:
+            try:
+                return ImageGrab.grab(bbox=bbox, all_screens=True).convert("RGB")
+            except Exception as e:
+                self._log_error("ImageGrabで直接キャプチャできませんでした: %s", e)
+
+        screen = QGuiApplication.primaryScreen()
+        if screen is None:
+            return None
+
+        pixmap = screen.grabWindow(hwnd, x, y, width, height)
+        if pixmap.isNull():
+            return None
+        return self._qimage_to_pil(pixmap.toImage())
 
     def _qimage_to_pil(self, image: QImage) -> Image.Image:
         image = image.convertToFormat(QImage.Format.Format_RGB888)
