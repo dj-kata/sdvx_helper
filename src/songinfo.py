@@ -9,9 +9,11 @@ musiclist.pklの構造:
 diffキー: 'nov' / 'adv' / 'exh' / 'APPEND'  (MXM/INF両方ともAPPEND)
 """
 from __future__ import annotations
+import json
 import pickle
 import imagehash
 import traceback
+import urllib.request
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -20,9 +22,40 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 _MUSICLIST_PATH = Path('resources') / 'musiclist.pkl'
+_PARAMS_PATH = Path('resources') / 'params.json'
 
 # ジャケット照合でこの距離以上なら「未登録曲」とみなす
 JACKET_MATCH_THRESHOLD = 10
+
+
+def update_musiclist_from_remote() -> bool:
+    """resources/params.json の url_musiclist から musiclist.pkl を更新する。"""
+    try:
+        with open(_PARAMS_PATH, 'r', encoding='utf-8') as f:
+            params = json.load(f)
+        url = params.get('url_musiclist')
+        if not url:
+            logger.debug('url_musiclist が設定されていないため musiclist.pkl 更新をスキップします')
+            return False
+
+        with urllib.request.urlopen(url, timeout=15) as response:
+            data = response.read()
+
+        musiclist = pickle.loads(data)
+        if not isinstance(musiclist, dict):
+            raise ValueError('downloaded musiclist is not a dict')
+
+        _MUSICLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = _MUSICLIST_PATH.with_suffix(_MUSICLIST_PATH.suffix + '.tmp')
+        with open(tmp_path, 'wb') as f:
+            f.write(data)
+        tmp_path.replace(_MUSICLIST_PATH)
+
+        logger.info(f"musiclist.pklを更新しました: {len(musiclist.get('titles', {}))} 曲")
+        return True
+    except Exception:
+        logger.warning(f"musiclist.pkl の更新に失敗しました:\n{traceback.format_exc()}")
+        return False
 
 
 class OneSongInfo:

@@ -23,7 +23,7 @@ from src.config import Config
 from src.classes import detect_mode
 from src.funcs import get_title_with_chart, escape_for_filename
 from src.obs_websocket_manager import OBSWebSocketManager
-from src.songinfo import SongDatabase
+from src.songinfo import SongDatabase, update_musiclist_from_remote
 from src.screen_reader import ScreenReader
 from src.result import OneResult
 from src.result_database import ResultDatabase
@@ -54,6 +54,7 @@ class MainWindow(MainWindowUI):
         self.config = Config()
         super().__init__(self.config)
 
+        update_musiclist_from_remote()
         self.song_database = SongDatabase()
         self.result_database = ResultDatabase(config=self.config)
         self.screen_reader = ScreenReader(
