@@ -76,6 +76,10 @@ class UIText:
 
     class capture:
         """キャプチャ設定タブ"""
+        method_group = 'キャプチャ方式'
+        method_label = '方式:'
+        method_obs_websocket = 'OBS WebSocket'
+        method_direct_window = '直接取得'
         orientation_group = '画面向き'
         orientation_auto = '自動検出'
         orientation_top_up = '上向き (top_up)'

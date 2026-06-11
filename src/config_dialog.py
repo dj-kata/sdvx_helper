@@ -418,6 +418,23 @@ class ConfigDialog(QDialog):
         layout = QVBoxLayout()
         widget.setLayout(layout)
 
+        method_group = QGroupBox(self.ui.capture.method_group)
+        method_layout = QFormLayout()
+        method_group.setLayout(method_layout)
+
+        self.capture_method_combo = QComboBox()
+        self.capture_method_combo.addItem(
+            self.ui.capture.method_obs_websocket,
+            'obs_websocket',
+        )
+        self.capture_method_combo.addItem(
+            self.ui.capture.method_direct_window,
+            'direct_window',
+        )
+        method_layout.addRow(self.ui.capture.method_label, self.capture_method_combo)
+
+        layout.addWidget(method_group)
+
         orient_group = QGroupBox(self.ui.capture.orientation_group)
         orient_layout = QVBoxLayout()
         orient_group.setLayout(orient_layout)
@@ -902,6 +919,10 @@ class ConfigDialog(QDialog):
         self.autosave_image_check.setChecked(self.config.autosave_image)
         self.csv_export_path_edit.setText(self.config.csv_export_path)
 
+        capture_method = getattr(self.config, 'capture_method', 'obs_websocket')
+        method_idx = self.capture_method_combo.findData(capture_method)
+        self.capture_method_combo.setCurrentIndex(method_idx if method_idx >= 0 else 0)
+
         orient_map = {None: 0, 'top_up': 1, 'top_right': 2, 'top_left': 3}
         btn_id = orient_map.get(self.config.screen_orientation_override, 0)
         btn = self.orientation_group.button(btn_id)
@@ -929,6 +950,9 @@ class ConfigDialog(QDialog):
         self.config.image_save_path = self.image_save_path_edit.text()
         self.config.autosave_image = self.autosave_image_check.isChecked()
         self.config.csv_export_path = self.csv_export_path_edit.text()
+        self.config.capture_method = (
+            self.capture_method_combo.currentData() or 'obs_websocket'
+        )
 
         orient_map = {0: None, 1: 'top_up', 2: 'top_right', 3: 'top_left'}
         self.config.screen_orientation_override = orient_map.get(

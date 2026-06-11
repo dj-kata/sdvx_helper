@@ -76,6 +76,10 @@ class UIText:
 
     class capture:
         """Capture settings tab"""
+        method_group = 'Capture Method'
+        method_label = 'Method:'
+        method_obs_websocket = 'OBS WebSocket'
+        method_direct_window = 'Direct capture'
         orientation_group = 'Screen Orientation'
         orientation_auto = 'Auto-detect'
         orientation_top_up = 'Top up (top_up)'

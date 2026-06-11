@@ -20,6 +20,12 @@ class Config:
         self.websocket_password: str  = ''
         self.monitor_source_name: str = ''
         """スクリーンショットを取得する OBS ソース名"""
+        self.capture_method: str = 'obs_websocket'
+        """'obs_websocket' = OBS WebSocket / 'direct_window' = ゲームウィンドウを直接取得"""
+        self.direct_capture_exe: str = 'sv6c.exe'
+        """直接取得対象のプロセス名"""
+        self.direct_capture_title: str = 'SOUND VOLTEX EXCEED GEAR'
+        """直接取得対象のウィンドウタイトル"""
         self.obs_scene_collection: str = ''
         """起動時に切り替えるシーンコレクション（空=切り替えなし）"""
         self.obs_control_settings: list = []

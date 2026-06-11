@@ -7,6 +7,7 @@ from PySide6.QtCore import QObject, Signal
 
 import logging
 from src.config import Config
+from src.direct_window_capture import DirectWindowCapture
 from src.logger import get_logger
 from src.funcs import load_ui_text
 logger = get_logger(__name__)
@@ -75,6 +76,7 @@ class OBSWebSocketManager(QObject):
         self.picw = 1920
         self.pich = 1080
         self.screen = None
+        self.direct_capture: Optional[DirectWindowCapture] = None
 
         # 起動時シーンコレクション切り替えフラグ（disconnect後にリセット）
         self._scene_collection_applied = False
@@ -83,10 +85,29 @@ class OBSWebSocketManager(QObject):
         """設定をセット"""
         self.config = config
         self.ui = load_ui_text(config)
+        if self.direct_capture is None:
+            self.direct_capture = DirectWindowCapture(config)
+        else:
+            self.direct_capture.set_config(config)
         logger.info(f"OBS WebSocket config set: {config.websocket_host}:{config.websocket_port}")
+
+    def is_direct_capture(self) -> bool:
+        return bool(self.config and getattr(self.config, 'capture_method', 'obs_websocket') == 'direct_window')
     
     def connect(self):
         """OBSに接続"""
+        if self.is_direct_capture():
+            self.stop_monitor()
+            if self.client:
+                try:
+                    self.client.disconnect()
+                except:
+                    pass
+                self.client = None
+            self.is_connected = False
+            self._emit_status("直接取得モード", True)
+            return True
+
         if not OBSWS_AVAILABLE:
             self._emit_status("obsws_python がインストールされていません", False)
             return False
@@ -145,6 +166,13 @@ class OBSWebSocketManager(QObject):
     
     def disconnect(self):
         """OBSから切断"""
+        if self.is_direct_capture():
+            self.stop_monitor()
+            self.is_connected = False
+            if self.ui:
+                self._emit_status(self.ui.obs.status_disconnected, False)
+            return
+
         logger.info("Disconnecting from OBS WebSocket")
         
         # 監視スレッドを停止
@@ -284,7 +312,17 @@ class OBSWebSocketManager(QObject):
         """監視対象ソースが設定されているかチェック"""
         if not self.config:
             return False
+        if self.is_direct_capture():
+            return True
         return bool(self.config.monitor_source_name and self.config.monitor_source_name.strip())
+
+    def is_capture_ready(self) -> bool:
+        """メインループがキャプチャを試行してよい状態か。"""
+        if not self.config:
+            return False
+        if self.is_direct_capture():
+            return True
+        return self.is_connected and self.is_monitor_source_configured()
     
     def get_status(self) -> tuple[str, bool]:
         """
@@ -294,10 +332,15 @@ class OBSWebSocketManager(QObject):
             tuple[str, bool]: (ステータスメッセージ, 正常状態かどうか)
                 正常状態 = OBS接続済み かつ 監視対象ソース設定済み
         """
-        if not OBSWS_AVAILABLE:
-            return "obsws_python がインストールされていません", False
-        elif not self.config:
+        if not self.config:
             return self.ui.obs.not_configured, False
+        elif self.is_direct_capture():
+            error = self.direct_capture.last_error if self.direct_capture else ""
+            if error:
+                return f"直接取得: {error}", False
+            return f"直接取得: {self.config.direct_capture_title}", True
+        elif not OBSWS_AVAILABLE:
+            return "obsws_python がインストールされていません", False
         elif not self.is_connected:
             return self.ui.obs.not_connected, False
         elif not self.is_monitor_source_configured():
@@ -401,6 +444,13 @@ class OBSWebSocketManager(QObject):
         return True
     
     def screenshot(self):
+        """設定された方式のキャプチャをself.screenに格納 (PIL Image)"""
+        if self.is_direct_capture():
+            if self.direct_capture is None:
+                self.direct_capture = DirectWindowCapture(self.config)
+            self.screen = self.direct_capture.read_frame()
+            return
+
         """OBSソースのキャプチャをself.screenに格納 (PIL Image)"""
         from PIL import Image
         import os

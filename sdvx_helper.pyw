@@ -171,6 +171,8 @@ class MainWindow(MainWindowUI):
 
     def _check_obs_configuration(self):
         """OBS設定の問題があればダイアログを表示"""
+        if self.obs_manager.is_direct_capture():
+            return
         status = self.obs_manager.get_detailed_status()
         warnings = []
         if not status['is_connected']:
@@ -189,6 +191,8 @@ class MainWindow(MainWindowUI):
 
     def _execute_obs_triggers(self, trigger: str):
         """指定トリガーのOBS制御を実行"""
+        if self.obs_manager.is_direct_capture():
+            return
         try:
             from src.obs_control import OBSControlData
             control_data = OBSControlData()
@@ -233,7 +237,7 @@ class MainWindow(MainWindowUI):
     def _write_obs_text(self, text: str):
         """OBSテキストソースに楽曲情報を書き込む"""
         source = self.config.obs_text_source_name
-        if source and self.obs_manager.is_connected:
+        if source and self.obs_manager.is_connected and not self.obs_manager.is_direct_capture():
             self.obs_manager.change_text(source, text)
 
     # ── 設定ダイアログ ────────────────────────────────────────────────────────
@@ -307,7 +311,7 @@ class MainWindow(MainWindowUI):
         )
         self.setWindowFlag(Qt.WindowStaysOnTopHint, self.config.keep_on_top)
         self.show()
-        if not self.obs_manager.is_connected:
+        if self.obs_manager.is_direct_capture() or not self.obs_manager.is_connected:
             self.obs_manager.connect()
 
     def show_about(self):
@@ -322,8 +326,7 @@ class MainWindow(MainWindowUI):
     def main_loop(self):
         """メインループ - 100ms毎に呼ばれる"""
         try:
-            if not (self.obs_manager.is_connected
-                    and self.config.monitor_source_name):
+            if not self.obs_manager.is_capture_ready():
                 return
 
             self.obs_manager.screenshot()
