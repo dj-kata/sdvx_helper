@@ -560,10 +560,11 @@ class ResultDatabase:
 
         best_score, best_ex, best_lamp = self.get_best(title=title, diff=diff)
         info = self.song_database.get_song_info(title)
+        diff_name = get_chart_name(diff)
 
         data: dict = {
             'title':      title,
-            'difficulty': get_chart_name(diff),
+            'difficulty': diff_name,
             'lv':         str(info.get_level(diff) or '') if info else '',
             'best_score': best_score or 0,
             'best_ex':    best_ex or 0,
@@ -588,7 +589,49 @@ class ResultDatabase:
                 'pre_ex':     r.bestexscore or 0,
             })
 
+        data['rival_items'] = self.get_cursong_rival_items(title, diff_name, best_score, best_ex, best_lamp)
         return data
+
+    def get_cursong_rival_items(
+        self,
+        title: str,
+        diff_name: str,
+        best_score: Optional[int],
+        best_ex: Optional[int],
+        best_lamp: clear_lamp,
+    ) -> list[dict]:
+        """現在曲のライバルランキングをWebSocket送信用の辞書リストで返す。"""
+        rows = []
+        player_name = self.config.player_name if self.config else 'ME'
+
+        if best_score is not None:
+            rows.append({
+                'player': player_name or 'ME',
+                'score': best_score or 0,
+                'exscore': best_ex,
+                'lamp': best_lamp.value if best_lamp else clear_lamp.noplay.value,
+                'is_me': True,
+            })
+
+        if self.rival_manager is not None:
+            try:
+                for name, entry in self.rival_manager.get_all_scores(title, diff_name):
+                    rows.append({
+                        'player': name,
+                        'score': entry.score or 0,
+                        'exscore': entry.exscore,
+                        'lamp': entry.lamp.value if entry.lamp else clear_lamp.noplay.value,
+                        'is_me': False,
+                    })
+            except Exception:
+                logger.error(f"ライバル表示データ生成エラー:\n{traceback.format_exc()}")
+
+        rows.sort(key=lambda item: (item.get('score') or 0, item.get('lamp') or 0), reverse=True)
+        for idx, item in enumerate(rows, 1):
+            item['rank'] = idx
+            my_score = best_score or 0
+            item['diff'] = (item.get('score') or 0) - my_score
+        return rows
 
     def get_today_results_data(self, start_time: int) -> dict:
         """本日のリザルト一覧をWebSocket送信用の辞書で返す。"""
