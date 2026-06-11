@@ -561,14 +561,25 @@ class ResultDatabase:
         best_score, best_ex, best_lamp = self.get_best(title=title, diff=diff)
         info = self.song_database.get_song_info(title)
         diff_name = get_chart_name(diff)
+        best_data = self.get_all_best_results().get((title, diff))
+        grade_s_tier = ''
+        puc_tier = ''
+        if self.portal_manager:
+            try:
+                grade_s_tier, puc_tier = self.portal_manager.get_tier_map().get((title, diff), ('', ''))
+            except Exception:
+                logger.debug(f"tier map取得失敗:\n{traceback.format_exc()}")
 
         data: dict = {
             'title':      title,
             'difficulty': diff_name,
             'lv':         str(info.get_level(diff) or '') if info else '',
+            'gradeS_tier': grade_s_tier,
+            'PUC_tier':   puc_tier,
             'best_score': best_score or 0,
             'best_ex':    best_ex or 0,
             'best_lamp':  best_lamp.value,
+            'vf':         best_data.vf if best_data else 0,
             'play_count': len(target),
             'last_played': (
                 datetime.datetime.fromtimestamp(target[0].timestamp).strftime('%Y/%m/%d')
