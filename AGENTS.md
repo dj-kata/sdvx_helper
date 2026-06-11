@@ -4,6 +4,9 @@
 - ライセンス的に今後の無償利用が不可能なPySimpleGUIをやめてPySide6でGUIを作成
 - OBSを起動していない状態でも起動できるなど、v1の問題点を色々修正する予定である
 
+Pythonについては、Windows版uvを使うようにして。
+wuv=/mnt/c/Users/katao/.local/bin/uv.exe
+
 v1の機能は全て網羅したい。
 - 画面を自動取得し、コナステ版SDVXのプレーログを自動で取得する
   - プレーログを保存し、自己ベストやVOLFORCEなどを管理
