@@ -100,6 +100,7 @@ class MainWindow(MainWindowUI):
         self.detect_read_done: bool = False    # detect読み取り済みフラグ
         self.current_title: str | None = None  # detect/selectで確定した曲タイトル
         self.current_diff = None               # detect/selectで確定した難易度
+        self._last_select_cursong_key = None   # 選曲画面から最後に履歴表示へ配信した譜面
         self.result_timestamp: int = 0         # リザルト画面に入った時刻
         self.result_pre = None                 # 前回のリザルト読み取り結果
 
@@ -408,6 +409,12 @@ class MainWindow(MainWindowUI):
 
         self.current_title = title
         self.current_diff  = diff
+
+        # v1の gen_history_cursong 相当: 選曲画面で認識した曲の履歴/ライバル表示を更新
+        cursong_key = (title, diff)
+        if cursong_key != self._last_select_cursong_key:
+            self.result_database.broadcast_cursong_data(title, diff)
+            self._last_select_cursong_key = cursong_key
 
         # スコアビューワが開いていれば編集パネルを更新（自動登録も内部で判断）
         if self.score_viewer is not None and self.score_viewer.isVisible():
