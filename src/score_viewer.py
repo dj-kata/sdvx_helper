@@ -1041,6 +1041,8 @@ class ScoreViewer(QMainWindow):
         self._show_history(title, diff_enum)
         self._show_portal_uploads(title, diff_enum)
         self._update_rival_panel(title, diff_enum)
+        if diff_enum is not None:
+            self.result_database.broadcast_cursong_data(title, diff_enum)
 
     def _show_history(self, title: str, diff: Optional[difficulty]):
         """プレーログテーブルを更新"""
