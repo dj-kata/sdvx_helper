@@ -15,6 +15,9 @@ from src.logger import get_logger
 
 logger = get_logger(__name__)
 
+_LANDSCAPE_SIZE = (1920, 1080)
+_PORTRAIT_SIZE = (1080, 1920)
+
 
 class DirectWindowCapture:
     """指定exe/タイトルのウィンドウをQtのgrabWindowで取得する薄いラッパー。"""
@@ -57,7 +60,7 @@ class DirectWindowCapture:
                 self.hwnd = None
                 return None
 
-            return self._qimage_to_pil(pixmap.toImage())
+            return self._normalize_size(self._qimage_to_pil(pixmap.toImage()))
         except Exception as e:
             self.last_error = str(e)
             self.hwnd = None
@@ -168,6 +171,12 @@ class DirectWindowCapture:
         stride = image.bytesPerLine()
         data = image.constBits().tobytes()
         return Image.frombytes("RGB", (width, height), data, "raw", "RGB", stride).copy()
+
+    def _normalize_size(self, image: Image.Image) -> Image.Image:
+        target_size = _LANDSCAPE_SIZE if image.width >= image.height else _PORTRAIT_SIZE
+        if image.size == target_size:
+            return image
+        return image.resize(target_size, Image.Resampling.LANCZOS)
 
     def _log_error(self, message: str, *args) -> None:
         now = time.monotonic()
