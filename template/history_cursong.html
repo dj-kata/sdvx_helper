@@ -1,242 +1,327 @@
 <!doctype html>
 <html>
-<head>
-    <meta charset="utf-8">
-    <title>SDVX Score History</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
-    <style>
-        :root { --websocket-port: 8767; }
-        * { box-sizing: border-box; }
-        body {
-            margin: 0;
+    <head>
+        <meta charset="utf-8">
+        <title>SDVX Score History</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+        <style>
+            :root { --websocket-port: 8767; }
+            body {
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            margin: 10px;
+            padding: 10px;
             overflow: hidden;
-            background: rgba(0, 0, 0, 0.95);
+            font-family:"RocknRoll One";
+            color:#2196F3;
+            font-size: 64px;
             color: #fff;
-            font-family: "RocknRoll One", sans-serif;
-            text-shadow: 2px 2px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+            text-shadow: 6px 6px 0 #000,
+                         -2px 2px 0 #000,
+                         2px -2px 0 #000,
+                         -2px -2px 0 #000;
+            }
+            div#all{
+                border: 16px solid #000077;
+                -moz-box-sizing:border-box;
+                box-sizing: border-box;
+                position: absolute;
+                top:0;
+                bottom:0;
+                left:0;
+                right:0;
+                background-color: rgba(0, 0, 0, 0.95);
+                overflow: hidden;
+            }
+            table#title {
+                color: #fff;
+                background-color: rgba(0, 0, 100, 0.95);
+                font-size: 90px;
+                line-height: 140%;
+                width:100%;
+                background-color: #222;
+                background: linear-gradient(
+                180deg
+                ,rgba(0,0,60,0.9)
+                ,rgba(35,85,155,0.9)
+                );
+            }
+            table#title td{
+                white-space:nowrap;
+            }
+            table#title td:nth-child(1){
+                max-width: 10px;
+                overflow:hidden;
+                text-overflow:ellipsis;
+            }
+            table#title td:nth-child(2){
+                width:13%;
+                margin-right:1%;
+                padding-right:1%;
+            }
+            table#title td:nth-child(3){
+                text-align: right;
+                width:10%;
+            }
+            table#result {
+                font-size: 96px;
+                width:100%;
+                border: none;
+            }
+            table#result td {
+                border: none;
+                vertical-align: middle;
+                white-space:nowrap;
+            }
+            table#result tr:nth-child(1) {
+                background-color: #000;
+            }
+            table#result td:nth-child(1) {
+                font-size: 80px;
+                width:35%;
+            }
+            table#result td:nth-child(2) {
+                font-size: 80px;
+                width:20%;
+            }
+            table#result td:nth-child(3) {
+                width:20%;
+                padding-right:5%;
+                text-align: right;
+            }
+            table#result td:nth-child(4) {
+                font-size: 80px;
+                margin-left:3%;
+                text-align:left;
+            }
+            table#result td:nth-child(5) {
+                width:20%;
+                margin-left:3%;
+                text-align:center;
+            }
+            table#best {
+                font-size: 80px;
+                width:100%;
+                background-color: rgba(255, 255, 255, 0.35);
+            }
+            table#best td {
+                white-space:nowrap;
+                text-align:center;
+            }
+            table#best tr:nth-child(1) {
+                color:#fff;
+                background-color: #000;
+                font-size:40px;
+                width:20%;
+                text-align: center;
+            }
+            table#best tr:nth-child(2) {
+                color:#ffffff;
+                text-align: center;
+            }
+            table#best tr:nth-child(2) td:nth-child(1){
+                width: 13%;
+            }
+            table#best tr:nth-child(2) td:nth-child(2){
+                color:#ffffcc;
+                width: 8%;
+            }
+            table#best tr:nth-child(2) td:nth-child(3){
+                color:#ccccff;
+                width: 8%;
+            }
+            table#best tr:nth-child(2) td:nth-child(4){
+                color:#ccccff;
+                width: 8%;
+            }
+            table#best tr:nth-child(2) td:nth-child(5){
+                color:#ffccff;
+                width: 28%;
+            }
+            table#best tr:nth-child(2) td:nth-child(7){
+                color:#ccffcc;
+                width: 14%;
+            }
+            .MAX{
+                animation-name: flashmax;
+                animation-duration: 0.4s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashmax {
+                0%   { color: #ff2828; }
+                20%  { color: #d5ff28; }
+                40%  { color: #28ff7e; }
+                60%  { color: #2872ff; }
+                80%  { color: #d528ff; }
+                100% { color: #ff2828; }
+            }
+            .S{ color:#ffff00; }
+            .AAAplus{ color:#ffff28; }
+            .AAA{ color:#ffff28; }
+            .AAplus{ color:#c3c3c3; }
+            .AA{ color:#c3c3c3; }
+            .Aplus{ color:#2ddf71; }
+            .A{ color:#2ddf71; }
+            .B{ color:#7777ff; }
+            .C{ color:#7777ff; }
+            .D{ color:#7777ff; }
+            .E{ color:#7777ff; }
+            .F{ color:#7777ff; }
+            .fc{
+                animation-name: flashfc;
+                animation-duration: 0.2s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfc {
+                0%   { background-color: #ff2828; }
+                20%  { background-color: #d5ff28; }
+                40%  { background-color: #28ff7e; }
+                60%  { background-color: #2872ff; }
+                80%  { background-color: #d528ff; }
+                100% { background-color: #ff2828; }
+            }
+            .failed{
+                animation-name: flashfailed;
+                animation-duration: 0.8s;
+                animation-iteration-count: infinite;
+            }
+            @keyframes flashfailed {
+                0%   { color: #ff2828; }
+                50%  { color: #282828; }
+                100% { color: #ff2828; }
+            }
+            .clear{color: #77ff77;}
+            .hard{color: #ffc115;}
+            .maxxive{color: #dddddd;}
+            .uc{color: #ff7777;}
+            .puc{color: #ffff99;}
+        </style>
+    </head>
+    <body>
+        <div id="all">
+            <table id="title">
+                <tbody>
+                    <tr>
+                        <td id="music">---</td>
+                        <td id="difficulty"></td>
+                        <td id="lv"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="best">
+                <tbody>
+                    <tr>
+                        <td height="50">diff</td>
+                        <td>Lv</td>
+                        <td>Tier</td>
+                        <td>PUC</td>
+                        <td>best score</td>
+                        <td>best lamp</td>
+                        <td>VF</td>
+                    </tr>
+                    <tr>
+                        <td id="best-diff"></td>
+                        <td id="best-lv"></td>
+                        <td id="grade-s-tier"></td>
+                        <td id="puc-tier"></td>
+                        <td id="best-score"></td>
+                        <td id="best-lamp"></td>
+                        <td id="vf"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <table id="result">
+                <tbody id="history-body"></tbody>
+            </table>
+        </div>
+        <script>
+        function wsPort() {
+            const params = new URLSearchParams(location.search);
+            if (params.has("port")) return parseInt(params.get("port"), 10);
+            const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
+            return parseInt(cssPort, 10) || 8767;
         }
-        #all {
-            position: absolute;
-            inset: 0;
-            min-width: 300px;
-            min-height: 140px;
-            border: clamp(2px, 1.4vh, 16px) solid #0010a8;
-            background:
-                linear-gradient(rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.42)),
-                radial-gradient(circle at 35% 55%, rgba(80, 80, 80, 0.32), transparent 34%),
-                #050505;
-            overflow: hidden;
+        function esc(value) {
+            return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
+                return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
+            });
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            table-layout: fixed;
+        function fmtScore(value) {
+            const n = Number(value) || 0;
+            return n ? n.toLocaleString("en-US") : "";
         }
-        td, th {
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            padding: 0 1vw;
-            line-height: 1.08;
+        function shortScore(value) {
+            const n = Number(value) || 0;
+            return n ? Math.floor(n / 10000).toString() : "";
         }
-        #title {
-            height: 8vh;
-            background: linear-gradient(180deg, rgba(0,0,65,0.96), rgba(31,81,150,0.96));
-            font-size: 6.4vh;
+        function grade(score) {
+            score = Number(score) || 0;
+            if (score >= 10000000) return '<span class="MAX">MAX</span>';
+            if (score >= 9900000) return '<span class="S">S</span>';
+            if (score >= 9800000) return '<span class="AAAplus">AAA+</span>';
+            if (score >= 9700000) return '<span class="AAA">AAA</span>';
+            if (score >= 9500000) return '<span class="AAplus">AA+</span>';
+            if (score >= 9300000) return '<span class="AA">AA</span>';
+            if (score >= 9000000) return '<span class="Aplus">A+</span>';
+            if (score >= 8700000) return '<span class="A">A</span>';
+            if (score >= 7500000) return '<span class="B">B</span>';
+            return '<span class="D">D</span>';
         }
-        #music { text-align: left; }
-        #difficulty { width: 15%; text-align: right; font-size: 5.9vh; }
-        #lv { width: 14%; text-align: right; font-size: 5.9vh; color: #ffffaa; }
-        #best {
-            height: 13vh;
-            background: rgba(255, 255, 255, 0.25);
+        function lampText(value) {
+            return ["", "FAILED", "COMP", "EXC", "MAXXIVE", "UC", "PUC"][Number(value) || 0] || "";
         }
-        #best tr:first-child {
-            height: 4vh;
-            background: #000;
-            font-size: 2.6vh;
+        function lampClass(value) {
+            return ["", "failed", "clear", "hard", "maxxive", "uc", "puc"][Number(value) || 0] || "";
         }
-        #best tr:nth-child(2) {
-            height: 9vh;
-            font-size: 5.7vh;
+        function lampHtml(value) {
+            return '<span class="' + lampClass(value) + '">' + lampText(value) + "</span>";
         }
-        #best th, #best td { text-align: center; }
-        #best .col-diff { width: 14%; }
-        #best .col-lv { width: 8%; color: #ffffaa; }
-        #best .col-tier { width: 9%; color: #ccccff; }
-        #best .col-puc { width: 8%; color: #ffccff; }
-        #best .col-score { width: 35%; color: #ffffcc; }
-        #best .col-lamp { width: 14%; }
-        #best .col-vf { width: 12%; color: #ccffcc; }
-        #result {
-            width: 80%;
-            font-size: 5.7vh;
+        function lampIcon(value) {
+            const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
+            const file = files[Number(value) || 0];
+            return file ? '<img src="../resources/' + file + '" height="80">' : "";
         }
-        #result tr.header {
-            height: 5vh;
-            background: #000;
-            font-size: 3.8vh;
-        }
-        #result tr.header td {
-            font-size: 3.8vh !important;
-            text-align: center;
-        }
-        #result tr.header td:first-child {
-            text-align: left;
-        }
-        #result tr.play {
-            height: 8vh;
-            font-size: 5.7vh;
-        }
-        #result td:nth-child(1) { width: 38%; color: #ffffaa; text-align: left; }
-        #result td:nth-child(2) { width: 22%; color: #fff; text-align: right; font-size: 6vh; }
-        #result td:nth-child(3) { width: 20%; text-align: center; }
-        #result td:nth-child(4) { width: 20%; text-align: center; padding-left: 0; }
-        .lamp-icon { height: 6vh; vertical-align: middle; }
-        .diff-NOV { color: #c060f0; }
-        .diff-ADV { color: #d4bb00; }
-        .diff-EXH { color: #e84040; }
-        .diff-MXM { color: #e0e0e0; }
-        .S { color: #ffff00; }
-        .AAAplus, .AAA { color: #ffff28; }
-        .AAplus, .AA { color: #c3c3c3; }
-        .Aplus, .A { color: #2ddf71; }
-        .B, .C, .D { color: #7777ff; }
-        .lamp-played { color: #888; }
-        .lamp-clear { color: #77ff77; }
-        .lamp-exc { color: #ffc115; }
-        .lamp-maxxive { color: #dddddd; }
-        .lamp-uc { color: #ff7777; }
-        .lamp-puc, .MAX {
-            animation: flashmax 0.4s infinite;
-            font-weight: bold;
-        }
-        @keyframes flashmax {
-            0% { color: #ff2828; }
-            20% { color: #d5ff28; }
-            40% { color: #28ff7e; }
-            60% { color: #2872ff; }
-            80% { color: #d528ff; }
-            100% { color: #ff2828; }
-        }
-    </style>
-</head>
-<body>
-<div id="all">
-    <table id="title">
-        <tr>
-            <td id="music">---</td>
-            <td id="difficulty"></td>
-            <td id="lv"></td>
-        </tr>
-    </table>
-    <table id="best">
-        <tr>
-            <th class="col-diff">diff</th>
-            <th class="col-lv">Lv</th>
-            <th class="col-tier">Tier</th>
-            <th class="col-puc">PUC</th>
-            <th class="col-score">best score</th>
-            <th class="col-lamp">best lamp</th>
-            <th class="col-vf">VF</th>
-        </tr>
-        <tr>
-            <td id="best-diff" class="col-diff"></td>
-            <td id="best-lv" class="col-lv"></td>
-            <td id="grade-s-tier" class="col-tier"></td>
-            <td id="puc-tier" class="col-puc"></td>
-            <td id="best-score" class="col-score"></td>
-            <td id="best-lamp" class="col-lamp"></td>
-            <td id="vf" class="col-vf"></td>
-        </tr>
-    </table>
-    <table id="result">
-        <tbody id="history-body"></tbody>
-    </table>
-</div>
-<script>
-function wsPort() {
-    const params = new URLSearchParams(location.search);
-    if (params.has("port")) return parseInt(params.get("port"), 10);
-    const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
-    return parseInt(cssPort, 10) || 8767;
-}
-function esc(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
-        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
-    });
-}
-function fmtScore(value) {
-    const n = Number(value) || 0;
-    return n ? n.toLocaleString("en-US") : "";
-}
-function shortScore(value) {
-    const n = Number(value) || 0;
-    return n ? Math.floor(n / 10000).toString() : "";
-}
-function grade(score) {
-    score = Number(score) || 0;
-    if (score >= 10000000) return '<span class="MAX">MAX</span>';
-    if (score >= 9900000) return '<span class="S">S</span>';
-    if (score >= 9800000) return '<span class="AAAplus">AAA+</span>';
-    if (score >= 9700000) return '<span class="AAA">AAA</span>';
-    if (score >= 9500000) return '<span class="AAplus">AA+</span>';
-    if (score >= 9300000) return '<span class="AA">AA</span>';
-    if (score >= 9000000) return '<span class="Aplus">A+</span>';
-    if (score >= 8700000) return '<span class="A">A</span>';
-    if (score >= 7500000) return '<span class="B">B</span>';
-    return '<span class="D">D</span>';
-}
-function lampName(value) {
-    return ["", "", "COMP", "EXC", "MXX", "UC", "PUC"][Number(value) || 0] || "";
-}
-function lampClass(value) {
-    return ["lamp-noplay", "lamp-played", "lamp-clear", "lamp-exc", "lamp-maxxive", "lamp-uc", "lamp-puc"][Number(value) || 0] || "";
-}
-function lampHtml(value) {
-    return '<span class="' + lampClass(value) + '">' + lampName(value) + "</span>";
-}
-function lampIcon(value) {
-    const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
-    const file = files[Number(value) || 0];
-    return file ? '<img class="lamp-icon" src="../resources/' + file + '">' : "";
-}
-function update(data) {
-    if (!data) return;
-    const diff = data.difficulty || "";
-    document.getElementById("music").textContent = data.title || "---";
-    document.getElementById("difficulty").innerHTML = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
-    document.getElementById("lv").textContent = data.lv ? "Lv." + data.lv : "";
-    document.getElementById("best-diff").innerHTML = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
-    document.getElementById("best-lv").textContent = data.lv || "";
-    document.getElementById("grade-s-tier").textContent = data.gradeS_tier || "";
-    document.getElementById("puc-tier").textContent = data.PUC_tier || "";
-    document.getElementById("best-score").textContent = fmtScore(data.best_score);
-    document.getElementById("best-lamp").innerHTML = lampHtml(data.best_lamp);
-    document.getElementById("vf").textContent = data.vf ? (Number(data.vf) / 10).toFixed(1) : "";
+        function update(data) {
+            if (!data) return;
+            const diff = data.display_difficulty || data.cdiff || data.difficulty || "";
+            document.getElementById("music").textContent = data.title || "---";
+            document.getElementById("difficulty").textContent = diff ? "(" + diff + ")" : "";
+            document.getElementById("lv").textContent = data.lv || "";
+            document.getElementById("best-diff").textContent = diff ? "(" + diff + ")" : "";
+            document.getElementById("best-lv").textContent = data.lv || "";
+            document.getElementById("grade-s-tier").textContent = data.gradeS_tier || "";
+            document.getElementById("puc-tier").textContent = data.PUC_tier || "";
+            document.getElementById("best-score").textContent = fmtScore(data.best_score);
+            document.getElementById("best-lamp").innerHTML = lampHtml(data.best_lamp);
+            document.getElementById("vf").textContent = data.vf ? (Number(data.vf) / 10).toFixed(1) : "";
 
-    let out = '<tr class="header"><td>date</td><td>score</td><td>grade</td><td>lamp</td></tr>';
-    (data.items || []).slice(0, 5).forEach(function(item) {
-        out += '<tr class="play">';
-        out += '<td>' + esc(item.date || "") + "</td>";
-        out += '<td>' + shortScore(item.score) + "</td>";
-        out += '<td>' + (item.grade ? esc(item.grade) : grade(item.score)) + "</td>";
-        out += '<td>' + lampIcon(item.lamp) + "</td>";
-        out += "</tr>";
-    });
-    document.getElementById("history-body").innerHTML = out;
-}
-function connect() {
-    const ws = new WebSocket("ws://localhost:" + wsPort());
-    ws.onmessage = function(event) {
-        const msg = JSON.parse(event.data);
-        if (msg.type === "cursong" || msg.type === "history_cursong") update(msg.data);
-    };
-    ws.onclose = function() { setTimeout(connect, 3000); };
-}
-connect();
-</script>
-</body>
+            let out = '<tr><td height="50"><font size="40"><center>date</center></font></td>';
+            out += '<td></td>';
+            out += '<td colspan="2" height="40"><font size="40"><center>score</center></font></td>';
+            out += '<td height="50"><font size="40"><center>lamp</center></font></td></tr>';
+            (data.items || []).slice(0, 5).forEach(function(item) {
+                out += '<tr>';
+                out += '<td><font color="#ffffaa">' + esc(item.date || "") + "</font></td>";
+                out += '<td></td>';
+                out += '<td>' + shortScore(item.score) + "</td>";
+                out += '<td>' + (item.grade ? esc(item.grade) : grade(item.score)) + "</td>";
+                out += '<td>' + lampIcon(item.lamp) + "</td>";
+                out += "</tr>";
+            });
+            document.getElementById("history-body").innerHTML = out;
+        }
+        function connect() {
+            const ws = new WebSocket("ws://localhost:" + wsPort());
+            ws.onmessage = function(event) {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "cursong" || msg.type === "history_cursong") update(msg.data);
+            };
+            ws.onclose = function() { setTimeout(connect, 3000); };
+        }
+        connect();
+        </script>
+    </body>
 </html>

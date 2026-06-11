@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 from src.classes import difficulty, clear_lamp, detect_mode
 from src.funcs import calc_chart_id, get_chart_name, escape_for_csv, convert_lamp, convert_difficulty
 from src.result import OneResult, OneBestData
-from src.volforce import calc_total_vf, VF_TOP_N
+from src.volforce import calc_total_vf, calc_vf, VF_TOP_N
 from src.songinfo import SongDatabase
 from src.logger import get_logger
 from PIL import Image
@@ -562,24 +562,46 @@ class ResultDatabase:
         info = self.song_database.get_song_info(title)
         diff_name = get_chart_name(diff)
         best_data = self.get_all_best_results().get((title, diff))
+        level = info.get_level(diff) if info else (best_data.level if best_data else None)
+        display_diff_name = diff_name
         grade_s_tier = ''
         puc_tier = ''
         if self.portal_manager:
             try:
-                grade_s_tier, puc_tier = self.portal_manager.get_tier_map().get((title, diff), ('', ''))
+                if diff == difficulty.maximum and level:
+                    normalized_title = title.strip().lower()
+                    for (map_title, map_lv), cdiff in self.portal_manager.get_4th_diff_map().items():
+                        if map_lv == level and map_title.strip().lower() == normalized_title:
+                            display_diff_name = cdiff
+                            break
+                tier_map = self.portal_manager.get_tier_map()
+                grade_s_tier, puc_tier = tier_map.get((title, diff), ('', ''))
+                if not grade_s_tier and not puc_tier:
+                    normalized_title = title.strip().lower()
+                    for (map_title, map_diff), tiers in tier_map.items():
+                        if map_diff == diff and map_title.strip().lower() == normalized_title:
+                            grade_s_tier, puc_tier = tiers
+                            break
             except Exception:
                 logger.debug(f"tier map取得失敗:\n{traceback.format_exc()}")
+        best_vf = best_data.vf if best_data else 0
+        if not best_vf and best_score and level:
+            best_vf = calc_vf(level, best_score, best_lamp)
 
         data: dict = {
             'title':      title,
             'difficulty': diff_name,
-            'lv':         str(info.get_level(diff) or '') if info else '',
+            'display_difficulty': display_diff_name,
+            'cdiff':      display_diff_name if diff == difficulty.maximum else None,
+            'lv':         str(level or ''),
             'gradeS_tier': grade_s_tier,
+            'S_tier':     grade_s_tier,
             'PUC_tier':   puc_tier,
+            'p_tier':     puc_tier,
             'best_score': best_score or 0,
             'best_ex':    best_ex or 0,
             'best_lamp':  best_lamp.value,
-            'vf':         best_data.vf if best_data else 0,
+            'vf':         best_vf,
             'play_count': len(target),
             'last_played': (
                 datetime.datetime.fromtimestamp(target[0].timestamp).strftime('%Y/%m/%d')
