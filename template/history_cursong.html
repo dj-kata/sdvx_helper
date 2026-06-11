@@ -8,57 +8,93 @@
     <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
     <style>
         :root { --websocket-port: 8767; }
+        * { box-sizing: border-box; }
         body {
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.95);
-            margin: 10px;
-            padding: 10px;
+            margin: 0;
             overflow: hidden;
-            font-family: "RocknRoll One", sans-serif;
-            font-size: 64px;
+            background: rgba(0, 0, 0, 0.95);
             color: #fff;
-            text-shadow: 6px 6px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
+            font-family: "RocknRoll One", sans-serif;
+            text-shadow: 2px 2px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
         }
         #all {
-            border: 16px solid #000077;
-            box-sizing: border-box;
             position: absolute;
             inset: 0;
-            background-color: rgba(0, 0, 0, 0.95);
+            min-width: 300px;
+            min-height: 140px;
+            border: clamp(2px, 1.4vh, 16px) solid #0010a8;
+            background:
+                linear-gradient(rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0.42)),
+                radial-gradient(circle at 35% 55%, rgba(80, 80, 80, 0.32), transparent 34%),
+                #050505;
             overflow: hidden;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        td, th {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 0 1vw;
+            line-height: 1.08;
+        }
         #title {
-            color: #fff;
-            font-size: 90px;
-            line-height: 140%;
-            width: 100%;
-            background: linear-gradient(180deg, rgba(0,0,60,0.9), rgba(35,85,155,0.9));
-            border-collapse: collapse;
+            height: 8vh;
+            background: linear-gradient(180deg, rgba(0,0,65,0.96), rgba(31,81,150,0.96));
+            font-size: 6.4vh;
         }
-        #title td { white-space: nowrap; padding: 0 18px; }
-        #title td:nth-child(1) { max-width: 10px; overflow: hidden; text-overflow: ellipsis; }
-        #title td:nth-child(2) { width: 13%; }
-        #title td:nth-child(3) { width: 10%; text-align: right; }
+        #music { text-align: left; }
+        #difficulty { width: 15%; text-align: right; font-size: 5.9vh; }
+        #lv { width: 14%; text-align: right; font-size: 5.9vh; color: #ffffaa; }
         #best {
-            font-size: 80px;
-            width: 100%;
-            background-color: rgba(255, 255, 255, 0.35);
-            border-collapse: collapse;
+            height: 13vh;
+            background: rgba(255, 255, 255, 0.25);
         }
-        #best td { white-space: nowrap; text-align: center; padding: 0 10px; }
-        #best tr:nth-child(1) { color: #fff; background-color: #000; font-size: 40px; }
-        #best tr:nth-child(2) td:nth-child(2) { color: #ffffcc; }
-        #best tr:nth-child(2) td:nth-child(3) { color: #ccccff; }
-        #best tr:nth-child(2) td:nth-child(4) { color: #ffccff; }
-        #result { font-size: 72px; width: 100%; border-collapse: collapse; }
-        #result td { border: none; vertical-align: middle; white-space: nowrap; padding: 0 16px; }
-        #result tr:nth-child(1) { background-color: #000; }
-        #result td:nth-child(1) { font-size: 50px; width: 24%; }
-        #result td:nth-child(2) { width: 12%; text-align: center; }
-        #result td:nth-child(3) { width: 22%; text-align: right; }
-        #result td:nth-child(4) { width: 14%; text-align: center; }
-        #result td:nth-child(5) { width: 14%; text-align: right; color: #ccccff; }
-        #result td:nth-child(6) { width: 14%; text-align: right; color: #ffccff; }
+        #best tr:first-child {
+            height: 4vh;
+            background: #000;
+            font-size: 2.6vh;
+        }
+        #best tr:nth-child(2) {
+            height: 9vh;
+            font-size: 5.7vh;
+        }
+        #best th, #best td { text-align: center; }
+        #best .col-diff { width: 14%; }
+        #best .col-lv { width: 8%; color: #ffffaa; }
+        #best .col-tier { width: 9%; color: #ccccff; }
+        #best .col-puc { width: 8%; color: #ffccff; }
+        #best .col-score { width: 35%; color: #ffffcc; }
+        #best .col-lamp { width: 14%; }
+        #best .col-vf { width: 12%; color: #ccffcc; }
+        #result {
+            width: 80%;
+            font-size: 5.7vh;
+        }
+        #result tr.header {
+            height: 5vh;
+            background: #000;
+            font-size: 3.8vh;
+        }
+        #result tr.header td {
+            font-size: 3.8vh !important;
+            text-align: center;
+        }
+        #result tr.header td:first-child {
+            text-align: left;
+        }
+        #result tr.play {
+            height: 8vh;
+            font-size: 5.7vh;
+        }
+        #result td:nth-child(1) { width: 38%; color: #ffffaa; text-align: left; }
+        #result td:nth-child(2) { width: 22%; color: #fff; text-align: right; font-size: 6vh; }
+        #result td:nth-child(3) { width: 20%; text-align: center; }
+        #result td:nth-child(4) { width: 20%; text-align: center; padding-left: 0; }
+        .lamp-icon { height: 6vh; vertical-align: middle; }
         .diff-NOV { color: #c060f0; }
         .diff-ADV { color: #d4bb00; }
         .diff-EXH { color: #e84040; }
@@ -67,11 +103,11 @@
         .AAAplus, .AAA { color: #ffff28; }
         .AAplus, .AA { color: #c3c3c3; }
         .Aplus, .A { color: #2ddf71; }
-        .B { color: #7777ff; }
+        .B, .C, .D { color: #7777ff; }
         .lamp-played { color: #888; }
-        .lamp-clear { color: #33aaff; }
-        .lamp-exc { color: #ff66cc; }
-        .lamp-maxxive { color: #eeeeee; }
+        .lamp-clear { color: #77ff77; }
+        .lamp-exc { color: #ffc115; }
+        .lamp-maxxive { color: #dddddd; }
         .lamp-uc { color: #ff7777; }
         .lamp-puc, .MAX {
             animation: flashmax 0.4s infinite;
@@ -98,18 +134,22 @@
     </table>
     <table id="best">
         <tr>
-            <td>plays</td>
-            <td>best score</td>
-            <td>best ex</td>
-            <td>lamp</td>
-            <td>last played</td>
+            <th class="col-diff">diff</th>
+            <th class="col-lv">Lv</th>
+            <th class="col-tier">Tier</th>
+            <th class="col-puc">PUC</th>
+            <th class="col-score">best score</th>
+            <th class="col-lamp">best lamp</th>
+            <th class="col-vf">VF</th>
         </tr>
         <tr>
-            <td id="play-count">0</td>
-            <td id="best-score">0</td>
-            <td id="best-ex">0</td>
-            <td id="best-lamp"></td>
-            <td id="last-played"></td>
+            <td id="best-diff" class="col-diff"></td>
+            <td id="best-lv" class="col-lv"></td>
+            <td id="grade-s-tier" class="col-tier"></td>
+            <td id="puc-tier" class="col-puc"></td>
+            <td id="best-score" class="col-score"></td>
+            <td id="best-lamp" class="col-lamp"></td>
+            <td id="vf" class="col-vf"></td>
         </tr>
     </table>
     <table id="result">
@@ -132,6 +172,10 @@ function fmtScore(value) {
     const n = Number(value) || 0;
     return n ? n.toLocaleString("en-US") : "";
 }
+function shortScore(value) {
+    const n = Number(value) || 0;
+    return n ? Math.floor(n / 10000).toString() : "";
+}
 function grade(score) {
     score = Number(score) || 0;
     if (score >= 10000000) return '<span class="MAX">MAX</span>';
@@ -143,13 +187,21 @@ function grade(score) {
     if (score >= 9000000) return '<span class="Aplus">A+</span>';
     if (score >= 8700000) return '<span class="A">A</span>';
     if (score >= 7500000) return '<span class="B">B</span>';
-    return "";
+    return '<span class="D">D</span>';
 }
 function lampName(value) {
-    return ["NO PLAY", "FAILED", "COMP", "EXC", "MAXXIVE", "UC", "PUC"][Number(value) || 0] || "";
+    return ["", "", "COMP", "EXC", "MXX", "UC", "PUC"][Number(value) || 0] || "";
 }
 function lampClass(value) {
     return ["lamp-noplay", "lamp-played", "lamp-clear", "lamp-exc", "lamp-maxxive", "lamp-uc", "lamp-puc"][Number(value) || 0] || "";
+}
+function lampHtml(value) {
+    return '<span class="' + lampClass(value) + '">' + lampName(value) + "</span>";
+}
+function lampIcon(value) {
+    const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
+    const file = files[Number(value) || 0];
+    return file ? '<img class="lamp-icon" src="../resources/' + file + '">' : "";
 }
 function update(data) {
     if (!data) return;
@@ -157,23 +209,21 @@ function update(data) {
     document.getElementById("music").textContent = data.title || "---";
     document.getElementById("difficulty").innerHTML = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
     document.getElementById("lv").textContent = data.lv ? "Lv." + data.lv : "";
-    document.getElementById("play-count").textContent = data.play_count || 0;
+    document.getElementById("best-diff").innerHTML = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
+    document.getElementById("best-lv").textContent = data.lv || "";
+    document.getElementById("grade-s-tier").textContent = data.gradeS_tier || "";
+    document.getElementById("puc-tier").textContent = data.PUC_tier || "";
     document.getElementById("best-score").textContent = fmtScore(data.best_score);
-    document.getElementById("best-ex").textContent = data.best_ex || "";
-    document.getElementById("best-lamp").innerHTML = '<span class="' + lampClass(data.best_lamp) + '">' + lampName(data.best_lamp) + "</span>";
-    document.getElementById("last-played").textContent = data.last_played || "";
+    document.getElementById("best-lamp").innerHTML = lampHtml(data.best_lamp);
+    document.getElementById("vf").textContent = data.vf ? (Number(data.vf) / 10).toFixed(1) : "";
 
-    let out = "<tr><td><center>date</center></td><td></td><td><center>score</center></td><td><center>grade</center></td><td>ex</td><td>diff</td></tr>";
-    (data.items || []).forEach(function(item) {
-        const scoreDiff = (Number(item.score) || 0) - (Number(item.pre_score) || 0);
-        const exDiff = item.exscore == null ? "" : (Number(item.exscore) - (Number(item.pre_ex) || 0));
-        out += "<tr>";
-        out += "<td>" + esc(item.date || "") + "</td>";
-        out += '<td><span class="' + lampClass(item.lamp) + '">' + lampName(item.lamp) + "</span></td>";
-        out += "<td>" + fmtScore(item.score) + "</td>";
-        out += "<td>" + (item.grade ? esc(item.grade) : grade(item.score)) + "</td>";
-        out += "<td>" + (item.exscore == null ? "" : esc(item.exscore)) + "</td>";
-        out += "<td>" + (scoreDiff > 0 ? "+" : "") + scoreDiff.toLocaleString("en-US") + (exDiff !== "" ? " / " + (exDiff > 0 ? "+" : "") + exDiff : "") + "</td>";
+    let out = '<tr class="header"><td>date</td><td>score</td><td>grade</td><td>lamp</td></tr>';
+    (data.items || []).slice(0, 5).forEach(function(item) {
+        out += '<tr class="play">';
+        out += '<td>' + esc(item.date || "") + "</td>";
+        out += '<td>' + shortScore(item.score) + "</td>";
+        out += '<td>' + (item.grade ? esc(item.grade) : grade(item.score)) + "</td>";
+        out += '<td>' + lampIcon(item.lamp) + "</td>";
         out += "</tr>";
     });
     document.getElementById("history-body").innerHTML = out;
