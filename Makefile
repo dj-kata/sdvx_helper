@@ -6,6 +6,7 @@ target_zip=$(project_name).zip
 srcs=$(wildcard *.py) $(wildcard *.pyw) $(wildcard src/*.py) $(wildcard misc/*.py)
 html_files=$(wildcard template/*.html)
 version=$(shell head -n1 version.txt)
+ZIP ?= 7z a -tzip -mx=1 -mmt=on
 
 # all: $(target_zip)
 top: $(target)
@@ -20,7 +21,7 @@ $(target_zip): $(target) $(html_files) version.txt
 	@cp songinfo.infdc $(project_name)
 	@rm -rf $(project_name)/log
 	@rm -rf $(project_name)/*.json
-	@zip -r $(target_zip) $(project_name)/*
+	@$(ZIP) $(target_zip) $(project_name)
 
 $(target): $(srcs)
 	@rm -rf $(project_name)
