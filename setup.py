@@ -16,10 +16,6 @@ EXE_NAME = "sdvx_helper.exe" if sys.platform == "win32" else "sdvx_helper"
 BUILD_DIR = "sdvx_helper"
 FREEZE_BUILD_DIR = "build/sdvx_helper_freeze"
 ICON_FILE = Path("src/icon.ico")
-INFNOTEBOOK_CANDIDATES = [
-    Path("infnotebook"),
-    Path("../inf_daken_counter_obsw/infnotebook"),
-]
 
 
 def add_if_exists(include_files: list[tuple[str, str]], src: str, dst: str) -> None:
@@ -46,10 +42,7 @@ try:
     qt_conf = Path("build/qt.conf")
     qt_conf.parent.mkdir(parents=True, exist_ok=True)
     qt_conf.write_text(
-        "[Paths]\n"
-        "Prefix = .\n"
-        "Binaries = .\n"
-        "Plugins = lib/PySide6/plugins\n",
+        "[Paths]\nPrefix = .\nBinaries = .\nPlugins = lib/PySide6/plugins\n",
         encoding="utf-8",
     )
     include_files.append((str(qt_conf), "qt.conf"))
@@ -64,20 +57,6 @@ add_if_exists(include_files, "LICENSE", "LICENSE")
 add_if_exists(include_files, "README.md", "README.md")
 add_if_exists(include_files, "en_README.md", "en_README.md")
 add_if_exists(include_files, str(ICON_FILE), str(ICON_FILE))
-
-for infnotebook_dir in INFNOTEBOOK_CANDIDATES:
-    if not infnotebook_dir.exists():
-        continue
-    add_if_exists(
-        include_files,
-        str(infnotebook_dir / "screenshot.py"),
-        "infnotebook/screenshot.py",
-    )
-    add_if_exists(include_files, str(infnotebook_dir / "define.py"), "infnotebook/define.py")
-    add_if_exists(include_files, str(infnotebook_dir / "result.py"), "infnotebook/result.py")
-    add_if_exists(include_files, str(infnotebook_dir / "resources"), "infnotebook/resources")
-    break
-
 
 build_exe_options = {
     "packages": [
