@@ -15,8 +15,5 @@ log/*
 params_secret.py
 src/portal_secret.py
 portal_secret.txt
-out/*.png
-out/*.csv
-out/*.pkl
-out/*.json
-out/*.txt
+out/*
+debug/*
