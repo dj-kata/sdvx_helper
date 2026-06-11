@@ -422,16 +422,17 @@ class ConfigDialog(QDialog):
         method_layout = QFormLayout()
         method_group.setLayout(method_layout)
 
-        self.capture_method_combo = QComboBox()
-        self.capture_method_combo.addItem(
-            self.ui.capture.method_obs_websocket,
-            'obs_websocket',
-        )
-        self.capture_method_combo.addItem(
-            self.ui.capture.method_direct_window,
-            'direct_window',
-        )
-        method_layout.addRow(self.ui.capture.method_label, self.capture_method_combo)
+        self.capture_method_group = QButtonGroup()
+        self.capture_method_obs_radio = QRadioButton(self.ui.capture.method_obs_websocket)
+        self.capture_method_direct_radio = QRadioButton(self.ui.capture.method_direct_window)
+        self.capture_method_group.addButton(self.capture_method_obs_radio, 0)
+        self.capture_method_group.addButton(self.capture_method_direct_radio, 1)
+
+        method_radio_row = QHBoxLayout()
+        method_radio_row.addWidget(self.capture_method_obs_radio)
+        method_radio_row.addWidget(self.capture_method_direct_radio)
+        method_radio_row.addStretch()
+        method_layout.addRow(self.ui.capture.method_label, method_radio_row)
 
         layout.addWidget(method_group)
 
@@ -920,8 +921,10 @@ class ConfigDialog(QDialog):
         self.csv_export_path_edit.setText(self.config.csv_export_path)
 
         capture_method = getattr(self.config, 'capture_method', 'obs_websocket')
-        method_idx = self.capture_method_combo.findData(capture_method)
-        self.capture_method_combo.setCurrentIndex(method_idx if method_idx >= 0 else 0)
+        if capture_method == 'direct_window':
+            self.capture_method_direct_radio.setChecked(True)
+        else:
+            self.capture_method_obs_radio.setChecked(True)
 
         orient_map = {None: 0, 'top_up': 1, 'top_right': 2, 'top_left': 3}
         btn_id = orient_map.get(self.config.screen_orientation_override, 0)
@@ -951,7 +954,9 @@ class ConfigDialog(QDialog):
         self.config.autosave_image = self.autosave_image_check.isChecked()
         self.config.csv_export_path = self.csv_export_path_edit.text()
         self.config.capture_method = (
-            self.capture_method_combo.currentData() or 'obs_websocket'
+            'direct_window'
+            if self.capture_method_group.checkedId() == 1
+            else 'obs_websocket'
         )
 
         orient_map = {0: None, 1: 'top_up', 2: 'top_right', 3: 'top_left'}
