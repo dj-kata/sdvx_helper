@@ -15,7 +15,11 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 sys.path.append('infnotebook')
-from screenshot import Screenshot,open_screenimage
+try:
+    from screenshot import Screenshot, open_screenimage
+except ImportError:
+    Screenshot = None
+    open_screenimage = None
 
 try:
     from obsws_python import ReqClient
@@ -37,12 +41,14 @@ class OBSControlData:
     def __init__(self):
         self.config = None
     
-    def set_config(self, config:Config=Config()):
+    def set_config(self, config: Config | None = None):
         """設定ファイルを読み込み、各dbfileのパスを更新する。
 
         Args:
-            config (Config, optional): config情報。 Defaults to Config().
+            config (Config, optional): config情報。
         """
+        if config is None:
+            config = Config()
         self.config = config
 
     def add_setting(self, setting: Dict[str, Any]):
@@ -178,9 +184,11 @@ class OBSControlWindow:
         "autosave_source": "#eeff99"        # 薄い黄色
     }
     
-    def __init__(self, parent, obs_manager, config:Config=Config(), on_close_callback=None):
+    def __init__(self, parent, obs_manager, config: Config | None = None, on_close_callback=None):
         self.parent = parent
         self.obs_manager = obs_manager
+        if config is None:
+            config = Config()
         self.config = config
         self.on_close_callback = on_close_callback
         self.control_data = OBSControlData()

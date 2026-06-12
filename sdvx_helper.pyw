@@ -289,17 +289,30 @@ class MainWindow(MainWindowUI):
 
     def _execute_obs_triggers(self, trigger: str):
         """指定トリガーのOBS制御を実行"""
+        if trigger == 'app_end':
+            logger.info(
+                "OBSトリガー開始(app_end): "
+                f"capture_method={getattr(self.config, 'capture_method', None)}, "
+                f"obs_control_enabled={getattr(self.config, 'obs_control_enabled', None)}, "
+                f"uses_obs_websocket={self.obs_manager.uses_obs_websocket()}, "
+                f"is_connected={self.obs_manager.is_connected}, "
+                f"settings_count={len(getattr(self.config, 'obs_control_settings', []) or [])}"
+            )
         if not self.obs_manager.uses_obs_websocket():
-            logger.debug(f"OBSトリガースキップ({trigger}): OBS WebSocket未使用")
+            log_func = logger.info if trigger == 'app_end' else logger.debug
+            log_func(f"OBSトリガースキップ({trigger}): OBS WebSocket未使用")
             return
         try:
-            from src.obs_control import OBSControlData
-            control_data = OBSControlData()
-            control_data.set_config(self.config)
-            settings = control_data.get_settings_by_trigger(trigger)
+            all_settings = getattr(self.config, 'obs_control_settings', []) or []
+            settings = [setting for setting in all_settings if setting.get("timing") == trigger]
             if not settings:
-                logger.debug(f"OBSトリガー設定なし: {trigger}")
+                log_func = logger.info if trigger == 'app_end' else logger.debug
+                timings = [s.get("timing") for s in all_settings]
+                log_func(f"OBSトリガー設定なし: {trigger}, configured_timings={timings}")
                 return
+            if trigger == 'app_end' and not self.obs_manager.is_connected:
+                logger.info("OBSトリガー(app_end): OBS未接続のため再接続を試行")
+                self.obs_manager.connect()
             if not self.obs_manager.is_connected:
                 logger.warning(f"OBSトリガースキップ({trigger}): OBS未接続")
                 return
@@ -354,8 +367,6 @@ class MainWindow(MainWindowUI):
                         logger.warning(f"未知のOBSトリガーアクション: {setting}")
                 except Exception:
                     logger.error(f"トリガー実行エラー ({trigger}):\n{traceback.format_exc()}")
-        except ImportError:
-            pass  # obs_control.py が未実装の場合はスキップ
         except Exception:
             logger.error(f"トリガー実行エラー ({trigger}):\n{traceback.format_exc()}")
 
@@ -915,8 +926,13 @@ class MainWindow(MainWindowUI):
     def closeEvent(self, event):
         """アプリ終了時の処理"""
         logger.info("アプリ終了処理開始")
-        QApplication.processEvents()
+        try:
+            self.config.load_config()
+            self.obs_manager.set_config(self.config)
+        except Exception:
+            logger.error(f"終了時config再読み込みエラー:\n{traceback.format_exc()}")
         self._execute_obs_triggers('app_end')
+        QApplication.processEvents()
         self.remove_global_hotkeys()
         self.obs_manager.disconnect()
         self.rival_manager.shutdown()
