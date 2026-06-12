@@ -176,7 +176,7 @@ class PortalManager:
             r = requests.post(
                 PORTAL_URL + '/api/v1/export/musics',
                 headers=header,
-                timeout=30,
+                timeout=(3.05, 5),
             )
             r.raise_for_status()
             self.master_db = r.json().get('musics', [])
@@ -208,7 +208,7 @@ class PortalManager:
             r = requests.post(
                 PORTAL_URL + '/api/v1/export/rival_scores',
                 headers={'X-Auth-Token': self.token},
-                timeout=20,
+                timeout=(3.05, 5),
             )
             r.raise_for_status()
             raw = r.json().get('datas') or {}

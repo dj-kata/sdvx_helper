@@ -12,7 +12,7 @@ import re
 import traceback
 import datetime
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Callable, Dict, List, Tuple, Optional
 
 from PySide6.QtCore import QObject, QThread, Signal, Qt
@@ -75,34 +75,52 @@ class RivalFetchWorker(QThread):
         self.rival_configs   = rival_configs
         self.portal_fetch_fn = portal_fetch_fn
         self._is_cancelled   = False
+        self._cancel_event   = threading.Event()
+        self._sessions_lock  = threading.Lock()
+        self._sessions: List[object] = []
 
     def cancel(self):
         self._is_cancelled = True
-        # wait() は QThread 内でブロックされる可能性があるため、
-        # ここではフラグを立てるのみに留め、呼び出し側で wait(timeout) する。
+        self._cancel_event.set()
+        with self._sessions_lock:
+            sessions = list(self._sessions)
+        for session in sessions:
+            try:
+                session.close()
+            except Exception:
+                pass
 
     def run(self):
+        executor = None
         try:
             results_by_name: Dict[str, RivalData] = {}
 
-            with ThreadPoolExecutor(max_workers=8) as pool:
-                csv_futures  = {pool.submit(self._fetch_one_csv, cfg): cfg
-                                for cfg in self.rival_configs}
-                portal_future = (pool.submit(self.portal_fetch_fn)
-                                 if self.portal_fetch_fn else None)
+            executor = ThreadPoolExecutor(max_workers=8)
+            csv_futures = {
+                executor.submit(self._fetch_one_csv, cfg): cfg
+                for cfg in self.rival_configs
+            }
+            future_kinds = {future: 'csv' for future in csv_futures}
+            portal_future = None
+            if self.portal_fetch_fn and not self._cancel_event.is_set():
+                portal_future = executor.submit(self.portal_fetch_fn)
+                future_kinds[portal_future] = 'portal'
 
-                # ポータルライバルを先に収集（低優先）
-                if portal_future:
-                    try:
-                        for rd in self._parse_portal_rivals(portal_future.result()):
-                            results_by_name[rd.name] = rd
-                    except Exception as e:
-                        logger.warning(f'ポータルライバル取得エラー: {e}')
-
-                # CSV ライバルを収集（高優先・同名は上書き）
-                for future, cfg in csv_futures.items():
-                    if self._is_cancelled:
+            pending = set(future_kinds)
+            while pending and not self._cancel_event.is_set():
+                done, pending = wait(pending, timeout=0.1, return_when=FIRST_COMPLETED)
+                for future in done:
+                    if self._cancel_event.is_set():
                         break
+                    if future is portal_future:
+                        try:
+                            for rd in self._parse_portal_rivals(future.result()):
+                                results_by_name[rd.name] = rd
+                        except Exception as e:
+                            logger.warning(f'ポータルライバル取得エラー: {e}')
+                        continue
+
+                    cfg = csv_futures[future]
                     try:
                         rd = future.result()
                         results_by_name[rd.name] = rd
@@ -113,28 +131,45 @@ class RivalFetchWorker(QThread):
                         rd.error = str(e)
                         results_by_name[rd.name] = rd
 
+            if self._cancel_event.is_set():
+                for future in pending:
+                    future.cancel()
+                logger.info("ライバル取得スレッドをキャンセルしました")
+                return
+
             self.finished.emit(list(results_by_name.values()))
         except Exception:
             logger.error(traceback.format_exc())
+        finally:
+            if executor is not None:
+                executor.shutdown(wait=False, cancel_futures=True)
 
     # ── CSV 取得 ──────────────────────────────────────────────────────────────
 
     def _fetch_one_csv(self, cfg: Dict[str, str]) -> RivalData:
         """1ライバルの CSV を取得してパース（スレッドプールから呼ばれる）"""
         rival = RivalData(cfg['name'])
+        session = None
         try:
             import requests
             session = requests.Session()
+            with self._sessions_lock:
+                self._sessions.append(session)
             # User-Agent を設定してブラウザを装う（警告画面の解析精度を上げるため）
             session.headers.update({
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             })
+
+            if self._cancel_event.is_set():
+                return rival
             
             url = self._convert_to_direct_url(cfg.get('url', ''))
             
             # 1回目試行
-            resp = session.get(url, timeout=20)
+            resp = session.get(url, timeout=(3.05, 5))
             resp.raise_for_status()
+            if self._cancel_event.is_set():
+                return rival
             
             # Google Drive の「ウイルススキャン実行不可」警告画面チェック
             content_text = resp.content.decode('utf-8', errors='replace')
@@ -148,8 +183,10 @@ class RivalFetchWorker(QThread):
                     if file_id_m:
                         file_id = file_id_m.group(1)
                         download_url = f"https://drive.google.com/uc?export=download&id={file_id}&confirm={confirm_token}"
-                        resp = session.get(download_url, timeout=20)
+                        resp = session.get(download_url, timeout=(3.05, 5))
                         resp.raise_for_status()
+                        if self._cancel_event.is_set():
+                            return rival
             
             # エンコーディング判定とデコード
             try:
@@ -168,6 +205,15 @@ class RivalFetchWorker(QThread):
         except Exception as e:
             rival.error = str(e)
             logger.warning(f"ライバル '{cfg['name']}' CSV取得失敗: {e}")
+        finally:
+            if session is not None:
+                try:
+                    session.close()
+                except Exception:
+                    pass
+                with self._sessions_lock:
+                    if session in self._sessions:
+                        self._sessions.remove(session)
         return rival
 
     @staticmethod
