@@ -242,6 +242,7 @@ class ResultDatabase:
         # 1. 移行チェック
         if os.path.exists(_PLAYLOG_PATH):
             self._migrate_from_bz2pkl()
+        self._normalize_v1_titles_in_sqlite()
 
         # 2. SQLite から全ロード
         try:
@@ -278,8 +279,9 @@ class ResultDatabase:
             
             # トランザクションで一括投入
             for res in old_results:
+                title = self.song_database.convert_v1_title(res.title)
                 data = {
-                    'title': res.title,
+                    'title': title,
                     'difficulty': res.difficulty.value,
                     'lamp': res.lamp.value,
                     'score': res.score,
@@ -301,6 +303,26 @@ class ResultDatabase:
             logger.info(f"移行完了: {len(old_results)} 件をSQLiteへ。旧ファイルは .bak に退避しました。")
         except Exception as e:
             logger.error(f"移行失敗: {e}\n{traceback.format_exc()}")
+
+    def _normalize_v1_titles_in_sqlite(self):
+        """v1表記で残っている曲名をv2/portal表記へ寄せる。"""
+        try:
+            rows = self.db.execute("SELECT id, title FROM personal_results").fetchall()
+            updated = 0
+            for row in rows:
+                title = row['title']
+                normalized = self.song_database.convert_v1_title(title)
+                if normalized != title:
+                    self.db.execute(
+                        "UPDATE personal_results SET title = ? WHERE id = ?",
+                        (normalized, row['id']),
+                    )
+                    updated += 1
+            if updated:
+                self.db.commit()
+                logger.info(f"v1曲名表記をv2/portal表記へ更新: {updated} 件")
+        except Exception:
+            logger.warning(f"v1曲名表記の正規化に失敗:\n{traceback.format_exc()}")
 
     def save(self):
         """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""

@@ -260,7 +260,7 @@
             if (exscore == null) return '';
             var ex = Number(exscore) || 0;
             var max = Number(maxExscore) || 0;
-            if (!max) return '';
+            if (!max) return ex ? ex.toLocaleString() : '';
 
             var rate = ex / max;
             if (rate < 0.98) return (rate * 100).toFixed(1) + '%';

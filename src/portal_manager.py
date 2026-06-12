@@ -370,8 +370,13 @@ class PortalManager:
         tmp: dict = {}  # key: "music_id___difficulty" → dict
         cnt_ok = 0
         cnt_ng = 0
+        song_database = getattr(result_database, 'song_database', None)
         for title, diff, score, exscore, lamp in candidates:
-            music, chart = self._find_chart(title, diff)
+            canonical_title = title
+            if song_database is not None and hasattr(song_database, 'convert_v1_title'):
+                canonical_title = song_database.convert_v1_title(title)
+
+            music, chart = self._find_chart(canonical_title, diff)
             if chart is None:
                 cnt_ng += 1
                 logger.debug(f'portal DBで未発見: {title} / {diff}')
