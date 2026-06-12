@@ -4,7 +4,9 @@ OBS連携による自動リザルト保存アプリケーション
 """
 
 import sys
+import base64
 import datetime
+import io
 import traceback
 import os
 from pathlib import Path
@@ -477,9 +479,42 @@ class MainWindow(MainWindowUI):
         level = info.get_level(diff) if info else None
         lv_str = f"Lv.{level}" if level else ""
         self._write_obs_text(f"{title}\n{diff} {lv_str}")
+        self._broadcast_nowplaying(data, title, diff, info, level)
 
         logger.info(f"detect: {get_title_with_chart(title, diff)} {lv_str}")
         self.statusBar().showMessage(f"detect: {get_title_with_chart(title, diff)} {lv_str}", 5000)
+
+    def _image_data_url(self, image) -> str:
+        """PIL ImageをHTMLでそのまま表示できるdata URLに変換する。"""
+        if image is None:
+            return ''
+        try:
+            buf = io.BytesIO()
+            image.save(buf, format='PNG')
+            encoded = base64.b64encode(buf.getvalue()).decode('ascii')
+            return f'data:image/png;base64,{encoded}'
+        except Exception:
+            logger.error(f"画像エンコード失敗:\n{traceback.format_exc()}")
+            return ''
+
+    def _broadcast_nowplaying(self, data: dict, title: str, diff, info, level):
+        """曲決定画面の表示用データをWebSocketへ配信する。"""
+        payload = {
+            'title': title,
+            'difficulty': str(diff),
+            'level': level or '',
+            'artist': info.artist if info else '',
+            'bpm': info.bpm if info else '',
+            'images': {
+                'jacket': self._image_data_url(data.get('jacket_img')),
+                'title': self._image_data_url(data.get('title_img')),
+                'level': self._image_data_url(data.get('lv_img')),
+                'bpm': self._image_data_url(data.get('bpm_img')),
+                'effector': self._image_data_url(data.get('ef_img')),
+                'illustrator': self._image_data_url(data.get('illust_img')),
+            },
+        }
+        self.result_database.broadcast_nowplaying_data(payload)
 
     def _process_result(self):
         """リザルト画面の処理: スコアを DB に登録して画像保存"""

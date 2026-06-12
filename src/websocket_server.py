@@ -34,6 +34,7 @@ class DataWebSocketServer:
         self.today_results_data = None
         self.vf_data            = None
         self.stats_data         = None
+        self.nowplaying_data    = None
 
     # ── 接続管理 ─────────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ class DataWebSocketServer:
             ('today_results', self.today_results_data),
             ('vf',            self.vf_data),
             ('stats',         self.stats_data),
+            ('nowplaying',     self.nowplaying_data),
         ]:
             if data is not None:
                 try:
@@ -103,6 +105,10 @@ class DataWebSocketServer:
     async def _broadcast_stats(self, data: dict):
         self.stats_data = data
         await self._broadcast('stats', data)
+
+    async def _broadcast_nowplaying(self, data: dict):
+        self.nowplaying_data = data
+        await self._broadcast('nowplaying', data)
 
     # ── サーバー制御 ─────────────────────────────────────────────────────────
 
@@ -164,4 +170,11 @@ class DataWebSocketServer:
         if self.loop:
             asyncio.run_coroutine_threadsafe(
                 self._broadcast_stats(data), self.loop
+            )
+
+    def update_nowplaying_data(self, data: dict):
+        """曲決定画面の楽曲情報を更新して配信"""
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(
+                self._broadcast_nowplaying(data), self.loop
             )
