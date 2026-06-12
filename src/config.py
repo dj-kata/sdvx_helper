@@ -46,6 +46,8 @@ class Config:
         """リザルト画面を自動保存するか"""
         self.autosave_updated_score_only: bool = False
         """True の場合、自己ベスト更新があったリザルト画像のみ保存する"""
+        self.summary_updated_results_only: bool = False
+        """True の場合、summary_*.png には自己ベスト更新があったリザルトのみ含める"""
 
         # ─── CSV 出力 ─────────────────────────────────────────────────────
         self.csv_export_path: str = ''

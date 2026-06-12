@@ -118,9 +118,11 @@ class MainWindow(MainWindowUI):
         self.result_timestamp: int = 0         # リザルト画面に入った時刻
         self.result_pre = None                 # 前回のリザルト読み取り結果
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
+        self._text_summary_results = []        # テキスト版summary用の当日リザルト
 
         # 起動時プレイ数を集計
         self._count_today_plays()
+        QTimer.singleShot(100, self._load_recent_result_images_for_summary)
 
         # UI初期化
         self.init_ui()
@@ -193,6 +195,73 @@ class MainWindow(MainWindowUI):
             if r.detect_mode == detect_mode.result
             and r.timestamp >= self.start_time_with_offset
         )
+
+    def _load_recent_result_images_for_summary(self):
+        """起動時に保存済みリザルト画像からsummary用パーツを復元する。"""
+        try:
+            image_dir = Path(self.config.image_save_path)
+            if not image_dir.exists():
+                return
+
+            start_time = self.start_time_with_offset
+            candidates = sorted(
+                (
+                    p for p in image_dir.glob("*.png")
+                    if p.is_file() and int(p.stat().st_mtime) >= start_time
+                ),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )
+            if not candidates:
+                return
+
+            loaded = 0
+            skipped_non_result = 0
+            skipped_no_update = 0
+            items = []
+
+            from PIL import Image
+
+            for path in candidates:
+                if len(items) >= 30:
+                    break
+                try:
+                    with Image.open(path) as img:
+                        self.screen_reader.update_screen(img)
+                        if self.screen_reader.detect_screen() != detect_mode.result:
+                            skipped_non_result += 1
+                            continue
+
+                        mtime = int(path.stat().st_mtime)
+                        data = self.screen_reader.read_from_result()
+                        if not self._should_include_saved_summary_image(data, mtime):
+                            skipped_no_update += 1
+                            continue
+
+                        screen = self.screen_reader.corrected_screen
+                        if screen is None:
+                            continue
+                        item = capture_summary_item_from_screen(screen, mtime)
+                        if item is not None:
+                            items.append(item)
+                            loaded += 1
+                except Exception:
+                    logger.debug(f"起動時summary画像読み込みスキップ: {path}\n{traceback.format_exc()}")
+
+            if items:
+                self._result_summary_items = sorted(
+                    items,
+                    key=lambda item: item.timestamp,
+                    reverse=True,
+                )[:30]
+                generate_summary_from_items(self._result_summary_items)
+                logger.info(
+                    "起動時summary復元: "
+                    f"{loaded}件 読み込み / 非リザルト {skipped_non_result}件 / "
+                    f"更新なし {skipped_no_update}件"
+                )
+        except Exception:
+            logger.error(f"起動時summary復元エラー:\n{traceback.format_exc()}")
 
     # ── OBS関連 ──────────────────────────────────────────────────────────────
 
@@ -641,6 +710,7 @@ class MainWindow(MainWindowUI):
             pre_exscore,
             pre_lamp,
         )
+        should_include_summary = self._should_include_summary_result(is_result_updated)
 
         if self.result_database.add(result):
             # ジャケット画像を保存
@@ -660,14 +730,20 @@ class MainWindow(MainWindowUI):
             # 画像保存が無効な場合のみテキスト版summaryを使う。
             # 有効時は下の切り出し版summaryが同じ出力先を更新する。
             if not self.config.autosave_image:
-                generate_summary(
-                    self.result_database.get_today_results(self.start_time_with_offset)
+                if should_include_summary:
+                    self._text_summary_results.append(result)
+                    self._text_summary_results = self._text_summary_results[-30:]
+                summary_results = (
+                    self._text_summary_results
+                    if getattr(self.config, 'summary_updated_results_only', False)
+                    else self.result_database.get_today_results(self.start_time_with_offset)
                 )
+                generate_summary(summary_results)
 
             # 画像保存 + スクリーンショット版サマリー生成
             if self.config.autosave_image:
                 screen = self._current_result_screen()
-                if screen is not None:
+                if screen is not None and should_include_summary:
                     summary_item = capture_summary_item_from_screen(
                         screen,
                         result.timestamp,
@@ -720,6 +796,51 @@ class MainWindow(MainWindowUI):
         if not getattr(self.config, 'autosave_updated_score_only', False):
             return True
         return is_result_updated
+
+    def _should_include_summary_result(self, is_result_updated: bool) -> bool:
+        """summary_*.png に今回のリザルトを含めるかを返す。"""
+        if not getattr(self.config, 'summary_updated_results_only', False):
+            return True
+        return is_result_updated
+
+    def _should_include_saved_summary_image(self, data: dict | None, image_mtime: int) -> bool:
+        """保存済み画像を起動時summary復元に含めるかを返す。"""
+        if not getattr(self.config, 'summary_updated_results_only', False):
+            return True
+        if not data:
+            return True
+
+        title = data.get('title')
+        diff = data.get('difficulty')
+        score = data.get('score')
+        lamp = data.get('lamp')
+        if not title or diff is None or score is None or lamp is None:
+            return True
+
+        candidates = [
+            r for r in self.result_database.search(title=title, diff=diff)
+            if r.detect_mode == detect_mode.result
+            and r.score == score
+            and r.lamp == lamp
+            and abs(r.timestamp - image_mtime) <= 600
+        ]
+        if data.get('exscore') is not None:
+            candidates = [
+                r for r in candidates
+                if r.exscore is None or r.exscore == data.get('exscore')
+            ]
+
+        if not candidates:
+            logger.debug(f"起動時summary復元: 対応するDBリザルトなし title={title} diff={diff}")
+            return True
+
+        matched = min(candidates, key=lambda r: abs(r.timestamp - image_mtime))
+        return self._is_result_updated(
+            matched,
+            matched.bestscore,
+            matched.bestexscore,
+            None,
+        )
 
     def save_image(self, score=None, exscore=None, lamp=None, screen=None):
         """現在の画面キャプチャを保存する"""

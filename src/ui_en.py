@@ -72,6 +72,7 @@ class UIText:
         image_save_path = 'Image save path:'
         autosave_image = 'Auto-save result screen'
         autosave_updated_score_only = 'Save only results with score updates'
+        summary_updated_results_only = 'Receipt includes only updated results'
         csv_group = 'CSV Export'
         csv_export_path = 'CSV export path (empty=out/):'
 
