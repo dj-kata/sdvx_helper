@@ -753,10 +753,7 @@ class ConfigDialog(QDialog):
         self.config.save_config()
         self._rival_load_del_combo()
         if self.rival_manager is not None:
-            self.rival_manager.rivals = [
-                r for r in self.rival_manager.rivals if r.name != name
-            ]
-            self.rival_manager.rivals_loaded.emit()
+            self.rival_manager.delete_cached_rival(name)
 
     def _rival_refetch(self):
         """全ライバルデータを再取得"""

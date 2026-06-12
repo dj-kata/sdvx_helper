@@ -333,6 +333,13 @@ class RivalManager(QObject):
     def _save_cache(self):
         """SQLite への保存 (逐次 upsert するため、fetch 完了時の一括保存のみ担当)"""
         try:
+            active_names = {rd.name for rd in self.rivals}
+            if active_names:
+                placeholders = ','.join('?' for _ in active_names)
+                self.db.execute(
+                    f"DELETE FROM rival_scores WHERE rival_name NOT IN ({placeholders})",
+                    tuple(active_names),
+                )
             for rd in self.rivals:
                 if rd.error: continue
                 for (title, diff_str), entry in rd.scores.items():
@@ -344,6 +351,17 @@ class RivalManager(QObject):
             logger.debug("ライバルDB保存完了")
         except Exception as e:
             logger.error(f"ライバルDB保存失敗: {e}")
+
+    def delete_cached_rival(self, rival_name: str):
+        """指定ライバルをメモリとSQLiteキャッシュから削除する。"""
+        self.rivals = [r for r in self.rivals if r.name != rival_name]
+        try:
+            self.db.delete_rival(rival_name)
+            self.db.commit()
+            logger.info(f"ライバルDB削除完了: {rival_name}")
+        except Exception as e:
+            logger.error(f"ライバルDB削除失敗 ({rival_name}): {e}")
+        self.rivals_loaded.emit()
 
     # ── フェッチ ──────────────────────────────────────────────────────────
 
