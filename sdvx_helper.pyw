@@ -159,7 +159,7 @@ class MainWindow(MainWindowUI):
         """OBSへ登録しやすいようにtemplate/*.htmlをout/へ同期する。"""
         out_dir = Path('out')
         out_dir.mkdir(exist_ok=True)
-        for name in ('nowplaying.html',):
+        for name in ('nowplaying.html', 'nowplaying_v2.html'):
             src = Path('template') / name
             dst = out_dir / name
             try:

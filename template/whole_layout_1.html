@@ -59,6 +59,14 @@
             padding: var(--panel-gap);
         }
 
+        .right-frame {
+            grid-template-rows: 4fr 3fr 3fr;
+        }
+
+        .left-frame {
+            grid-template-rows: 1fr 3fr;
+        }
+
         .game-frame {
             width: var(--game-width);
             height: var(--canvas-height);
@@ -105,7 +113,7 @@
     <main class="stage" id="stage">
         <section class="side-frame left-frame">
             <div class="panel" id="panel-nowplaying">
-                <iframe class="scaled-iframe" id="iframe-nowplaying" src="./nowplaying.html" scrolling="no"></iframe>
+                <iframe class="scaled-iframe" id="iframe-nowplaying" src="./nowplaying_v2.html" scrolling="no"></iframe>
             </div>
             <div class="panel" id="panel-today-result">
                 <iframe class="scaled-iframe" id="iframe-today-result" src="./today_result.html" scrolling="no"></iframe>
@@ -121,15 +129,16 @@
             <div class="panel" id="panel-rival">
                 <iframe class="scaled-iframe" id="iframe-rival" src="./rival.html" scrolling="no"></iframe>
             </div>
+            <div class="panel" id="panel-comment"></div>
         </section>
     </main>
 
     <script>
         const iframeConfigs = [
-            ["iframe-nowplaying", "panel-nowplaying", 780, 820, "fit"],
-            ["iframe-today-result", "panel-today-result", 1700, 1380, "fit"],
-            ["iframe-history-cursong", "panel-history-cursong", 1650, 1340, "fit"],
-            ["iframe-rival", "panel-rival", 1650, 1340, "fit"],
+            ["iframe-nowplaying", "panel-nowplaying", 1200, 500, "fit"],
+            ["iframe-today-result", "panel-today-result", 1200, 1500, "fit"],
+            ["iframe-history-cursong", "panel-history-cursong", 2720, 1780, "fit"],
+            ["iframe-rival", "panel-rival", 3100, 1780, "fill-width"],
         ];
 
         function appendSearchToIframeSrc() {
@@ -158,11 +167,19 @@
                 const panelScale = rect.width ? panel.offsetWidth / rect.width : 1;
                 const width = panel.offsetWidth || rect.width * panelScale;
                 const height = panel.offsetHeight || rect.height * panelScale;
-                const scale = method === "fill"
-                    ? Math.max(width / originalWidth, height / originalHeight)
-                    : Math.min(width / originalWidth, height / originalHeight);
-                const offsetX = (width - originalWidth * scale) / 2;
-                const offsetY = (height - originalHeight * scale) / 2;
+                let scale;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                if (method === "fill-width") {
+                    scale = width / originalWidth;
+                } else {
+                    scale = method === "fill"
+                        ? Math.max(width / originalWidth, height / originalHeight)
+                        : Math.min(width / originalWidth, height / originalHeight);
+                    offsetX = (width - originalWidth * scale) / 2;
+                    offsetY = (height - originalHeight * scale) / 2;
+                }
 
                 iframe.style.width = `${originalWidth}px`;
                 iframe.style.height = `${originalHeight}px`;

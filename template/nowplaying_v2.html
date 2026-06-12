@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>SDVX Now Playing v2</title>
+    <style>
+        :root { --websocket-port: 8767; }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 1200px;
+            height: 500px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            color: #fff;
+            font-family: "Meiryo", sans-serif;
+            text-shadow:
+                4px 4px 0 #000,
+                -2px 2px 0 #000,
+                2px -2px 0 #000,
+                -2px -2px 0 #000;
+        }
+
+        .nowplaying {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 430px minmax(0, 1fr) 190px;
+            gap: 28px;
+            align-items: center;
+            padding: 34px;
+            background:
+                linear-gradient(90deg, rgba(18, 32, 94, 0.92), rgba(7, 8, 22, 0.92) 48%, rgba(34, 10, 64, 0.92)),
+                rgba(0, 0, 0, 0.82);
+            border: 12px solid #02144a;
+        }
+
+        .jacket-wrap {
+            width: 380px;
+            height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            justify-self: center;
+            background: rgba(0, 0, 0, 0.35);
+            border: 4px solid rgba(105, 190, 255, 0.65);
+            box-shadow: 0 0 24px rgba(0, 190, 255, 0.25);
+        }
+
+        #jacket {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .song-info {
+            min-width: 0;
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 18px;
+        }
+
+        .label {
+            font-size: 30px;
+            line-height: 1;
+            color: #9ee8ff;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .title,
+        .artist {
+            min-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+
+        .title {
+            font-size: 78px;
+            line-height: 1.08;
+            font-weight: 800;
+        }
+
+        .artist {
+            color: #d8f7ff;
+            font-size: 48px;
+            line-height: 1.14;
+            font-weight: 700;
+        }
+
+        .chart-info {
+            height: 100%;
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            align-items: center;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.32);
+            border-left: 3px solid rgba(140, 220, 255, 0.35);
+            padding-left: 22px;
+        }
+
+        .level {
+            color: #fff7a8;
+            font-size: 132px;
+            line-height: 0.95;
+            font-weight: 900;
+        }
+
+        .difficulty {
+            color: #f3d4ff;
+            font-size: 58px;
+            line-height: 1.1;
+            font-weight: 900;
+            letter-spacing: 0;
+        }
+
+        .empty {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="nowplaying">
+        <div class="jacket-wrap">
+            <img src="" id="jacket" class="empty" alt="">
+        </div>
+        <div class="song-info">
+            <div>
+                <div class="label">title</div>
+                <div class="title" id="title">---</div>
+            </div>
+            <div>
+                <div class="label">artist</div>
+                <div class="artist" id="artist">---</div>
+            </div>
+        </div>
+        <div class="chart-info">
+            <div class="level" id="level">--</div>
+            <div class="difficulty" id="difficulty">---</div>
+        </div>
+    </div>
+
+    <script>
+        function wsPort() {
+            const params = new URLSearchParams(location.search);
+            if (params.has("port")) return parseInt(params.get("port"), 10);
+            const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
+            return parseInt(cssPort, 10) || 8767;
+        }
+
+        function setImage(id, src) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (src) {
+                if (el.dataset.currentSrc === src) return;
+                el.dataset.requestSrc = src;
+                const loader = new Image();
+                loader.onload = function() {
+                    if (el.dataset.requestSrc !== src) return;
+                    el.src = src;
+                    el.dataset.currentSrc = src;
+                    el.classList.remove("empty");
+                };
+                loader.onerror = function() {
+                    if (!el.dataset.currentSrc) el.classList.add("empty");
+                };
+                loader.src = src;
+            } else {
+                el.removeAttribute("src");
+                delete el.dataset.currentSrc;
+                delete el.dataset.requestSrc;
+                el.classList.add("empty");
+            }
+        }
+
+        function outputImageBase() {
+            return location.pathname.indexOf("/template/") >= 0 ? "../out/" : "";
+        }
+
+        function updateJacketFromFile() {
+            const base = outputImageBase();
+            setImage("jacket", base + "select_jacket.png?" + Date.now());
+        }
+
+        function setText(id, value, fallback) {
+            document.getElementById(id).textContent = value || fallback;
+        }
+
+        function update(data) {
+            if (!data) return;
+            const images = data.images || {};
+            setImage("jacket", images.jacket);
+            setText("title", data.title, "---");
+            setText("artist", data.artist, "---");
+            setText("level", data.level, "--");
+            setText("difficulty", data.difficulty, "---");
+        }
+
+        function connect() {
+            const ws = new WebSocket("ws://localhost:" + wsPort());
+            ws.onmessage = function(event) {
+                const msg = JSON.parse(event.data);
+                if (msg.type === "nowplaying") update(msg.data);
+            };
+            ws.onclose = function() {
+                updateJacketFromFile();
+                setTimeout(connect, 3000);
+            };
+        }
+
+        updateJacketFromFile();
+        setInterval(updateJacketFromFile, 1000);
+        connect();
+    </script>
+</body>
+</html>
