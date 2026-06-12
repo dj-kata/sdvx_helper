@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDVX Helper Whole Layout 1</title>
+    <style>
+        :root {
+            --canvas-width: 1920px;
+            --canvas-height: 1080px;
+            --side-width: 656px;
+            --game-width: 608px;
+            --panel-gap: 10px;
+            --panel-border: #10205c;
+            --panel-glow: rgba(54, 210, 255, 0.35);
+            --panel-bg: rgba(0, 0, 0, 0.78);
+            --page-bg: #050713;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            display: flex;
+            align-items: flex-start;
+            justify-content: flex-start;
+            font-family: "Meiryo", sans-serif;
+        }
+
+        .stage {
+            width: var(--canvas-width);
+            height: var(--canvas-height);
+            display: grid;
+            grid-template-columns: var(--side-width) var(--game-width) var(--side-width);
+            background:
+                linear-gradient(90deg, rgba(0, 220, 255, 0.11), transparent 22%, transparent 78%, rgba(255, 60, 220, 0.10)),
+                var(--page-bg);
+            transform-origin: top left;
+            overflow: hidden;
+        }
+
+        .side-frame {
+            min-width: 0;
+            height: var(--canvas-height);
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: var(--panel-gap);
+            padding: var(--panel-gap);
+        }
+
+        .game-frame {
+            width: var(--game-width);
+            height: var(--canvas-height);
+            background: #fff;
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.85),
+                0 0 28px rgba(255, 255, 255, 0.18);
+        }
+
+        .panel {
+            position: relative;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            background: var(--panel-bg);
+            border: 3px solid var(--panel-border);
+            box-shadow:
+                inset 0 0 0 1px rgba(113, 225, 255, 0.25),
+                0 0 16px var(--panel-glow);
+        }
+
+        .panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background:
+                linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 18%, transparent 82%, rgba(255, 255, 255, 0.05)),
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 5px);
+            z-index: 2;
+        }
+
+        .scaled-iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 0;
+            transform-origin: top left;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <main class="stage" id="stage">
+        <section class="side-frame left-frame">
+            <div class="panel" id="panel-nowplaying">
+                <iframe class="scaled-iframe" id="iframe-nowplaying" src="./nowplaying.html" scrolling="no"></iframe>
+            </div>
+            <div class="panel" id="panel-today-result">
+                <iframe class="scaled-iframe" id="iframe-today-result" src="./today_result.html" scrolling="no"></iframe>
+            </div>
+        </section>
+
+        <section class="game-frame" aria-label="game screen placeholder"></section>
+
+        <section class="side-frame right-frame">
+            <div class="panel" id="panel-history-cursong">
+                <iframe class="scaled-iframe" id="iframe-history-cursong" src="./history_cursong.html" scrolling="no"></iframe>
+            </div>
+            <div class="panel" id="panel-rival">
+                <iframe class="scaled-iframe" id="iframe-rival" src="./rival.html" scrolling="no"></iframe>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const iframeConfigs = [
+            ["iframe-nowplaying", "panel-nowplaying", 780, 820, "fit"],
+            ["iframe-today-result", "panel-today-result", 1700, 1380, "fit"],
+            ["iframe-history-cursong", "panel-history-cursong", 1650, 1340, "fit"],
+            ["iframe-rival", "panel-rival", 1650, 1340, "fit"],
+        ];
+
+        function appendSearchToIframeSrc() {
+            if (!location.search) return;
+            document.querySelectorAll("iframe").forEach((iframe) => {
+                const src = new URL(iframe.getAttribute("src"), location.href);
+                const params = new URLSearchParams(location.search);
+                params.forEach((value, key) => src.searchParams.set(key, value));
+                iframe.src = src.pathname.split("/").pop() + src.search;
+            });
+        }
+
+        function scaleStageForPreview() {
+            const stage = document.getElementById("stage");
+            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080, 1);
+            stage.style.transform = `scale(${scale})`;
+        }
+
+        function setupScaledIframe(iframeId, panelId, originalWidth, originalHeight, method) {
+            const iframe = document.getElementById(iframeId);
+            const panel = document.getElementById(panelId);
+            if (!iframe || !panel) return;
+
+            function applyScale() {
+                const rect = panel.getBoundingClientRect();
+                const panelScale = rect.width ? panel.offsetWidth / rect.width : 1;
+                const width = panel.offsetWidth || rect.width * panelScale;
+                const height = panel.offsetHeight || rect.height * panelScale;
+                const scale = method === "fill"
+                    ? Math.max(width / originalWidth, height / originalHeight)
+                    : Math.min(width / originalWidth, height / originalHeight);
+                const offsetX = (width - originalWidth * scale) / 2;
+                const offsetY = (height - originalHeight * scale) / 2;
+
+                iframe.style.width = `${originalWidth}px`;
+                iframe.style.height = `${originalHeight}px`;
+                iframe.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+            }
+
+            iframe.addEventListener("load", applyScale);
+            window.addEventListener("resize", applyScale);
+            applyScale();
+        }
+
+        appendSearchToIframeSrc();
+        iframeConfigs.forEach((config) => setupScaledIframe(...config));
+        scaleStageForPreview();
+        window.addEventListener("resize", scaleStageForPreview);
+    </script>
+</body>
+</html>
