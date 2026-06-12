@@ -17,3 +17,5 @@ src/portal_secret.py
 portal_secret.txt
 out/*
 debug/*
+config.json
+sdvx_helper.db
