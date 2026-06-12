@@ -25,6 +25,7 @@ import bz2
 import code
 import pickle
 import sys
+import unicodedata
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -80,6 +81,11 @@ def add_song_to_v2(old_title: str, new_title: str, v1: dict, v2: dict) -> None:
     if info:
         new_info = list(info)
         new_info[0] = new_title
+        if old_title != new_title:
+            if len(new_info) > 7:
+                new_info[7] = old_title
+            else:
+                new_info.append(old_title)
         v2.setdefault('titles', {})[new_title] = new_info
 
     for section in ('jacket', 'info'):
@@ -135,6 +141,19 @@ def _build_rows(ml: dict, exclude_set: set | None = None) -> list[tuple]:
             hash_hex = jacket_dict.get(db_key, {}).get(title, '')
             rows.append((title, diff_name, level, hash_hex))
     return rows
+
+
+def _normalize_search_text(text: str) -> str:
+    """検索用に半角カナ・全角カナ・ひらがなを寄せる。"""
+    normalized = unicodedata.normalize('NFKC', str(text)).lower()
+    chars = []
+    for ch in normalized:
+        code = ord(ch)
+        if 0x30A1 <= code <= 0x30F6:
+            chars.append(chr(code - 0x60))
+        else:
+            chars.append(ch)
+    return ''.join(chars)
 
 
 # ── CLIモード ────────────────────────────────────────────────────────────────
@@ -257,7 +276,7 @@ def launch_gui() -> None:
 
         def set_search(self, text: str):
             self.beginResetModel()
-            self._search = text.lower()
+            self._search = _normalize_search_text(text)
             self._apply_filter()
             self.endResetModel()
 
@@ -266,7 +285,7 @@ def launch_gui() -> None:
             if self._diff_enabled != self._ALL_DIFFS:
                 rows = [r for r in rows if r[1] in self._diff_enabled]
             if self._search:
-                rows = [r for r in rows if self._search in r[0].lower()]
+                rows = [r for r in rows if self._search in _normalize_search_text(r[0])]
             self._filtered = rows
 
         def rowCount(self, parent=QModelIndex()):
@@ -314,7 +333,7 @@ def launch_gui() -> None:
 
         def set_search(self, text: str):
             self.beginResetModel()
-            self._search = text.lower()
+            self._search = _normalize_search_text(text)
             self._apply_filter()
             self.endResetModel()
 
@@ -325,7 +344,7 @@ def launch_gui() -> None:
                 s = self._search
                 self._filtered = [
                     m for m in self._data
-                    if any(s in str(m.get(f, '')).lower() for f in self._SEARCH_FIELDS)
+                    if any(s in _normalize_search_text(m.get(f, '')) for f in self._SEARCH_FIELDS)
                 ]
 
         def rowCount(self, parent=QModelIndex()):

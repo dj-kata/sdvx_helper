@@ -146,8 +146,11 @@ class AlllogImportWorker(QThread):
                         except ValueError:
                             continue
 
+                    title = str(getattr(item, 'title', ''))
+                    title = self.result_database.song_database.convert_v1_title(title)
+
                     result = OneResult(
-                        title       = str(getattr(item, 'title', '')),
+                        title       = title,
                         difficulty  = diff,
                         lamp        = lamp,
                         score       = score,

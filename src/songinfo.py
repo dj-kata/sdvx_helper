@@ -3,12 +3,13 @@
 musiclist.pklの構造:
   jacket[diff][title]  = hash_hex  # ジャケット画像のaverage_hashヘックス文字列
   info[diff][title]    = hash_hex  # 曲名表示部分のhash（補助照合用）
-  titles[title]        = [title, artist, bpm, nov_lv, adv_lv, exh_lv, mxm_lv]
+  titles[title]        = [title, artist, bpm, nov_lv, adv_lv, exh_lv, mxm_lv, title_v1?]
   gradeS_lv{N}         = {title: '1', ...}  # グレードS対象曲リスト(lv17/18/19)
 
 diffキー: 'nov' / 'adv' / 'exh' / 'APPEND'  (MXM/INF両方ともAPPEND)
 """
 from __future__ import annotations
+import bz2
 import json
 import pickle
 import imagehash
@@ -21,6 +22,7 @@ from src.classes import difficulty
 from src.logger import get_logger
 logger = get_logger(__name__)
 
+_MUSICLIST_V2_PATH = Path('resources') / 'musiclistv2.sdvxh'
 _MUSICLIST_PATH = Path('resources') / 'musiclist.pkl'
 _PARAMS_PATH = Path('resources') / 'params.json'
 
@@ -68,10 +70,12 @@ class OneSongInfo:
                  adv_lv: int,
                  exh_lv: int,
                  mxm_lv: int,
+                 title_v1: str | None = None,
                  ):
-        self.title  = title
-        self.artist = artist
-        self.bpm    = bpm   # "5-315" のような文字列
+        self.title    = title
+        self.title_v1 = title_v1 or None
+        self.artist   = artist
+        self.bpm      = bpm   # "5-315" のような文字列
 
         # 難易度別レベル（0は未収録を示す）
         self._levels: Dict[difficulty, int] = {
@@ -99,39 +103,57 @@ class OneSongInfo:
 
 
 class SongDatabase:
-    """musiclist.pkl をロードし、ジャケット照合・楽曲情報提供を行うクラス"""
+    """楽曲DBをロードし、ジャケット照合・楽曲情報提供を行うクラス"""
 
     def __init__(self):
         self._musiclist: dict = {}
-        """musiclist.pkl の内容をそのまま保持"""
+        """楽曲DBの内容をそのまま保持"""
         self._songs: Dict[str, OneSongInfo] = {}
         """title → OneSongInfo のキャッシュ"""
+        self._v1_to_v2_titles: Dict[str, str] = {}
+        """v1表記 → v2(portal)表記 の変換キャッシュ"""
         self.load()
 
     def load(self):
-        """musiclist.pkl を読み込む"""
+        """musiclistv2.sdvxh があれば優先して読み込み、なければ musiclist.pkl を読み込む。"""
         try:
-            with open(_MUSICLIST_PATH, 'rb') as f:
-                self._musiclist = pickle.load(f)
+            if _MUSICLIST_V2_PATH.exists():
+                with bz2.open(_MUSICLIST_V2_PATH, 'rb') as f:
+                    self._musiclist = pickle.load(f)
+                db_path = _MUSICLIST_V2_PATH
+            else:
+                with open(_MUSICLIST_PATH, 'rb') as f:
+                    self._musiclist = pickle.load(f)
+                db_path = _MUSICLIST_PATH
             self._build_song_cache()
-            logger.info(f"musiclist.pkl 読み込み完了: {len(self._songs)} 曲")
+            logger.info(f"{db_path} 読み込み完了: {len(self._songs)} 曲")
         except Exception:
-            logger.error(f"musiclist.pkl の読み込みに失敗しました:\n{traceback.format_exc()}")
+            logger.error(f"楽曲DBの読み込みに失敗しました:\n{traceback.format_exc()}")
 
     def _build_song_cache(self):
         """titles セクションから OneSongInfo のキャッシュを構築する"""
         self._songs = {}
+        self._v1_to_v2_titles = {}
         for title, data in self._musiclist.get('titles', {}).items():
             if len(data) < 7:
                 continue
-            self._songs[title] = OneSongInfo(
+            title_v1 = data[7] if len(data) > 7 else None
+            info = OneSongInfo(
                 title=data[0], artist=data[1], bpm=data[2],
                 nov_lv=data[3], adv_lv=data[4], exh_lv=data[5], mxm_lv=data[6],
+                title_v1=title_v1,
             )
+            self._songs[title] = info
+            if info.title_v1 and info.title_v1 != info.title:
+                self._v1_to_v2_titles[info.title_v1] = info.title
 
     def get_song_info(self, title: str) -> Optional[OneSongInfo]:
         """曲名から楽曲情報を返す。未登録ならNone。"""
         return self._songs.get(title)
+
+    def convert_v1_title(self, title: str) -> str:
+        """v1表記の曲名をv2(portal)表記へ変換する。対応がなければ元の曲名を返す。"""
+        return self._v1_to_v2_titles.get(title, title)
 
     def identify_jacket(self, jacket_img, diff: difficulty) -> Optional[str]:
         """ジャケット画像のaverage_hashで最近傍の曲名を返す。
