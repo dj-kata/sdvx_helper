@@ -375,6 +375,7 @@
     "select_exscore_4_h":14,
 
     "detect_wait":1.5,
+    "detect_capture_delay":0.2,
 
     "url_musiclist":"https://raw.githubusercontent.com/dj-kata/sdvx_helper/main/resources/musiclist.pkl",
 
