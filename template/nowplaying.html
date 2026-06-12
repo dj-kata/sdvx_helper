@@ -153,12 +153,27 @@
             const el = document.getElementById(id);
             if (!el) return;
             if (src) {
+                el.classList.add("empty");
+                el.onload = function() { el.classList.remove("empty"); };
+                el.onerror = function() { el.classList.add("empty"); };
                 el.src = src;
-                el.classList.remove("empty");
             } else {
                 el.removeAttribute("src");
                 el.classList.add("empty");
             }
+        }
+        function outputImageBase() {
+            return location.pathname.indexOf("/template/") >= 0 ? "../out/" : "";
+        }
+        function updateFromFiles() {
+            const base = outputImageBase();
+            const stamp = Date.now();
+            setImage("jacket", base + "select_jacket.png?" + stamp);
+            setImage("level", base + "select_level.png?" + stamp);
+            setImage("bpm", base + "select_bpm.png?" + stamp);
+            setImage("title", base + "select_title.png?" + stamp);
+            setImage("effector", base + "select_effector.png?" + stamp);
+            setImage("illustrator", base + "select_illustrator.png?" + stamp);
         }
         function update(data) {
             if (!data) return;
@@ -186,8 +201,13 @@
                 const msg = JSON.parse(event.data);
                 if (msg.type === "nowplaying") update(msg.data);
             };
-            ws.onclose = function() { setTimeout(connect, 3000); };
+            ws.onclose = function() {
+                updateFromFiles();
+                setTimeout(connect, 3000);
+            };
         }
+        updateFromFiles();
+        setInterval(updateFromFiles, 1000);
         connect();
         </script>
     </body>

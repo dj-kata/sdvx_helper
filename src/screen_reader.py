@@ -553,6 +553,25 @@ class ScreenReader:
 
     # ─── detect画面読み取り ───────────────────────────────────────────────────
 
+    def read_detect_images(self) -> Optional[dict]:
+        """detect画面（楽曲情報）の表示用切り出し画像だけを返す。"""
+        if self._img is None:
+            return None
+        try:
+            img = self._img
+            return {
+                'jacket_img': img.crop(RECT_INFO_JACKET),
+                'title_img':  img.crop(RECT_INFO_TITLE),
+                'lv_img':     img.crop(RECT_INFO_LV),
+                'diff_img':   img.crop(RECT_INFO_DIFF),
+                'bpm_img':    img.crop(RECT_INFO_BPM),
+                'ef_img':     img.crop(RECT_INFO_EF),
+                'illust_img': img.crop(RECT_INFO_ILLUST),
+            }
+        except Exception:
+            logger.error(f"read_detect_images 失敗:\n{traceback.format_exc()}")
+            return None
+
     def read_from_detect(self) -> Optional[dict]:
         """detect画面（楽曲情報）から情報を読み取る。
 
@@ -564,19 +583,16 @@ class ScreenReader:
             return None
         try:
             img = self._img
+            data = self.read_detect_images() or {}
             diff = self._read_difficulty_from_detect(img)
-            jacket_img = img.crop(RECT_INFO_JACKET)
+            jacket_img = data.get('jacket_img') or img.crop(RECT_INFO_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
-            return {
+            data.update({
                 'title':      title,
                 'difficulty': diff,
                 'jacket_img': jacket_img,
-                'title_img':  img.crop(RECT_INFO_TITLE),
-                'lv_img':     img.crop(RECT_INFO_LV),
-                'bpm_img':    img.crop(RECT_INFO_BPM),
-                'ef_img':     img.crop(RECT_INFO_EF),
-                'illust_img': img.crop(RECT_INFO_ILLUST),
-            }
+            })
+            return data
         except Exception:
             logger.error(f"read_from_detect 失敗:\n{traceback.format_exc()}")
             return None

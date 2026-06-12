@@ -57,6 +57,7 @@ class MainWindow(MainWindowUI):
     def __init__(self):
         self.config = Config()
         super().__init__(self.config)
+        self._prepare_output_templates()
 
         self.song_database = SongDatabase()
         self.result_database = ResultDatabase(config=self.config)
@@ -143,6 +144,19 @@ class MainWindow(MainWindowUI):
         self.setup_global_hotkeys()
 
         logger.info("アプリケーション起動完了")
+
+    def _prepare_output_templates(self):
+        """OBSへ登録しやすいようにtemplate/*.htmlをout/へ同期する。"""
+        out_dir = Path('out')
+        out_dir.mkdir(exist_ok=True)
+        for name in ('nowplaying.html',):
+            src = Path('template') / name
+            dst = out_dir / name
+            try:
+                if src.exists():
+                    dst.write_bytes(src.read_bytes())
+            except Exception:
+                logger.error(f"HTMLテンプレート同期失敗: {src} -> {dst}\n{traceback.format_exc()}")
 
     # ── プロパティ ────────────────────────────────────────────────────────────
 
@@ -461,13 +475,23 @@ class MainWindow(MainWindowUI):
         if time.time() - self.detect_enter_time < DETECT_WAIT:
             return
 
+        image_data = self.screen_reader.read_detect_images()
+        if image_data:
+            self._save_nowplaying_images(image_data)
+
         data = self.screen_reader.read_from_detect()
         if not data:
+            if image_data:
+                self.detect_read_done = True
+                self._broadcast_nowplaying(image_data, '', '', None, '')
             return
 
         title = data.get('title')
         diff  = data.get('difficulty')
         if not title or diff is None:
+            if image_data:
+                self.detect_read_done = True
+                self._broadcast_nowplaying(data, title or '', diff or '', None, '')
             return
 
         self.current_title = title
@@ -496,6 +520,27 @@ class MainWindow(MainWindowUI):
         except Exception:
             logger.error(f"画像エンコード失敗:\n{traceback.format_exc()}")
             return ''
+
+    def _save_nowplaying_images(self, data: dict):
+        """v1互換: 曲決定画面の切り出し画像をout/select_*.pngへ保存する。"""
+        out_dir = Path('out')
+        out_dir.mkdir(exist_ok=True)
+        targets = {
+            'jacket_img': 'select_jacket.png',
+            'title_img': 'select_title.png',
+            'lv_img': 'select_level.png',
+            'diff_img': 'select_difficulty.png',
+            'bpm_img': 'select_bpm.png',
+            'ef_img': 'select_effector.png',
+            'illust_img': 'select_illustrator.png',
+        }
+        try:
+            for key, filename in targets.items():
+                image = data.get(key)
+                if image is not None:
+                    image.save(out_dir / filename)
+        except Exception:
+            logger.error(f"nowplaying画像保存失敗:\n{traceback.format_exc()}")
 
     def _broadcast_nowplaying(self, data: dict, title: str, diff, info, level):
         """曲決定画面の表示用データをWebSocketへ配信する。"""
