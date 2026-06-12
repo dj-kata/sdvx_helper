@@ -56,15 +56,17 @@
             font-size: 42px;
             text-align: center;
         }
-        #result td:nth-child(1) { width: 10%; text-align: center; color: #aaaaff; }
-        #result td:nth-child(2) { width: 38%; overflow: hidden; text-overflow: ellipsis; }
-        #result td:nth-child(3) { width: 16%; text-align: center; }
-        #result td:nth-child(4) { width: 22%; text-align: right; color: #ffffcc; }
-        #result td:nth-child(5) { width: 14%; text-align: right; color: #ccffcc; }
+        #result td:nth-child(1) { width: 8%; text-align: center; color: #aaaaff; }
+        #result td:nth-child(2) { width: 34%; overflow: hidden; text-overflow: ellipsis; }
+        #result td:nth-child(3) { width: 14%; text-align: center; }
+        #result td:nth-child(4) { width: 20%; text-align: right; color: #ffffcc; }
+        #result td:nth-child(5) { width: 11%; text-align: right; color: #ccffcc; }
+        #result td:nth-child(6) { width: 13%; text-align: right; color: #ccffff; }
         #result tr.is-me { background-color: rgba(60, 80, 180, 0.45); }
         .rank-1 { color: #ffdd44; font-weight: bold; }
         .me { color: #aaddff; font-weight: bold; }
         .portal-rival { color: #ff9999; }
+        .arcade-csv-rival { color: #d6a6ff; }
         .lamp-icon { height: 80px; vertical-align: middle; }
         .diff-NOV { color: #c060f0; }
         .diff-ADV { color: #d4bb00; }
@@ -106,6 +108,7 @@
                 <th>lamp</th>
                 <th>score</th>
                 <th>diff</th>
+                <th>EX</th>
             </tr>
         </thead>
         <tbody id="rival-body"></tbody>
@@ -130,6 +133,9 @@ function fmtScore(value) {
     const n = Number(value) || 0;
     return n ? n.toLocaleString("en-US") : "";
 }
+function fmtExScore(value) {
+    return value == null ? "" : String(value);
+}
 function signedK(value) {
     const n = Number(value) || 0;
     if (!n) return "0";
@@ -144,6 +150,9 @@ function lampIcon(value) {
 function isPortalRival(item) {
     return item && (item.is_portal || item.source === "portal");
 }
+function isArcadeCsvRival(item) {
+    return item && item.source === "arcade_csv";
+}
 function update(data) {
     if (!data) return;
     const diff = data.difficulty || "";
@@ -156,7 +165,7 @@ function update(data) {
     let out = "";
     items.forEach(function(item) {
         const rowClass = item.is_me ? ' class="is-me"' : "";
-        const nameClass = item.is_me ? "me" : (isPortalRival(item) ? "portal-rival" : "");
+        const nameClass = item.is_me ? "me" : (isPortalRival(item) ? "portal-rival" : (isArcadeCsvRival(item) ? "arcade-csv-rival" : ""));
         const rankClass = Number(item.rank) === 1 ? "rank-1" : "";
         out += "<tr" + rowClass + ">";
         out += '<td class="' + rankClass + '">' + esc(item.rank || "") + "</td>";
@@ -164,6 +173,7 @@ function update(data) {
         out += "<td>" + lampIcon(item.lamp) + "</td>";
         out += "<td>" + fmtScore(item.score) + "</td>";
         out += "<td>" + signedK(item.diff) + "</td>";
+        out += "<td>" + fmtExScore(item.exscore) + "</td>";
         out += "</tr>";
     });
     document.getElementById("rival-body").innerHTML = out;

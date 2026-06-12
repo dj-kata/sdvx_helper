@@ -71,24 +71,29 @@
             }
             table#result td:nth-child(1) {
                 font-size: 80px;
-                width:35%;
+                width:32%;
             }
             table#result td:nth-child(2) {
                 font-size: 80px;
-                width:20%;
+                width:8%;
             }
             table#result td:nth-child(3) {
-                width:20%;
-                padding-right:5%;
+                width:16%;
+                padding-right:3%;
                 text-align: right;
             }
             table#result td:nth-child(4) {
                 font-size: 80px;
-                margin-left:3%;
+                width:14%;
                 text-align:left;
             }
             table#result td:nth-child(5) {
-                width:20%;
+                width:14%;
+                text-align:right;
+                color:#ccffff;
+            }
+            table#result td:nth-child(6) {
+                width:16%;
                 margin-left:3%;
                 text-align:center;
             }
@@ -245,6 +250,9 @@
             const n = Number(value) || 0;
             return n ? Math.floor(n / 10000).toString() : "";
         }
+        function fmtExScore(value) {
+            return value == null ? "" : String(value);
+        }
         function grade(score) {
             score = Number(score) || 0;
             if (score >= 10000000) return '<span class="MAX">MAX</span>';
@@ -287,6 +295,7 @@
             let out = '<tr><td height="50"><font size="40"><center>date</center></font></td>';
             out += '<td></td>';
             out += '<td colspan="2" height="40"><font size="40"><center>score</center></font></td>';
+            out += '<td height="50"><font size="40"><center>EX</center></font></td>';
             out += '<td height="50"><font size="40"><center>lamp</center></font></td></tr>';
             (data.items || []).slice(0, 5).forEach(function(item) {
                 out += '<tr>';
@@ -294,6 +303,7 @@
                 out += '<td></td>';
                 out += '<td>' + shortScore(item.score) + "</td>";
                 out += '<td>' + (item.grade ? esc(item.grade) : grade(item.score)) + "</td>";
+                out += '<td>' + fmtExScore(item.exscore) + "</td>";
                 out += '<td>' + lampIcon(item.lamp) + "</td>";
                 out += "</tr>";
             });

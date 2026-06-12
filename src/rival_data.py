@@ -243,6 +243,8 @@ class RivalFetchWorker(QThread):
         lower_map: Dict[str, str] = {
             (fn or '').lower(): fn for fn in reader.fieldnames
         }
+        if '楽曲名' in reader.fieldnames:
+            rival.source = 'arcade_csv'
 
         def _get(row: dict, *keys: str) -> str:
             for k in keys:
