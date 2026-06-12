@@ -44,6 +44,8 @@ class Config:
         self.image_save_path: str  = 'results'
         self.autosave_image:  bool = True
         """リザルト画面を自動保存するか"""
+        self.autosave_updated_score_only: bool = False
+        """True の場合、自己ベスト更新があったリザルト画像のみ保存する"""
 
         # ─── CSV 出力 ─────────────────────────────────────────────────────
         self.csv_export_path: str = ''

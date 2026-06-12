@@ -71,6 +71,7 @@ class UIText:
         path_group = '保存先'
         image_save_path = '画像保存先:'
         autosave_image = 'リザルト画面を自動保存する'
+        autosave_updated_score_only = '更新があったスコアのみ保存'
         csv_group = 'CSV出力'
         csv_export_path = 'CSV出力先(空=out/):'
 

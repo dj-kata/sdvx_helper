@@ -38,7 +38,11 @@ from src.obs_dialog import OBSControlDialog
 from src.main_window import MainWindowUI
 from src.rival_data import RivalManager
 from src.portal_manager import PortalManager
-from src.summary_generator import generate_summary, generate_summary_from_screenshots
+from src.summary_generator import (
+    capture_summary_item_from_screen,
+    generate_summary,
+    generate_summary_from_items,
+)
 
 logger = get_logger('sdvx_helper')
 
@@ -113,6 +117,7 @@ class MainWindow(MainWindowUI):
         self._last_select_cursong_key = None   # 選曲画面から最後に履歴表示へ配信した譜面
         self.result_timestamp: int = 0         # リザルト画面に入った時刻
         self.result_pre = None                 # 前回のリザルト読み取り結果
+        self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
 
         # 起動時プレイ数を集計
         self._count_today_plays()
@@ -626,6 +631,17 @@ class MainWindow(MainWindowUI):
             self.result_pre = result
             return
 
+        pre_score, pre_exscore, pre_lamp = self.result_database.get_best(
+            title=title,
+            diff=diff,
+        )
+        is_result_updated = self._is_result_updated(
+            result,
+            pre_score,
+            pre_exscore,
+            pre_lamp,
+        )
+
         if self.result_database.add(result):
             # ジャケット画像を保存
             self.result_database.save_jacket_image(result.chart_id, data.get('jacket_img'))
@@ -641,25 +657,71 @@ class MainWindow(MainWindowUI):
             self.result_database.broadcast_cursong_data(title, diff)
             self.result_database.broadcast_stats_data()
 
-            # テキスト版サマリー画像生成（バックグラウンドで実行）
-            generate_summary(
-                self.result_database.get_today_results(self.start_time_with_offset)
-            )
+            # 画像保存が無効な場合のみテキスト版summaryを使う。
+            # 有効時は下の切り出し版summaryが同じ出力先を更新する。
+            if not self.config.autosave_image:
+                generate_summary(
+                    self.result_database.get_today_results(self.start_time_with_offset)
+                )
 
             # 画像保存 + スクリーンショット版サマリー生成
             if self.config.autosave_image:
-                self.save_image(score=score, exscore=exscore, lamp=lamp)
-                generate_summary_from_screenshots(
-                    self.config.image_save_path,
-                    self.start_time_with_offset,
-                )
+                screen = self._current_result_screen()
+                if screen is not None:
+                    summary_item = capture_summary_item_from_screen(
+                        screen,
+                        result.timestamp,
+                    )
+                    if summary_item is not None:
+                        self._result_summary_items.append(summary_item)
+                        self._result_summary_items = self._result_summary_items[-30:]
+                        generate_summary_from_items(self._result_summary_items)
+
+                if self._should_save_result_image(is_result_updated):
+                    self.save_image(
+                        score=score,
+                        exscore=exscore,
+                        lamp=lamp,
+                        screen=screen,
+                    )
+                else:
+                    logger.info(f"画像保存スキップ(更新なし): {result}")
 
             logger.info(f"リザルト登録: {result}")
             self.statusBar().showMessage(f"リザルト登録: {get_title_with_chart(title, diff)}", 10000)
 
     # ── 画像保存 ──────────────────────────────────────────────────────────────
 
-    def save_image(self, score=None, exscore=None, lamp=None):
+    def _current_result_screen(self):
+        """回転補正済みの現在画面を返す。"""
+        return self.screen_reader.corrected_screen or self.obs_manager.screen
+
+    @staticmethod
+    def _is_result_updated(result, pre_score, pre_exscore, pre_lamp) -> bool:
+        """スコア・EXスコア・ランプのいずれかが自己ベスト更新しているか。"""
+        if pre_score is None:
+            return True
+        if result.score is not None and result.score > pre_score:
+            return True
+        if pre_exscore is None and result.exscore is not None:
+            return True
+        if (
+            pre_exscore is not None
+            and result.exscore is not None
+            and result.exscore > pre_exscore
+        ):
+            return True
+        if pre_lamp is not None and result.lamp is not None and result.lamp > pre_lamp:
+            return True
+        return False
+
+    def _should_save_result_image(self, is_result_updated: bool) -> bool:
+        """画像保存設定に基づき、今回のリザルト画像を保存するかを返す。"""
+        if not getattr(self.config, 'autosave_updated_score_only', False):
+            return True
+        return is_result_updated
+
+    def save_image(self, score=None, exscore=None, lamp=None, screen=None):
         """現在の画面キャプチャを保存する"""
         try:
             date_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -685,7 +747,7 @@ class MainWindow(MainWindowUI):
             full_path = Path(self.config.image_save_path) / filename
 
             # 回転補正済み画像を優先、なければ生キャプチャ
-            screen = self.screen_reader.corrected_screen or self.obs_manager.screen
+            screen = screen or self._current_result_screen()
             if screen is not None:
                 screen.save(str(full_path))
                 logger.info(f"画像保存: {full_path}")

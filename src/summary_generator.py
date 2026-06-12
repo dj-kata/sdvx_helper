@@ -5,6 +5,7 @@ out/summary_full.png と out/summary_small.png を生成する。
 
 2 つのモードを提供する:
   generate_summary()                 … OneResult データからテキスト描画で生成
+  generate_summary_from_items()       … 現在画面から切り出したパーツで生成
   generate_summary_from_screenshots() … 保存済みリザルト画像を切り抜いて生成 (v1 方式)
 
 フォント・ランプ画像はモジュールレベルでキャッシュし、
@@ -14,6 +15,7 @@ from __future__ import annotations
 
 import os
 import threading
+from dataclasses import dataclass
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 import imagehash
@@ -83,6 +85,20 @@ _font_l:     Optional[ImageFont.ImageFont] = None  # タイトル・スコア用
 _font_s:     Optional[ImageFont.ImageFont] = None  # グレード・VF 用 (14pt)
 _lamp_cache: Optional[Dict[clear_lamp, Optional[Image.Image]]] = None
 _lock = threading.Lock()
+
+
+@dataclass
+class ResultSummaryItem:
+    """summary_*.png へ貼るためにリザルト画面から切り出したパーツ一式。"""
+    timestamp: int
+    jacket: Image.Image
+    diff_bar: Image.Image
+    title: Image.Image
+    title_small: Image.Image
+    score: Image.Image
+    rank: Image.Image
+    rate: Image.Image
+    lamp: clear_lamp
 
 
 def _ensure_cache() -> None:
@@ -234,6 +250,87 @@ def generate_summary_from_screenshots(
     return True
 
 
+def capture_summary_item_from_screen(
+    img: Image.Image,
+    timestamp: int,
+) -> Optional[ResultSummaryItem]:
+    """現在のリザルト画面から summary 用パーツを切り出して保持する。"""
+    try:
+        from src.define import params as _params
+
+        _ensure_cache()
+        src = img.convert('RGB')
+
+        def _crop(prefix: str) -> Image.Image:
+            sx = _params[f'log_crop_{prefix}_sx']
+            sy = _params[f'log_crop_{prefix}_sy']
+            w  = _params[f'log_crop_{prefix}_w']
+            h  = _params[f'log_crop_{prefix}_h']
+            return src.crop((sx, sy, sx + w, sy + h)).copy()
+
+        return ResultSummaryItem(
+            timestamp=timestamp,
+            jacket=_crop('jacket').resize((36, 36)),
+            diff_bar=_crop('difficulty').resize((69, 15)),
+            title=_crop('title'),
+            title_small=_crop('title_small'),
+            score=_crop('score').resize((86, 20)),
+            rank=_crop('rank').resize((37, 25)),
+            rate=_crop('rate').resize((80, 20)),
+            lamp=_detect_lamp_from_screenshot(src, _params),
+        )
+    except Exception:
+        import traceback
+        logger.warning(f'summary 用リザルト切り出しエラー:\n{traceback.format_exc()}')
+        return None
+
+
+def generate_summary_from_items(
+    items: List[ResultSummaryItem],
+    bg_alpha: int = 200,
+) -> bool:
+    """保持しているリザルト切り出しパーツから summary_*.png を生成する。"""
+    snapshot = list(items)
+
+    def _run():
+        _generate_from_items_sync(snapshot, bg_alpha)
+    threading.Thread(target=_run, daemon=True).start()
+    return True
+
+
+def _generate_from_items_sync(
+    items: List[ResultSummaryItem],
+    bg_alpha: int,
+) -> bool:
+    try:
+        from src.define import params as _params
+
+        _ensure_cache()
+        target = sorted(items, key=lambda item: item.timestamp, reverse=True)[:_LOG_MAXNUM]
+        if not target:
+            logger.debug('スクリーンショット版サマリー生成スキップ: 対象パーツなし')
+            return False
+
+        h = _LOG_MARGIN * 2 + _LOG_MAXNUM * _LOG_ROWSIZE
+        bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
+        bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
+
+        for idx, item in enumerate(target):
+            row_y = _LOG_MARGIN + _LOG_ROWSIZE * idx
+            _put_result_summary_item(item, bg_full, bg_small, row_y, _params)
+
+        os.makedirs(_OUT_DIR, exist_ok=True)
+        bg_full.save(f'{_OUT_DIR}/summary_full.png')
+        bg_small.save(f'{_OUT_DIR}/summary_small.png')
+        logger.debug(f'スクリーンショット版サマリー生成完了: {len(target)} 件')
+        return True
+
+    except Exception:
+        import traceback
+        logger.error(f'スクリーンショット版サマリー生成エラー:\n{traceback.format_exc()}')
+        return False
+
+
 def _generate_from_screenshots_sync(
     image_dir: str,
     start_time: int,
@@ -241,7 +338,6 @@ def _generate_from_screenshots_sync(
 ) -> bool:
     try:
         import glob
-        from src.define import params as _params
 
         _ensure_cache()
 
@@ -258,24 +354,18 @@ def _generate_from_screenshots_sync(
             logger.debug('スクリーンショット版サマリー生成スキップ: 対象ファイルなし')
             return False
 
-        h = _LOG_MARGIN * 2 + _LOG_MAXNUM * _LOG_ROWSIZE
-        bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
-        bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
-
-        for idx, f in enumerate(files):
+        items: List[ResultSummaryItem] = []
+        for f in files:
             try:
-                img = Image.open(f).convert('RGB')
-                row_y = _LOG_MARGIN + _LOG_ROWSIZE * idx
-                _put_result_from_screenshot(img, bg_full, bg_small, row_y, _params)
+                with Image.open(f) as img:
+                    item = capture_summary_item_from_screen(img, int(os.path.getmtime(f)))
+                if item is not None:
+                    items.append(item)
             except Exception:
                 import traceback
                 logger.warning(f'スクリーンショット処理エラー ({f}):\n{traceback.format_exc()}')
 
-        os.makedirs(_OUT_DIR, exist_ok=True)
-        bg_full.save(f'{_OUT_DIR}/summary_full.png')
-        bg_small.save(f'{_OUT_DIR}/summary_small.png')
-        logger.debug(f'スクリーンショット版サマリー生成完了: {len(files)} 件')
-        return True
+        return _generate_from_items_sync(items, bg_alpha)
 
     except Exception:
         import traceback
@@ -328,6 +418,35 @@ def _put_result_from_screenshot(
     _paste(bg_small, diff_bar,  params['log_pos_difficulty_small_sx'], params['log_pos_difficulty_small_sy'], row_y)
     _paste(bg_small, title_sml, params['log_pos_title_small_sx'],      params['log_pos_title_small_sy'],      row_y)
     _paste(bg_small, score_img, params['log_pos_score_small_sx'],      params['log_pos_score_small_sy'],      row_y)
+    if lamp_img is not None:
+        _paste(bg_small, lamp_img, params['log_pos_lamp_small_sx'], params['log_pos_lamp_small_sy'], row_y,
+               mask=lamp_img)
+
+
+def _put_result_summary_item(
+    item: ResultSummaryItem,
+    bg_full: Image.Image,
+    bg_small: Image.Image,
+    row_y: int,
+    params: dict,
+) -> None:
+    """保持済みパーツを bg_full / bg_small に貼り付ける。"""
+    lamp_img = (_lamp_cache or {}).get(item.lamp)  # type: ignore[attr-defined]
+
+    _paste(bg_full, item.jacket,   params['log_pos_jacket_sx'],     params['log_pos_jacket_sy'],     row_y)
+    _paste(bg_full, item.diff_bar, params['log_pos_difficulty_sx'], params['log_pos_difficulty_sy'], row_y)
+    _paste(bg_full, item.title,    params['log_pos_title_sx'],      params['log_pos_title_sy'],      row_y)
+    _paste(bg_full, item.score,    params['log_pos_score_sx'],      params['log_pos_score_sy'],      row_y)
+    _paste(bg_full, item.rank,     params['log_pos_rank_sx'],       params['log_pos_rank_sy'],       row_y)
+    _paste(bg_full, item.rate,     params['log_pos_rate_sx'],       params['log_pos_rate_sy'],       row_y)
+    if lamp_img is not None:
+        _paste(bg_full, lamp_img, params['log_pos_lamp_sx'], params['log_pos_lamp_sy'], row_y,
+               mask=lamp_img)
+
+    _paste(bg_small, item.jacket,      params['log_pos_jacket_small_sx'],     params['log_pos_jacket_small_sy'],     row_y)
+    _paste(bg_small, item.diff_bar,    params['log_pos_difficulty_small_sx'], params['log_pos_difficulty_small_sy'], row_y)
+    _paste(bg_small, item.title_small, params['log_pos_title_small_sx'],      params['log_pos_title_small_sy'],      row_y)
+    _paste(bg_small, item.score,       params['log_pos_score_small_sx'],      params['log_pos_score_small_sy'],      row_y)
     if lamp_img is not None:
         _paste(bg_small, lamp_img, params['log_pos_lamp_small_sx'], params['log_pos_lamp_small_sy'], row_y,
                mask=lamp_img)

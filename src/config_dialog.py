@@ -396,6 +396,11 @@ class ConfigDialog(QDialog):
         self.autosave_image_check = QCheckBox(self.ui.image_save.autosave_image)
         path_layout.addRow(self.autosave_image_check)
 
+        self.autosave_updated_score_only_check = QCheckBox(
+            self.ui.image_save.autosave_updated_score_only
+        )
+        path_layout.addRow(self.autosave_updated_score_only_check)
+
         layout.addWidget(path_group)
 
         csv_group = QGroupBox(self.ui.image_save.csv_group)
@@ -918,6 +923,9 @@ class ConfigDialog(QDialog):
 
         self.image_save_path_edit.setText(self.config.image_save_path)
         self.autosave_image_check.setChecked(self.config.autosave_image)
+        self.autosave_updated_score_only_check.setChecked(
+            getattr(self.config, 'autosave_updated_score_only', False)
+        )
         self.csv_export_path_edit.setText(self.config.csv_export_path)
 
         capture_method = getattr(self.config, 'capture_method', 'obs_websocket')
@@ -952,6 +960,9 @@ class ConfigDialog(QDialog):
 
         self.config.image_save_path = self.image_save_path_edit.text()
         self.config.autosave_image = self.autosave_image_check.isChecked()
+        self.config.autosave_updated_score_only = (
+            self.autosave_updated_score_only_check.isChecked()
+        )
         self.config.csv_export_path = self.csv_export_path_edit.text()
         self.config.capture_method = (
             'direct_window'
