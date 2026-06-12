@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import QTimer, Qt, Signal, Slot
 
 try:
     import keyboard
@@ -50,11 +50,12 @@ except Exception:
 class MainWindow(MainWindowUI):
     """メインウィンドウクラス - 制御ロジックを担当"""
 
+    musiclist_update_finished = Signal(bool)
+
     def __init__(self):
         self.config = Config()
         super().__init__(self.config)
 
-        update_musiclist_from_remote()
         self.song_database = SongDatabase()
         self.result_database = ResultDatabase(config=self.config)
         self.screen_reader = ScreenReader(
@@ -79,6 +80,11 @@ class MainWindow(MainWindowUI):
         self.result_database.broadcast_stats_data()
         if self.config.portal_token:
             QTimer.singleShot(3000, self._portal_fetch_musiclist)
+
+        self.musiclist_update_finished.connect(
+            self._on_musiclist_update_finished, Qt.QueuedConnection
+        )
+        QTimer.singleShot(100, self._update_musiclist_async)
 
         # ライバルマネージャー（Portal取得も同時に行う）
         self.rival_manager = RivalManager(parent=self)
@@ -255,6 +261,27 @@ class MainWindow(MainWindowUI):
             else:
                 logger.warning('Portal楽曲マスタ取得失敗')
         threading.Thread(target=_fetch, daemon=True).start()
+
+    def _update_musiclist_async(self):
+        """リモートの musiclist.pkl をバックグラウンドで更新する。"""
+        import threading
+
+        def _fetch():
+            ok = update_musiclist_from_remote()
+            self.musiclist_update_finished.emit(ok)
+
+        threading.Thread(target=_fetch, daemon=True, name="MusiclistRefreshThread").start()
+
+    @Slot(bool)
+    def _on_musiclist_update_finished(self, ok: bool):
+        """musiclist.pkl 更新後、参照中のDBを再読み込みする。"""
+        if not ok:
+            return
+        self.song_database.load()
+        self.result_database.song_database.load()
+        self.result_database.broadcast_vf_data()
+        self.result_database.broadcast_stats_data()
+        logger.info(f"musiclist.pkl再読み込み完了: {len(self.song_database)} 曲")
 
     def open_config_dialog(self):
         """設定ダイアログを開く"""
