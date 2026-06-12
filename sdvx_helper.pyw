@@ -159,9 +159,8 @@ class MainWindow(MainWindowUI):
         """OBSへ登録しやすいようにtemplate/*.htmlをout/へ同期する。"""
         out_dir = Path('out')
         out_dir.mkdir(exist_ok=True)
-        for name in ('nowplaying.html', 'nowplaying_v2.html'):
-            src = Path('template') / name
-            dst = out_dir / name
+        for src in Path('template').glob('*.html'):
+            dst = out_dir / src.name
             try:
                 if src.exists():
                     dst.write_bytes(src.read_bytes())

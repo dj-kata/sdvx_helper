@@ -92,7 +92,7 @@ class OBSWebSocketManager(QObject):
         logger.info(f"OBS WebSocket config set: {config.websocket_host}:{config.websocket_port}")
 
     def is_direct_capture(self) -> bool:
-        return bool(self.config and getattr(self.config, 'capture_method', 'obs_websocket') == 'direct_window')
+        return bool(self.config and getattr(self.config, 'capture_method', 'direct_window') == 'direct_window')
     
     def connect(self):
         """OBSに接続"""

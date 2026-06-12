@@ -43,13 +43,21 @@ class DataWebSocketServer:
         self.clients.add(websocket)
         logger.info(f"クライアント接続: {websocket.remote_address}, 総{len(self.clients)}件")
 
-        for type_, data in [
+        await self._send_latest(websocket)
+
+    async def _send_latest(self, websocket, requested_type: str | None = None):
+        """指定クライアントへ保持中の最新データを送る。"""
+        latest_data = [
             ('cursong',       self.cursong_data),
             ('today_results', self.today_results_data),
             ('vf',            self.vf_data),
             ('stats',         self.stats_data),
             ('nowplaying',     self.nowplaying_data),
-        ]:
+        ]
+
+        for type_, data in latest_data:
+            if requested_type and type_ != requested_type:
+                continue
             if data is not None:
                 try:
                     await websocket.send(json.dumps({'type': type_, 'data': data}))
@@ -68,8 +76,13 @@ class DataWebSocketServer:
         """WebSocket接続ハンドラ"""
         try:
             await self.register_client(websocket)
-            async for _ in websocket:
-                pass  # クライアントからのメッセージは無視
+            async for message in websocket:
+                try:
+                    data = json.loads(message)
+                except Exception:
+                    continue
+                if data.get('type') == 'request_latest':
+                    await self._send_latest(websocket, data.get('target'))
         except websockets.exceptions.ConnectionClosed:
             pass
         except asyncio.CancelledError:

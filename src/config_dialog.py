@@ -438,12 +438,12 @@ class ConfigDialog(QDialog):
         self.capture_method_group = QButtonGroup()
         self.capture_method_obs_radio = QRadioButton(self.ui.capture.method_obs_websocket)
         self.capture_method_direct_radio = QRadioButton(self.ui.capture.method_direct_window)
-        self.capture_method_group.addButton(self.capture_method_obs_radio, 0)
-        self.capture_method_group.addButton(self.capture_method_direct_radio, 1)
+        self.capture_method_group.addButton(self.capture_method_direct_radio, 0)
+        self.capture_method_group.addButton(self.capture_method_obs_radio, 1)
 
         method_radio_row = QHBoxLayout()
-        method_radio_row.addWidget(self.capture_method_obs_radio)
         method_radio_row.addWidget(self.capture_method_direct_radio)
+        method_radio_row.addWidget(self.capture_method_obs_radio)
         method_radio_row.addStretch()
         method_layout.addRow(self.ui.capture.method_label, method_radio_row)
 
@@ -936,7 +936,7 @@ class ConfigDialog(QDialog):
         )
         self.csv_export_path_edit.setText(self.config.csv_export_path)
 
-        capture_method = getattr(self.config, 'capture_method', 'obs_websocket')
+        capture_method = getattr(self.config, 'capture_method', 'direct_window')
         if capture_method == 'direct_window':
             self.capture_method_direct_radio.setChecked(True)
         else:
@@ -977,7 +977,7 @@ class ConfigDialog(QDialog):
         self.config.csv_export_path = self.csv_export_path_edit.text()
         self.config.capture_method = (
             'direct_window'
-            if self.capture_method_group.checkedId() == 1
+            if self.capture_method_group.checkedId() == 0
             else 'obs_websocket'
         )
 

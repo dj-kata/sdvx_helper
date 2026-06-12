@@ -142,11 +142,11 @@
         ];
 
         function appendSearchToIframeSrc() {
-            if (!location.search) return;
             document.querySelectorAll("iframe").forEach((iframe) => {
                 const src = new URL(iframe.getAttribute("src"), location.href);
                 const params = new URLSearchParams(location.search);
                 params.forEach((value, key) => src.searchParams.set(key, value));
+                src.searchParams.set("_cache", Date.now().toString());
                 iframe.src = src.pathname.split("/").pop() + src.search;
             });
         }

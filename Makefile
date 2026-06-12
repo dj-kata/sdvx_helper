@@ -18,7 +18,6 @@ $(target_zip): $(target) $(html_files) version.txt
 	@cp -a template $(project_name)
 	@mkdir -p $(project_name)/infnotebook
 	@cp -a infnotebook/resources $(project_name)/infnotebook/
-	@cp songinfo.infdc $(project_name)
 	@rm -rf $(project_name)/log
 	@rm -rf $(project_name)/*.json
 	@$(ZIP) $(target_zip) $(project_name)
@@ -26,7 +25,6 @@ $(target_zip): $(target) $(html_files) version.txt
 $(target): $(srcs)
 	@rm -rf $(project_name)
 	@$(wuv) run setup.py build
-	@cp songinfo.infdc $(project_name)
 	@echo "不要なファイルを削除中..."
 
 # 	# Tcl/Tk関連

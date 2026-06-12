@@ -156,6 +156,8 @@
 
         var ws = null;
         var reconnectTimer = null;
+        var latestRequestTimer = null;
+        var hasTodayResults = false;
 
         function connectWebSocket() {
             var port = getWebSocketPort();
@@ -163,12 +165,20 @@
 
             ws.onopen = function() {
                 if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+                requestLatestTodayResults();
             };
 
             ws.onmessage = function(event) {
                 try {
                     var msg = JSON.parse(event.data);
-                    if (msg.type === 'today_results') updateTodayResults(msg.data);
+                    if (msg.type === 'today_results') {
+                        hasTodayResults = true;
+                        if (latestRequestTimer) {
+                            clearInterval(latestRequestTimer);
+                            latestRequestTimer = null;
+                        }
+                        updateTodayResults(msg.data);
+                    }
                 } catch(e) { console.error('parse error:', e); }
             };
 
@@ -177,6 +187,23 @@
             ws.onclose = function() {
                 if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
             };
+        }
+
+        function requestLatestTodayResults() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) return;
+            ws.send(JSON.stringify({type: 'request_latest', target: 'today_results'}));
+        }
+
+        function startInitialLatestRequestTimer() {
+            if (latestRequestTimer) clearInterval(latestRequestTimer);
+            latestRequestTimer = setInterval(function() {
+                if (hasTodayResults) {
+                    clearInterval(latestRequestTimer);
+                    latestRequestTimer = null;
+                    return;
+                }
+                requestLatestTodayResults();
+            }, 3000);
         }
 
         var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
@@ -215,12 +242,13 @@
         function lampHtml(lampVal) {
             var idx = Math.min(Math.max(lampVal || 0, 0), 6);
             var file = LAMP_FILES[idx];
-            return file ? '<img class="lamp-img" src="../resources/' + file + '" alt="">' : '';
+            return file ? '<img class="lamp-img" src="../resources/' + file + '?v=1" alt="">' : '';
         }
 
         function jacketHtml(src) {
             var path = src || '../resources/no_jacket.png';
-            return '<img class="jacket-img" src="' + esc(path) + '" alt="">';
+            var sep = path.indexOf('?') >= 0 ? '&' : '?';
+            return '<img class="jacket-img" src="' + esc(path) + sep + 't=' + Date.now() + '" alt="">';
         }
 
         function shortScore(value) {
@@ -275,7 +303,10 @@
             document.getElementById('results-tbody').innerHTML = out;
         }
 
-        window.addEventListener('DOMContentLoaded', function() { connectWebSocket(); });
+        window.addEventListener('DOMContentLoaded', function() {
+            connectWebSocket();
+            startInitialLatestRequestTimer();
+        });
         window.addEventListener('beforeunload', function() { if (ws) ws.close(); });
         </script>
 
