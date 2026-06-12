@@ -29,7 +29,7 @@ from src.songinfo import SongDatabase, update_musiclist_from_remote
 from src.screen_reader import ScreenReader
 from src.result import OneResult
 from src.result_database import ResultDatabase
-from src.define import DETECT_WAIT
+from src.define import DETECT_CAPTURE_DELAY
 from src.logger import get_logger
 
 from src.config_dialog import ConfigDialog
@@ -399,6 +399,12 @@ class MainWindow(MainWindowUI):
         """モード変更時の処理"""
         import time
         logger.info(f"モード変更: {old.name} → {new.name}")
+        if old == detect_mode.detect and new != detect_mode.detect and not self.detect_read_done:
+            elapsed = time.time() - self.detect_enter_time if self.detect_enter_time else 0.0
+            logger.warning(
+                f"detect読み取り前に画面遷移: {old.name} → {new.name}, "
+                f"elapsed={elapsed:.3f}s"
+            )
 
         # OBSトリガー実行
         trigger_map = {
@@ -423,6 +429,7 @@ class MainWindow(MainWindowUI):
             self.detect_read_done = False
             self.current_title = None
             self.current_diff = None
+            logger.info(f"detect切り出し短期待機開始: delay={DETECT_CAPTURE_DELAY:.3f}s")
 
         # result状態に入った時刻を記録
         if new == detect_mode.result:
@@ -468,19 +475,26 @@ class MainWindow(MainWindowUI):
             self.score_viewer.update_select_data(title, diff, score, exscore, lamp)
 
     def _process_detect(self):
-        """楽曲情報画面の処理: DETECT_WAIT秒後に曲情報を読み取る"""
+        """楽曲情報画面の処理: detect判定後、短く待って曲情報を読み取る"""
         import time
         if self.detect_read_done:
             return
-        if time.time() - self.detect_enter_time < DETECT_WAIT:
+        elapsed = time.time() - self.detect_enter_time
+
+        if elapsed < DETECT_CAPTURE_DELAY:
             return
 
+        logger.info(f"detect読み取り開始: elapsed={elapsed:.3f}s, delay={DETECT_CAPTURE_DELAY:.3f}s")
         image_data = self.screen_reader.read_detect_images()
         if image_data:
+            logger.info(f"detect切り出し成功: keys={list(image_data.keys())}")
             self._save_nowplaying_images(image_data)
+        else:
+            logger.warning("detect切り出し失敗: read_detect_images returned None")
 
         data = self.screen_reader.read_from_detect()
         if not data:
+            logger.warning("detect認識失敗: read_from_detect returned None")
             if image_data:
                 self.detect_read_done = True
                 self._broadcast_nowplaying(image_data, '', '', None, '')
@@ -488,10 +502,12 @@ class MainWindow(MainWindowUI):
 
         title = data.get('title')
         diff  = data.get('difficulty')
+        logger.info(f"detect認識結果: title={title!r}, difficulty={diff}")
         if not title or diff is None:
+            logger.warning(f"detect認識不足: title={title!r}, difficulty={diff}")
             if image_data:
                 self.detect_read_done = True
-                self._broadcast_nowplaying(data, title or '', diff or '', None, '')
+                self._broadcast_nowplaying(data, title or '', diff if diff is not None else '', None, '')
             return
 
         self.current_title = title
@@ -527,6 +543,7 @@ class MainWindow(MainWindowUI):
         out_dir.mkdir(exist_ok=True)
         targets = {
             'jacket_img': 'select_jacket.png',
+            'whole_img': 'select_whole.png',
             'title_img': 'select_title.png',
             'lv_img': 'select_level.png',
             'diff_img': 'select_difficulty.png',
@@ -538,7 +555,11 @@ class MainWindow(MainWindowUI):
             for key, filename in targets.items():
                 image = data.get(key)
                 if image is not None:
-                    image.save(out_dir / filename)
+                    path = out_dir / filename
+                    image.save(path)
+                    logger.info(f"nowplaying画像保存: {path} size={getattr(image, 'size', None)}")
+                else:
+                    logger.warning(f"nowplaying画像なし: key={key}, file={filename}")
         except Exception:
             logger.error(f"nowplaying画像保存失敗:\n{traceback.format_exc()}")
 

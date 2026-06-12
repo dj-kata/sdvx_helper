@@ -69,6 +69,9 @@ ONRESULT_ENABLE_HEAD: bool = bool(params.get('onresult_enable_head', 0))
 
 # detect後の待機時間（秒）
 DETECT_WAIT: float = params.get('detect_wait', 1.5)
+# 曲情報画面の切り出し待機時間（秒）。
+# SDVX側の遷移が高速なため、旧detect_waitほど待たず、白フェードを避ける程度に留める。
+DETECT_CAPTURE_DELAY: float = params.get('detect_capture_delay', 0.2)
 
 # ─── 選曲画面 座標 ────────────────────────────────────────────────────────────
 RECT_SELECT_JACKET = _rect('select_jacket')

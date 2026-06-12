@@ -556,10 +556,12 @@ class ScreenReader:
     def read_detect_images(self) -> Optional[dict]:
         """detect画面（楽曲情報）の表示用切り出し画像だけを返す。"""
         if self._img is None:
+            logger.warning("read_detect_images: screen image is None")
             return None
         try:
             img = self._img
-            return {
+            data = {
+                'whole_img':  img.copy(),
                 'jacket_img': img.crop(RECT_INFO_JACKET),
                 'title_img':  img.crop(RECT_INFO_TITLE),
                 'lv_img':     img.crop(RECT_INFO_LV),
@@ -568,6 +570,19 @@ class ScreenReader:
                 'ef_img':     img.crop(RECT_INFO_EF),
                 'illust_img': img.crop(RECT_INFO_ILLUST),
             }
+            logger.info(
+                "read_detect_images: "
+                f"screen_size={getattr(img, 'size', None)}, "
+                f"whole_size={data['whole_img'].size}, "
+                f"jacket_size={data['jacket_img'].size}, "
+                f"title_size={data['title_img'].size}, "
+                f"lv_size={data['lv_img'].size}, "
+                f"diff_size={data['diff_img'].size}, "
+                f"bpm_size={data['bpm_img'].size}, "
+                f"ef_size={data['ef_img'].size}, "
+                f"illust_size={data['illust_img'].size}"
+            )
+            return data
         except Exception:
             logger.error(f"read_detect_images 失敗:\n{traceback.format_exc()}")
             return None
@@ -580,6 +595,7 @@ class ScreenReader:
                   bpm_img, ef_img, illust_img
         """
         if self._img is None:
+            logger.warning("read_from_detect: screen image is None")
             return None
         try:
             img = self._img
@@ -587,6 +603,7 @@ class ScreenReader:
             diff = self._read_difficulty_from_detect(img)
             jacket_img = data.get('jacket_img') or img.crop(RECT_INFO_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
+            logger.info(f"read_from_detect: difficulty={diff}, title={title!r}")
             data.update({
                 'title':      title,
                 'difficulty': diff,

@@ -149,16 +149,28 @@
             const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
             return parseInt(cssPort, 10) || 8767;
         }
+        let usingWebSocketImages = false;
         function setImage(id, src) {
             const el = document.getElementById(id);
             if (!el) return;
             if (src) {
-                el.classList.add("empty");
-                el.onload = function() { el.classList.remove("empty"); };
-                el.onerror = function() { el.classList.add("empty"); };
-                el.src = src;
+                if (el.dataset.currentSrc === src) return;
+                el.dataset.requestSrc = src;
+                const loader = new Image();
+                loader.onload = function() {
+                    if (el.dataset.requestSrc !== src) return;
+                    el.src = src;
+                    el.dataset.currentSrc = src;
+                    el.classList.remove("empty");
+                };
+                loader.onerror = function() {
+                    if (!el.dataset.currentSrc) el.classList.add("empty");
+                };
+                loader.src = src;
             } else {
                 el.removeAttribute("src");
+                delete el.dataset.currentSrc;
+                delete el.dataset.requestSrc;
                 el.classList.add("empty");
             }
         }
@@ -166,6 +178,7 @@
             return location.pathname.indexOf("/template/") >= 0 ? "../out/" : "";
         }
         function updateFromFiles() {
+            if (usingWebSocketImages) return;
             const base = outputImageBase();
             const stamp = Date.now();
             setImage("jacket", base + "select_jacket.png?" + stamp);
@@ -178,6 +191,7 @@
         function update(data) {
             if (!data) return;
             const images = data.images || {};
+            usingWebSocketImages = Object.values(images).some(Boolean);
             setImage("jacket", images.jacket);
             setImage("level", images.level);
             setImage("bpm", images.bpm);
