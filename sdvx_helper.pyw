@@ -263,7 +263,7 @@ class MainWindow(MainWindowUI):
         threading.Thread(target=_fetch, daemon=True).start()
 
     def _update_musiclist_async(self):
-        """リモートの musiclist.pkl をバックグラウンドで更新する。"""
+        """楽曲DB更新フック。v2では旧musiclist.pkl更新を行わない。"""
         import threading
 
         def _fetch():
@@ -274,14 +274,14 @@ class MainWindow(MainWindowUI):
 
     @Slot(bool)
     def _on_musiclist_update_finished(self, ok: bool):
-        """musiclist.pkl 更新後、参照中のDBを再読み込みする。"""
+        """楽曲DB更新後、参照中のDBを再読み込みする。"""
         if not ok:
             return
         self.song_database.load()
         self.result_database.song_database.load()
         self.result_database.broadcast_vf_data()
         self.result_database.broadcast_stats_data()
-        logger.info(f"musiclist.pkl再読み込み完了: {len(self.song_database)} 曲")
+        logger.info(f"楽曲DB再読み込み完了: {len(self.song_database)} 曲")
 
     def open_config_dialog(self):
         """設定ダイアログを開く"""
