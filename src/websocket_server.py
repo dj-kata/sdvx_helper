@@ -4,6 +4,7 @@ WebSocketサーバー - SDVX用リアルタイムデータ配信
 import asyncio
 import websockets
 import json
+import time
 from typing import Set
 import logging
 import warnings
@@ -28,6 +29,7 @@ class DataWebSocketServer:
         self.clients: Set = set()
         self.server = None
         self.loop = None
+        self.heartbeat_task = None
 
         # 各ページ用の最新データ（接続時の初期配信に使用）
         self.cursong_data       = None
@@ -43,6 +45,7 @@ class DataWebSocketServer:
         self.clients.add(websocket)
         logger.info(f"クライアント接続: {websocket.remote_address}, 総{len(self.clients)}件")
 
+        await websocket.send(json.dumps({'type': 'hello', 'time': time.time()}))
         await self._send_latest(websocket)
 
     async def _send_latest(self, websocket, requested_type: str | None = None):
@@ -83,6 +86,8 @@ class DataWebSocketServer:
                     continue
                 if data.get('type') == 'request_latest':
                     await self._send_latest(websocket, data.get('target'))
+                elif data.get('type') == 'ping':
+                    await websocket.send(json.dumps({'type': 'pong', 'time': time.time()}))
         except websockets.exceptions.ConnectionClosed:
             pass
         except asyncio.CancelledError:
@@ -98,10 +103,23 @@ class DataWebSocketServer:
         """全クライアントにデータを送信"""
         if self.clients:
             msg = json.dumps({'type': type_, 'data': data})
-            await asyncio.gather(
-                *[c.send(msg) for c in self.clients],
+            clients = list(self.clients)
+            results = await asyncio.gather(
+                *[c.send(msg) for c in clients],
                 return_exceptions=True
             )
+            for client, result in zip(clients, results):
+                if isinstance(result, Exception):
+                    self.clients.discard(client)
+
+    async def _heartbeat_loop(self):
+        """OBSブラウザソースの stale connection を検出しやすくするための死活通知。"""
+        try:
+            while True:
+                await asyncio.sleep(10)
+                await self._broadcast('heartbeat', {'time': time.time()})
+        except asyncio.CancelledError:
+            pass
 
     async def _broadcast_cursong(self, data: dict):
         self.cursong_data = data
@@ -132,7 +150,14 @@ class DataWebSocketServer:
         self.loop = loop
 
         async def _start():
-            self.server = await websockets.serve(self.handler, 'localhost', self.port)
+            self.server = await websockets.serve(
+                self.handler,
+                'localhost',
+                self.port,
+                ping_interval=10,
+                ping_timeout=10,
+            )
+            self.heartbeat_task = asyncio.create_task(self._heartbeat_loop())
             logger.info(f"WebSocketサーバー起動: ポート {self.port}")
 
         asyncio.run_coroutine_threadsafe(_start(), loop)
@@ -141,6 +166,10 @@ class DataWebSocketServer:
         """サーバーを停止"""
         if self.server and self.loop:
             async def _stop():
+                if self.heartbeat_task:
+                    self.heartbeat_task.cancel()
+                    await asyncio.gather(self.heartbeat_task, return_exceptions=True)
+                    self.heartbeat_task = None
                 if self.clients:
                     await asyncio.gather(
                         *[ws.close() for ws in self.clients.copy()],

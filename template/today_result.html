@@ -6,6 +6,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="../out/websocket.css">
         <style>
             * { box-sizing: border-box; }
 
@@ -146,66 +147,8 @@
         </style>
     </head>
     <body>
+        <script src="./sdvx_ws_client.js"></script>
         <script>
-        function getWebSocketPort() {
-            var params = new URLSearchParams(window.location.search);
-            if (params.has('port')) return parseInt(params.get('port'));
-            var css = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
-            return parseInt(css) || 8767;
-        }
-
-        var ws = null;
-        var reconnectTimer = null;
-        var latestRequestTimer = null;
-        var hasTodayResults = false;
-
-        function connectWebSocket() {
-            var port = getWebSocketPort();
-            ws = new WebSocket('ws://localhost:' + port);
-
-            ws.onopen = function() {
-                if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-                requestLatestTodayResults();
-            };
-
-            ws.onmessage = function(event) {
-                try {
-                    var msg = JSON.parse(event.data);
-                    if (msg.type === 'today_results') {
-                        hasTodayResults = true;
-                        if (latestRequestTimer) {
-                            clearInterval(latestRequestTimer);
-                            latestRequestTimer = null;
-                        }
-                        updateTodayResults(msg.data);
-                    }
-                } catch(e) { console.error('parse error:', e); }
-            };
-
-            ws.onerror = function() {};
-
-            ws.onclose = function() {
-                if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
-            };
-        }
-
-        function requestLatestTodayResults() {
-            if (!ws || ws.readyState !== WebSocket.OPEN) return;
-            ws.send(JSON.stringify({type: 'request_latest', target: 'today_results'}));
-        }
-
-        function startInitialLatestRequestTimer() {
-            if (latestRequestTimer) clearInterval(latestRequestTimer);
-            latestRequestTimer = setInterval(function() {
-                if (hasTodayResults) {
-                    clearInterval(latestRequestTimer);
-                    latestRequestTimer = null;
-                    return;
-                }
-                requestLatestTodayResults();
-            }, 3000);
-        }
-
         var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
 
         function esc(value) {
@@ -304,10 +247,12 @@
         }
 
         window.addEventListener('DOMContentLoaded', function() {
-            connectWebSocket();
-            startInitialLatestRequestTimer();
+            SDVXWebSocketClient.connect({
+                type: 'today_results',
+                target: 'today_results',
+                onData: updateTodayResults
+            });
         });
-        window.addEventListener('beforeunload', function() { if (ws) ws.close(); });
         </script>
 
         <div id="all">

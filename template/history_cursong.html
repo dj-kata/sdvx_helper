@@ -7,6 +7,7 @@
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="../out/websocket.css">
         <style>
             :root { --websocket-port: 8767; }
             body {
@@ -230,13 +231,8 @@
                 <tbody id="history-body"></tbody>
             </table>
         </div>
+        <script src="./sdvx_ws_client.js"></script>
         <script>
-        function wsPort() {
-            const params = new URLSearchParams(location.search);
-            if (params.has("port")) return parseInt(params.get("port"), 10);
-            const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
-            return parseInt(cssPort, 10) || 8767;
-        }
         function esc(value) {
             return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
                 return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
@@ -309,15 +305,11 @@
             });
             document.getElementById("history-body").innerHTML = out;
         }
-        function connect() {
-            const ws = new WebSocket("ws://localhost:" + wsPort());
-            ws.onmessage = function(event) {
-                const msg = JSON.parse(event.data);
-                if (msg.type === "cursong" || msg.type === "history_cursong") update(msg.data);
-            };
-            ws.onclose = function() { setTimeout(connect, 3000); };
-        }
-        connect();
+        SDVXWebSocketClient.connect({
+            types: ["cursong", "history_cursong"],
+            target: "cursong",
+            onData: update
+        });
         </script>
     </body>
 </html>

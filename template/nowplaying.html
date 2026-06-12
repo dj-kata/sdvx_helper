@@ -7,8 +7,8 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="../out/websocket.css">
         <style>
-            :root { --websocket-port: 8767; }
             body {
                 background-color: rgba(0, 0, 0, 0);
                 margin: 0;
@@ -142,13 +142,8 @@
                 <div class="fallback-meta" id="fallback-meta"></div>
             </div>
         </div>
+        <script src="./sdvx_ws_client.js"></script>
         <script>
-        function wsPort() {
-            const params = new URLSearchParams(location.search);
-            if (params.has("port")) return parseInt(params.get("port"), 10);
-            const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
-            return parseInt(cssPort, 10) || 8767;
-        }
         let usingWebSocketImages = false;
         function setImage(id, src) {
             const el = document.getElementById(id);
@@ -209,20 +204,16 @@
             document.getElementById("fallback-meta").textContent = meta;
             document.getElementById("fallback").style.display = images.title ? "none" : "block";
         }
-        function connect() {
-            const ws = new WebSocket("ws://localhost:" + wsPort());
-            ws.onmessage = function(event) {
-                const msg = JSON.parse(event.data);
-                if (msg.type === "nowplaying") update(msg.data);
-            };
-            ws.onclose = function() {
-                updateFromFiles();
-                setTimeout(connect, 3000);
-            };
-        }
         updateFromFiles();
         setInterval(updateFromFiles, 1000);
-        connect();
+        SDVXWebSocketClient.connect({
+            type: "nowplaying",
+            target: "nowplaying",
+            onData: update,
+            onState: function(state) {
+                if (state === "disconnected") updateFromFiles();
+            }
+        });
         </script>
     </body>
 </html>

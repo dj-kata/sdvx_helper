@@ -6,6 +6,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="../out/websocket.css">
         <style>
             * { box-sizing: border-box; }
 
@@ -190,39 +191,8 @@
         </style>
     </head>
     <body>
+        <script src="./sdvx_ws_client.js"></script>
         <script>
-        function getWebSocketPort() {
-            var params = new URLSearchParams(window.location.search);
-            if (params.has('port')) return parseInt(params.get('port'));
-            var css = getComputedStyle(document.documentElement).getPropertyValue('--websocket-port').trim();
-            return parseInt(css) || 8767;
-        }
-
-        var ws = null;
-        var reconnectTimer = null;
-
-        function connectWebSocket() {
-            var port = getWebSocketPort();
-            ws = new WebSocket('ws://localhost:' + port);
-
-            ws.onopen = function() {
-                if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-            };
-
-            ws.onmessage = function(event) {
-                try {
-                    var msg = JSON.parse(event.data);
-                    if (msg.type === 'vf') updateVfRanking(msg.data);
-                } catch(e) { console.error('parse error:', e); }
-            };
-
-            ws.onerror = function() {};
-
-            ws.onclose = function() {
-                if (!reconnectTimer) reconnectTimer = setTimeout(connectWebSocket, 3000);
-            };
-        }
-
         var LAMP_NAMES   = ['NO PLAY','PLAYED','CLEAR','EXC','MAXXIVE','UC','PUC'];
         var LAMP_CLASSES = ['lamp-noplay','lamp-played','lamp-clear','lamp-exc','lamp-maxxive','lamp-uc','lamp-puc'];
 
@@ -287,8 +257,13 @@
             document.getElementById('ranking-tbody').innerHTML = out;
         }
 
-        window.addEventListener('DOMContentLoaded', function() { connectWebSocket(); });
-        window.addEventListener('beforeunload', function() { if (ws) ws.close(); });
+        window.addEventListener('DOMContentLoaded', function() {
+            SDVXWebSocketClient.connect({
+                type: 'vf',
+                target: 'vf',
+                onData: updateVfRanking
+            });
+        });
         </script>
 
         <div id="all">

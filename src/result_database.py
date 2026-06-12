@@ -69,11 +69,28 @@ class ResultDatabase:
 
         if config is not None:
             self._init_websocket_server()
+            self._write_websocket_config()
             # 初期データ配信
             self.broadcast_stats_data()
             self.broadcast_vf_data()
 
     # ─── WebSocket ────────────────────────────────────────────────────────────
+
+    def _write_websocket_config(self):
+        """HTMLから読むWebSocketポート設定を書き出す。"""
+        try:
+            Path('out').mkdir(exist_ok=True)
+            css_path = Path('out') / 'websocket.css'
+            css_path.write_text(
+                "/* SDVX Helper auto-generated websocket settings. */\n"
+                ":root {\n"
+                f"    --websocket-port: {getattr(self.config, 'websocket_data_port', 8767)};\n"
+                "}\n",
+                encoding='utf-8',
+            )
+            logger.info(f"WebSocket設定を書き込みました: {css_path}")
+        except Exception as e:
+            logger.error(f"WebSocket設定ファイル書き込みエラー: {e}")
 
     def _init_websocket_server(self):
         import asyncio

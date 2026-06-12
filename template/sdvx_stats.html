@@ -9,6 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;700&family=Mochiy+Pop+P+One&family=RocknRoll+One&family=Dela+Gothic+One&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
     <style>
         :root {
             --bg-dark: rgba(10, 10, 25, 0.9);
@@ -502,6 +503,7 @@
         </div>
     </div>
 
+    <script src="./sdvx_ws_client.js"></script>
     <script>
         const statsGrid = document.getElementById('stats-grid');
         const mainContainer = document.getElementById('main-container');
@@ -517,45 +519,20 @@
             }
         }
 
-        function connect() {
-            log('Connecting to WebSocket...');
-            const socket = new WebSocket('ws://localhost:8767');
+        function setConnectionState(state) {
             const statusIndicator = document.querySelector('.live-indicator'); // Assuming this is the indicator
             const statusText = document.getElementById('status-text');
-
-            socket.onopen = () => {
-                log('WebSocket connected');
+            if (state === 'connected') {
                 mainContainer.classList.remove('disconnected');
                 mainContainer.classList.add('connected');
                 statusText.innerText = 'LIVE';
                 if (statusIndicator) statusIndicator.classList.add('active'); // Add active class if needed for styling
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    log('Message received: ' + event.data.substring(0, Math.min(event.data.length, 100)) + '...');
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === 'stats') {
-                        updateStats(msg.data);
-                    }
-                } catch (e) {
-                    log('ERROR in onmessage: ' + e);
-                }
-            };
-
-            socket.onclose = () => {
-                log('WebSocket disconnected. Retrying in 3s...');
+            } else if (state === 'disconnected') {
                 mainContainer.classList.remove('connected');
                 mainContainer.classList.add('disconnected');
                 statusText.innerText = 'DISCONNECTED';
                 if (statusIndicator) statusIndicator.classList.remove('active'); // Remove active class
-                setTimeout(connect, 3000);
-            };
-
-            socket.onerror = (error) => {
-                log('WebSocket Error: ' + (error.message || 'Unknown error'));
-                socket.close();
-            };
+            }
         }
 
         function updateStats(data) {
@@ -631,7 +608,12 @@
             }
         }
 
-        connect();
+        SDVXWebSocketClient.connect({
+            type: 'stats',
+            target: 'stats',
+            onState: setConnectionState,
+            onData: updateStats
+        });
     </script>
 </body>
 

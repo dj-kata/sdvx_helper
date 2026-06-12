@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>SDVX Now Playing v2</title>
+    <link rel="stylesheet" href="../out/websocket.css">
     <style>
         :root { --websocket-port: 8767; }
 
@@ -151,14 +152,8 @@
         </div>
     </div>
 
+    <script src="./sdvx_ws_client.js"></script>
     <script>
-        function wsPort() {
-            const params = new URLSearchParams(location.search);
-            if (params.has("port")) return parseInt(params.get("port"), 10);
-            const cssPort = getComputedStyle(document.documentElement).getPropertyValue("--websocket-port").trim();
-            return parseInt(cssPort, 10) || 8767;
-        }
-
         function setImage(id, src) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -207,21 +202,16 @@
             setText("difficulty", data.difficulty, "---");
         }
 
-        function connect() {
-            const ws = new WebSocket("ws://localhost:" + wsPort());
-            ws.onmessage = function(event) {
-                const msg = JSON.parse(event.data);
-                if (msg.type === "nowplaying") update(msg.data);
-            };
-            ws.onclose = function() {
-                updateJacketFromFile();
-                setTimeout(connect, 3000);
-            };
-        }
-
         updateJacketFromFile();
         setInterval(updateJacketFromFile, 1000);
-        connect();
+        SDVXWebSocketClient.connect({
+            type: "nowplaying",
+            target: "nowplaying",
+            onData: update,
+            onState: function(state) {
+                if (state === "disconnected") updateJacketFromFile();
+            }
+        });
     </script>
 </body>
 </html>

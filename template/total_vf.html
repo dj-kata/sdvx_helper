@@ -9,6 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=RocknRoll+One&family=Black+Ops+One&family=Monomaniac+One&display=swap"
         rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
     <style>
         :root {
             --accent-cyan: #00f2ff;
@@ -222,31 +223,16 @@
         <!-- Items will be populated by JS -->
     </div>
 
+    <script src="./sdvx_ws_client.js"></script>
     <script>
-        function connect() {
-            const socket = new WebSocket('ws://localhost:8767');
-
-            socket.onopen = () => {
-                console.log('VF View Connected');
-            };
-
-            socket.onmessage = (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-                    if (msg.type === 'vf') {
-                        updateVFList(msg.data.items);
-                    }
-                } catch (e) {
-                    console.error('Error in VF onmessage:', e);
-                }
-            };
-
-            socket.onclose = () => {
-                setTimeout(connect, 3000);
-            };
+        function esc(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            });
         }
 
         function updateVFList(items) {
+            items = items || [];
             console.log('Updating VF List, items:', items.length);
             if (items.length > 0) {
                 console.log('First item sample:', items[0]);
@@ -259,32 +245,37 @@
                 div.className = 'vf-item';
                 div.style.animationDelay = `${index * 0.01}s`;
 
-                const displayDiff = item.cdiff || item.difficulty;
-                const lvClass = `lv${item.lv}`;
+                const displayDiff = item.cdiff || item.difficulty || '';
+                const lvClass = `lv${Number(item.lv) || 0}`;
+                const chartId = encodeURIComponent(item.chart_id || '');
 
                 div.innerHTML = `
-                    <div class="rank">${item.rank}</div>
+                    <div class="rank">${esc(item.rank)}</div>
                     <div class="jacket-container">
-                        <img class="jacket" src="../jackets/${item.chart_id}.png" onerror="this.src='../resources/no_jacket.png';">
+                        <img class="jacket" src="../jackets/${chartId}.png" onerror="this.src='../resources/no_jacket.png';">
                     </div>
                     <div class="title-diff">
-                        <div class="title">${item.title}</div>
+                        <div class="title">${esc(item.title)}</div>
                         <div class="diff-lv">
-                            <span class="diff ${displayDiff}">${displayDiff}</span>
-                            <span class="lv ${lvClass}">Lv.${item.lv}</span>
+                            <span class="diff ${esc(displayDiff)}">${esc(displayDiff)}</span>
+                            <span class="lv ${lvClass}">Lv.${esc(item.lv)}</span>
                         </div>
                     </div>
                     <div class="lamp-container">
-                        ${item.lamp_img ? `<img class="lamp-img" src="../resources/${item.lamp_img}">` : ''}
+                        ${item.lamp_img ? `<img class="lamp-img" src="../resources/${encodeURIComponent(item.lamp_img)}">` : ''}
                     </div>
-                    <div class="score">${Math.floor(item.score / 10000).toLocaleString()}</div>
-                    <div class="vf-val">${(item.vf / 10).toFixed(1)}</div>
+                    <div class="score">${Math.floor((Number(item.score) || 0) / 10000).toLocaleString()}</div>
+                    <div class="vf-val">${((Number(item.vf) || 0) / 10).toFixed(1)}</div>
                 `;
                 list.appendChild(div);
             });
         }
 
-        connect();
+        SDVXWebSocketClient.connect({
+            type: 'vf',
+            target: 'vf',
+            onData: function(data) { updateVFList((data || {}).items); }
+        });
     </script>
 </body>
 
