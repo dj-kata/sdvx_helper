@@ -122,6 +122,9 @@ class MainWindow(MainWindowUI):
 
         # 起動時プレイ数を集計
         self._count_today_plays()
+        QTimer.singleShot(100, lambda: self.result_database.broadcast_today_results_data(
+            self.start_time_with_offset
+        ))
         QTimer.singleShot(100, self._load_recent_result_images_for_summary)
 
         # UI初期化

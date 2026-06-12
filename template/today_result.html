@@ -34,6 +34,7 @@
             .results-table {
                 width: 100%;
                 border-collapse: collapse;
+                table-layout: fixed;
             }
 
             .results-table tr {
@@ -50,10 +51,26 @@
                 text-shadow: 1px 1px 0 #000;
             }
 
+            /* ジャケット列 */
+            .col-jacket {
+                width: 64px;
+                padding-left: 0;
+                padding-right: 8px;
+            }
+
+            .jacket-img {
+                display: block;
+                width: 52px;
+                height: 52px;
+                object-fit: cover;
+                border: 1px solid rgba(255, 255, 255, 0.25);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+            }
+
             /* LV列 */
             .col-lv {
-                width: 70px;
-                text-align: center;
+                width: 58px;
+                text-align: right;
                 font-size: 34px;
                 color: #ffeb3b;
                 text-shadow: 2px 2px 0 #000;
@@ -61,17 +78,15 @@
 
             /* ランプ列 */
             .col-lamp {
-                width: 90px;
+                width: 84px;
                 text-align: center;
-                font-size: 20px;
             }
 
-            /* 難易度列 */
-            .col-diff {
-                width: 55px;
-                text-align: center;
-                font-size: 22px;
-                font-weight: bold;
+            .lamp-img {
+                height: 44px;
+                max-width: 80px;
+                object-fit: contain;
+                vertical-align: middle;
             }
 
             /* タイトル列 */
@@ -79,12 +94,13 @@
                 font-size: 32px;
                 overflow: hidden;
                 text-overflow: ellipsis;
-                max-width: 500px;
+                min-width: 0;
+                max-width: none;
             }
 
             /* スコア列 */
             .col-score {
-                width: 180px;
+                width: 82px;
                 text-align: right;
                 font-size: 34px;
                 font-weight: bold;
@@ -100,22 +116,14 @@
 
             /* EXスコア列 */
             .col-ex {
-                width: 120px;
+                width: 100px;
                 text-align: right;
                 font-size: 26px;
                 color: #aaaaff;
             }
 
-            /* VF列 */
-            .col-vf {
-                width: 90px;
-                text-align: center;
-                font-size: 28px;
-                color: #ffdd88;
-            }
-
             /* 難易度カラー */
-            .diff-nov { color: #c060f0; }
+            .diff-nov { color: #60b8ff; }
             .diff-adv { color: #d4bb00; }
             .diff-exh { color: #e84040; }
             .diff-mxm { color: #e0e0e0; }
@@ -123,30 +131,6 @@
             /* スコア更新 */
             .score-updated  { color: #ffccff; }
             .score-not-updated { color: #999; }
-
-            /* ランプタグ */
-            .lamp-tag {
-                display: inline-block;
-                padding: 2px 8px;
-                border-radius: 4px;
-                font-size: 18px;
-                font-weight: bold;
-                text-shadow: 1px 1px 0 #000;
-            }
-
-            .lamp-noplay  { background: #1a1a1a; color: #555; }
-            .lamp-played  { background: #333;    color: #aaa; }
-            .lamp-clear   { background: #1840a0; color: #aaddff; }
-            .lamp-exc     { background: #803000; color: #ffaa66; }
-            .lamp-maxxive { background: #604000; color: #ffcc44; }
-            .lamp-uc      { background: #205030; color: #88ffaa; }
-            .lamp-puc     { background: #807000; color: #ffe080;
-                            animation: flashpuc 0.6s infinite alternate; }
-
-            @keyframes flashpuc {
-                0%   { background: #606000; color: #ffd060; }
-                100% { background: #a09000; color: #fff0a0; }
-            }
 
             /* グレードカラー */
             .grade-s    { color: #ffdd00; text-shadow: 0 0 8px rgba(255,220,0,0.6); }
@@ -195,8 +179,13 @@
             };
         }
 
-        var LAMP_NAMES = ['NO PLAY','PLAYED','CLEAR','EXC','MAXXIVE','UC','PUC'];
-        var LAMP_CLASSES = ['lamp-noplay','lamp-played','lamp-clear','lamp-exc','lamp-maxxive','lamp-uc','lamp-puc'];
+        var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
+
+        function esc(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            });
+        }
 
         function getDiffClass(diff) {
             if (!diff) return '';
@@ -225,7 +214,31 @@
 
         function lampHtml(lampVal) {
             var idx = Math.min(Math.max(lampVal || 0, 0), 6);
-            return '<span class="lamp-tag ' + LAMP_CLASSES[idx] + '">' + LAMP_NAMES[idx] + '</span>';
+            var file = LAMP_FILES[idx];
+            return file ? '<img class="lamp-img" src="../resources/' + file + '" alt="">' : '';
+        }
+
+        function jacketHtml(src) {
+            var path = src || '../resources/no_jacket.png';
+            return '<img class="jacket-img" src="' + esc(path) + '" alt="">';
+        }
+
+        function shortScore(value) {
+            var n = Number(value) || 0;
+            return n ? Math.floor(n / 10000).toLocaleString() : '0';
+        }
+
+        function formatExScore(exscore, maxExscore) {
+            if (exscore == null) return '';
+            var ex = Number(exscore) || 0;
+            var max = Number(maxExscore) || 0;
+            if (!max) return '';
+
+            var rate = ex / max;
+            if (rate < 0.98) return (rate * 100).toFixed(1) + '%';
+
+            var diff = Math.max(max - ex, 0);
+            return diff ? 'MAX-' + diff.toLocaleString() : 'MAX';
         }
 
         function updateTodayResults(data) {
@@ -249,14 +262,13 @@
                 var gradeClass = getGradeClass(item.grade || '');
 
                 out += '<tr class="' + rowClass + '">';
+                out += '<td class="col-jacket">' + jacketHtml(item.jacket_img) + '</td>';
                 out += '<td class="col-lv">' + (item.lv || '') + '</td>';
                 out += '<td class="col-lamp">' + lampHtml(lamp) + '</td>';
-                out += '<td class="col-diff ' + diffClass + '">' + (item.difficulty || '') + '</td>';
-                out += '<td class="col-title ' + diffClass + '">' + (item.title || '') + '</td>';
-                out += '<td class="col-score ' + scoreClass + '">' + score.toLocaleString() + '</td>';
-                out += '<td class="col-grade ' + gradeClass + '">' + (item.grade || '') + '</td>';
-                out += '<td class="col-ex">' + (item.exscore != null ? item.exscore : '') + '</td>';
-                out += '<td class="col-vf">' + (item.vf != null ? item.vf : '') + '</td>';
+                out += '<td class="col-title ' + diffClass + '">' + esc(item.title || '') + '</td>';
+                out += '<td class="col-score ' + scoreClass + '">' + shortScore(score) + '</td>';
+                out += '<td class="col-grade ' + gradeClass + '">' + esc(item.grade || '') + '</td>';
+                out += '<td class="col-ex">' + esc(formatExScore(item.exscore, item.max_exscore)) + '</td>';
                 out += '</tr>';
             });
 

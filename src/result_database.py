@@ -682,15 +682,20 @@ class ResultDatabase:
         for r in today:
             info = self.song_database.get_song_info(r.title)
             lv = info.get_level(r.difficulty) if info else r.level
+            jacket_path = self.jacket_dir / f"{r.chart_id}.png"
+            max_exscore = self._get_max_exscore(r.title, r.difficulty)
             items.append({
+                'chart_id':   r.chart_id,
                 'title':      r.title,
                 'difficulty': get_chart_name(r.difficulty),
                 'lv':         str(lv or ''),
                 'score':      r.score,
                 'exscore':    r.exscore,
+                'max_exscore': max_exscore,
                 'grade':      r.grade,
                 'lamp':       r.lamp.value,
                 'vf':         r.vf,
+                'jacket_img': f"../jackets/{r.chart_id}.png" if jacket_path.exists() else "../resources/no_jacket.png",
                 'pre_score':  r.bestscore   or 0,
                 'pre_ex':     r.bestexscore or 0,
                 'is_score_updated': r.is_score_updated(),
@@ -698,6 +703,20 @@ class ResultDatabase:
                 'timestamp':  r.timestamp,
             })
         return {'items': items}
+
+    def _get_max_exscore(self, title: str, diff: difficulty) -> Optional[int]:
+        """portal masterから指定譜面のEXスコア理論値を返す。"""
+        if self.portal_manager is None or not getattr(self.portal_manager, 'master_db', None):
+            return None
+        try:
+            _, chart = self.portal_manager._find_chart(title, diff)
+            if not chart:
+                return None
+            value = chart.get('max_ex_score')
+            return int(value) if value is not None else None
+        except Exception:
+            logger.debug(f"max_ex_score取得失敗: title={title} diff={diff}\n{traceback.format_exc()}")
+            return None
 
     def get_vf_data(self) -> dict:
         """VFランキングデータをWebSocket送信用の辞書で返す。"""
