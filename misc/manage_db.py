@@ -143,6 +143,56 @@ def _build_rows(ml: dict, exclude_set: set | None = None) -> list[tuple]:
     return rows
 
 
+def _chart_diff_keys(ml: dict, title: str) -> list[str]:
+    """指定曲に存在する譜面のDBキー一覧を返す。"""
+    info = ml.get('titles', {}).get(title)
+    if not info:
+        return []
+    result = []
+    for db_key, _diff_name, lv_idx in _DIFF_KEYS:
+        level = info[lv_idx] if len(info) > lv_idx else 0
+        if level:
+            result.append(db_key)
+    return result
+
+
+def _existing_jacket_hashes(ml: dict, title: str) -> list[str]:
+    """指定曲に登録済みのjacket hash一覧を返す。"""
+    hashes = []
+    jacket = ml.get('jacket', {})
+    for db_key in _chart_diff_keys(ml, title):
+        h = jacket.get(db_key, {}).get(title, '')
+        if h:
+            hashes.append(h)
+    return hashes
+
+
+def update_jacket_hash(v2: dict, title: str, diff_name: str, hash_hex: str) -> tuple[int, str]:
+    """v2のjacket hashを更新する。
+
+    その曲にhashが1つも無い場合は全譜面へコピーし、既にある場合は選択譜面のみ更新する。
+    Returns:
+        (更新した譜面数, 'all' | 'selected')
+    """
+    diff_key = _DIFF_NAME_TO_KEY.get(diff_name)
+    if not diff_key:
+        raise ValueError(f'未対応の難易度です: {diff_name}')
+
+    target_keys = _chart_diff_keys(v2, title)
+    if not target_keys:
+        raise ValueError(f'譜面情報が見つかりません: {title}')
+
+    scope = 'selected'
+    if not _existing_jacket_hashes(v2, title):
+        scope = 'all'
+    else:
+        target_keys = [diff_key]
+
+    for target_key in target_keys:
+        v2.setdefault('jacket', {}).setdefault(target_key, {})[title] = hash_hex
+    return len(target_keys), scope
+
+
 def _normalize_search_text(text: str) -> str:
     """検索用に半角カナ・全角カナ・ひらがなを寄せる。"""
     normalized = unicodedata.normalize('NFKC', str(text)).lower()
@@ -229,7 +279,7 @@ def launch_gui() -> None:
             QApplication, QMainWindow, QWidget, QSplitter,
             QVBoxLayout, QHBoxLayout, QGroupBox, QRadioButton, QCheckBox,
             QLineEdit, QLabel, QPushButton, QTableView,
-            QHeaderView, QAbstractItemView, QMessageBox, QStatusBar,
+            QHeaderView, QAbstractItemView, QMessageBox, QStatusBar, QInputDialog,
         )
         from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal, QSortFilterProxyModel
         from PySide6.QtGui import QColor
@@ -488,6 +538,15 @@ def launch_gui() -> None:
             self._btn_add.clicked.connect(self._on_add_to_v2)
             ll.addWidget(self._btn_add)
 
+            self._btn_edit_hash = QPushButton('選択hashを編集')
+            self._btn_edit_hash.setEnabled(False)
+            self._btn_edit_hash.setToolTip(
+                'v2表示中にSDVX DB行を選択してクリック\n'
+                '曲にhashが未登録なら全譜面へ、登録済みなら選択譜面だけ更新'
+            )
+            self._btn_edit_hash.clicked.connect(self._on_edit_hash)
+            ll.addWidget(self._btn_edit_hash)
+
             ll.addStretch()
             hsplit.addWidget(left)
 
@@ -625,6 +684,7 @@ def launch_gui() -> None:
                 self._sdvx_model.set_v2_hashes(set())
 
             self._sdvx_label.setText(label)
+            self._update_add_button()
 
         # ── イベントハンドラ ──────────────────────────────────────────────────
 
@@ -646,6 +706,7 @@ def launch_gui() -> None:
             if self._cb_exh.isChecked():    enabled.add('EXH')
             if self._cb_append.isChecked(): enabled.add('APPEND')
             self._sdvx_model.set_diff_filter(enabled)
+            self._update_add_button()
 
         def _update_add_button(self):
             sdvx_sel   = self._sdvx_view.selectionModel().selectedRows()
@@ -656,6 +717,7 @@ def launch_gui() -> None:
                 and bool(portal_sel)
             )
             self._btn_add.setEnabled(can_add)
+            self._btn_edit_hash.setEnabled(self._rb_v2.isChecked() and bool(sdvx_sel))
 
         def _on_add_to_v2(self):
             sdvx_rows   = self._sdvx_view.selectionModel().selectedRows()
@@ -691,6 +753,51 @@ def launch_gui() -> None:
                 return
 
             self._refresh_sdvx_table()
+
+        def _on_edit_hash(self):
+            if not self._rb_v2.isChecked():
+                QMessageBox.information(self, '情報', 'v2表示中のみhashを編集できます。')
+                return
+
+            sdvx_rows = self._sdvx_view.selectionModel().selectedRows()
+            if not sdvx_rows:
+                return
+
+            src_idx = self._sdvx_proxy.mapToSource(sdvx_rows[0])
+            title, diff_name, _level, current_hash = self._sdvx_model.get_row(src_idx.row())
+
+            new_hash, ok = QInputDialog.getText(
+                self,
+                'hash編集',
+                f'{title}\n{diff_name} の jacket hash:',
+                QLineEdit.Normal,
+                str(current_hash or ''),
+            )
+            if not ok:
+                return
+
+            new_hash = new_hash.strip().lower()
+            if not new_hash:
+                QMessageBox.warning(self, 'エラー', 'hashが空です。')
+                return
+            try:
+                int(new_hash, 16)
+            except ValueError:
+                QMessageBox.warning(self, 'エラー', 'hashは16進数で入力してください。')
+                return
+
+            try:
+                count, scope = update_jacket_hash(self._v2, title, diff_name, new_hash)
+                _save_sdvxh(self._v2, _MUSICLIST_V2)
+            except Exception as e:
+                QMessageBox.critical(self, 'エラー', f'hash保存失敗:\n{e}')
+                return
+
+            self._refresh_sdvx_table()
+            if scope == 'all':
+                self.statusBar().showMessage(f'hash更新完了: {title} 全{count}譜面へコピー')
+            else:
+                self.statusBar().showMessage(f'hash更新完了: {title} {diff_name}')
 
     # ── 起動 ─────────────────────────────────────────────────────────────────
 
