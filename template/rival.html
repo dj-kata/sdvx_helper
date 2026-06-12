@@ -64,6 +64,8 @@
         #result tr.is-me { background-color: rgba(60, 80, 180, 0.45); }
         .rank-1 { color: #ffdd44; font-weight: bold; }
         .me { color: #aaddff; font-weight: bold; }
+        .portal-rival { color: #ff9999; }
+        .lamp-icon { height: 80px; vertical-align: middle; }
         .diff-NOV { color: #c060f0; }
         .diff-ADV { color: #d4bb00; }
         .diff-EXH { color: #e84040; }
@@ -128,16 +130,19 @@ function fmtScore(value) {
     const n = Number(value) || 0;
     return n ? n.toLocaleString("en-US") : "";
 }
-function signed(value) {
+function signedK(value) {
     const n = Number(value) || 0;
     if (!n) return "0";
-    return (n > 0 ? "+" : "") + n.toLocaleString("en-US");
+    const absK = Math.floor(Math.abs(n) / 1000);
+    return (n > 0 ? "+" : "-") + absK.toLocaleString("en-US") + "k";
 }
-function lampName(value) {
-    return ["NO PLAY", "FAILED", "COMP", "EXC", "MAXXIVE", "UC", "PUC"][Number(value) || 0] || "";
+function lampIcon(value) {
+    const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
+    const file = files[Number(value) || 0];
+    return file ? '<img class="lamp-icon" src="../resources/' + file + '">' : "";
 }
-function lampClass(value) {
-    return ["lamp-noplay", "lamp-played", "lamp-clear", "lamp-exc", "lamp-maxxive", "lamp-uc", "lamp-puc"][Number(value) || 0] || "";
+function isPortalRival(item) {
+    return item && (item.is_portal || item.source === "portal");
 }
 function update(data) {
     if (!data) return;
@@ -151,14 +156,14 @@ function update(data) {
     let out = "";
     items.forEach(function(item) {
         const rowClass = item.is_me ? ' class="is-me"' : "";
-        const nameClass = item.is_me ? "me" : "";
+        const nameClass = item.is_me ? "me" : (isPortalRival(item) ? "portal-rival" : "");
         const rankClass = Number(item.rank) === 1 ? "rank-1" : "";
         out += "<tr" + rowClass + ">";
         out += '<td class="' + rankClass + '">' + esc(item.rank || "") + "</td>";
         out += '<td class="' + nameClass + '">' + esc(item.player || "") + "</td>";
-        out += '<td><span class="' + lampClass(item.lamp) + '">' + lampName(item.lamp) + "</span></td>";
+        out += "<td>" + lampIcon(item.lamp) + "</td>";
         out += "<td>" + fmtScore(item.score) + "</td>";
-        out += "<td>" + signed(item.diff) + "</td>";
+        out += "<td>" + signedK(item.diff) + "</td>";
         out += "</tr>";
     });
     document.getElementById("rival-body").innerHTML = out;

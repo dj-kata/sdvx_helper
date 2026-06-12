@@ -48,9 +48,11 @@ class SQLiteDatabase:
                     lamp INTEGER NOT NULL,
                     score INTEGER NOT NULL,
                     exscore INTEGER,
+                    source TEXT NOT NULL DEFAULT 'csv',
                     PRIMARY KEY (rival_name, title, difficulty)
                 )
             ''')
+            self._ensure_column('rival_scores', 'source', "TEXT NOT NULL DEFAULT 'csv'")
             
             self._conn.commit()
             logger.info(f"SQLite DB 初期化完了: {self.db_path}")
@@ -98,16 +100,22 @@ class SQLiteDatabase:
 
     # --- ライバル操作 ---
 
-    def upsert_rival_score(self, rival_name: str, title: str, difficulty: str, score: int, lamp: int, exscore: Optional[int]):
+    def _ensure_column(self, table: str, column: str, definition: str):
+        cols = [row['name'] for row in self.execute(f"PRAGMA table_info({table})").fetchall()]
+        if column not in cols:
+            self.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+    def upsert_rival_score(self, rival_name: str, title: str, difficulty: str, score: int, lamp: int, exscore: Optional[int], source: str = 'csv'):
         sql = '''
-            INSERT INTO rival_scores (rival_name, title, difficulty, score, lamp, exscore)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO rival_scores (rival_name, title, difficulty, score, lamp, exscore, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(rival_name, title, difficulty) DO UPDATE SET
                 score = excluded.score,
                 lamp = excluded.lamp,
-                exscore = excluded.exscore
+                exscore = excluded.exscore,
+                source = excluded.source
         '''
-        self.execute(sql, (rival_name, title, difficulty, score, lamp, exscore))
+        self.execute(sql, (rival_name, title, difficulty, score, lamp, exscore, source))
 
     def delete_rival(self, rival_name: str):
         self.execute("DELETE FROM rival_scores WHERE rival_name = ?", (rival_name,))

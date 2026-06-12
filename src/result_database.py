@@ -648,6 +648,10 @@ class ResultDatabase:
 
         if self.rival_manager is not None:
             try:
+                rival_sources = {
+                    rd.name: getattr(rd, 'source', 'csv')
+                    for rd in getattr(self.rival_manager, 'rivals', [])
+                }
                 for name, entry in self.rival_manager.get_all_scores(title, diff_name):
                     rows.append({
                         'player': name,
@@ -655,6 +659,7 @@ class ResultDatabase:
                         'exscore': entry.exscore,
                         'lamp': entry.lamp.value if entry.lamp else clear_lamp.noplay.value,
                         'is_me': False,
+                        'source': rival_sources.get(name, 'csv'),
                     })
             except Exception:
                 logger.error(f"ライバル表示データ生成エラー:\n{traceback.format_exc()}")

@@ -49,8 +49,9 @@ class RivalScoreEntry:
 class RivalData:
     """1ライバルの全スコアデータ"""
 
-    def __init__(self, name: str):
+    def __init__(self, name: str, source: str = 'csv'):
         self.name:   str                               = name
+        self.source: str                               = source
         self.scores: Dict[Tuple[str, str], RivalScoreEntry] = {}
         # キー: (title, diff_str)  diff_str = "NOV"/"ADV"/"EXH"/"MXM"
         self.error:  Optional[str]                    = None
@@ -287,7 +288,7 @@ class RivalFetchWorker(QThread):
         for name, scores in rival_data.items():
             if not name:
                 continue
-            rd = RivalData(name)
+            rd = RivalData(name, source='portal')
             for s in scores:
                 if not isinstance(s, dict):
                     continue
@@ -348,8 +349,9 @@ class RivalManager(QObject):
             rival_names = [r['rival_name'] for r in self.db.execute("SELECT DISTINCT rival_name FROM rival_scores").fetchall()]
             new_rivals = []
             for name in rival_names:
-                rd = RivalData(name)
                 rows = self.db.get_rival_scores(name)
+                source = rows[0]['source'] if rows and 'source' in rows[0].keys() else 'csv'
+                rd = RivalData(name, source=source)
                 for r in rows:
                     entry = RivalScoreEntry()
                     entry.lamp = clear_lamp(r['lamp'])
@@ -375,7 +377,8 @@ class RivalManager(QObject):
                 for (title, diff_str), entry in rd.scores.items():
                     self.db.upsert_rival_score(
                         rd.name, _normalize_title(title), diff_str, 
-                        entry.score, entry.lamp.value, entry.exscore
+                        entry.score, entry.lamp.value, entry.exscore,
+                        getattr(rd, 'source', 'csv')
                     )
             self.db.commit()
             
@@ -403,7 +406,8 @@ class RivalManager(QObject):
                 for (title, diff_str), entry in rd.scores.items():
                     self.db.upsert_rival_score(
                         rd.name, _normalize_title(title), diff_str,
-                        entry.score, entry.lamp.value, entry.exscore
+                        entry.score, entry.lamp.value, entry.exscore,
+                        getattr(rd, 'source', 'csv')
                     )
             self.db.commit()
             logger.debug("ライバルDB保存完了")

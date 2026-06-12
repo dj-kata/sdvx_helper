@@ -53,18 +53,8 @@
                 white-space:nowrap;
             }
             table#title td:nth-child(1){
-                max-width: 10px;
                 overflow:hidden;
                 text-overflow:ellipsis;
-            }
-            table#title td:nth-child(2){
-                width:13%;
-                margin-right:1%;
-                padding-right:1%;
-            }
-            table#title td:nth-child(3){
-                text-align: right;
-                width:10%;
             }
             table#result {
                 font-size: 96px;
@@ -206,8 +196,6 @@
                 <tbody>
                     <tr>
                         <td id="music">---</td>
-                        <td id="difficulty"></td>
-                        <td id="lv"></td>
                     </tr>
                 </tbody>
             </table>
@@ -288,8 +276,6 @@
             if (!data) return;
             const diff = data.display_difficulty || data.cdiff || data.difficulty || "";
             document.getElementById("music").textContent = data.title || "---";
-            document.getElementById("difficulty").textContent = diff ? "(" + diff + ")" : "";
-            document.getElementById("lv").textContent = data.lv || "";
             document.getElementById("best-diff").textContent = diff ? "(" + diff + ")" : "";
             document.getElementById("best-lv").textContent = data.lv || "";
             document.getElementById("grade-s-tier").textContent = data.gradeS_tier || "";
