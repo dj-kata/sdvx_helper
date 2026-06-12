@@ -14,6 +14,7 @@ import datetime
 import hashlib, hmac
 import time
 import socket
+import html
 
 # IPv4を強制
 import requests.packages.urllib3.util.connection as urllib3_cn
@@ -1429,10 +1430,26 @@ class Maya2TitleConverter:
         self.load()
 
     def load(self):
-        # 旧版では resources/title_conv_table.pkl で送信直前に表記揺れを吸収していた。
-        # 現在は musiclist.pkl 側を maya2 表記へ揃えるため、変換テーブルは使わない。
+        # resources/title_conv_table.pkl の個別表記変換は使わない。
+        # portal/musiclist のマスター表記を合わせる方針とし、検索時は
+        # HTML entity かどうかだけを機械的に正規化して比較する。
         self.forward_table = {}
         self.backward_table = {}
+
+    def title_candidates(self, key: str):
+        """HTML entityだけを吸収する検索候補を返す。"""
+        if key is None:
+            return []
+        candidates = []
+
+        def append(value):
+            if value is not None and value not in candidates:
+                candidates.append(value)
+
+        append(key)
+        append(html.unescape(key))
+        append("".join(f"&#{ord(ch)};" if ord(ch) > 127 else ch for ch in key))
+        return candidates
 
     def forward(self, key: str) -> str:
         """sdvx_helper側の曲名をmaya2側の曲名に変換する
@@ -1693,8 +1710,9 @@ class ManageMaya2:
         ret = None
         try:
             logger.debug(f"title:{title}, fumen:{fumen}")
+            title_candidates = self.conv_table.title_candidates(title)
             for m in self.master_db:
-                if m.get("title") == title:
+                if m.get("title") in title_candidates:
                     for c in m.get("charts"):
                         # 指定の名前が存在 or 最上位譜面でかつこのループが下位譜面でない
                         if (
@@ -1710,8 +1728,9 @@ class ManageMaya2:
     def search_musicinfo(self, title):
         """楽曲を検索する"""
         ret = None
+        title_candidates = self.conv_table.title_candidates(title)
         for m in self.master_db:
-            if m.get("title") == title:
+            if m.get("title") in title_candidates:
                 ret = m
         return ret
 
@@ -1946,5 +1965,7 @@ if __name__ == "__main__":
     print(a.maya2.is_alive())
     mng = ManageUploadedScores()
 
-    # if a.maya2.is_alive():
-    # res = a.maya2.upload_best(a, upload_all=True, player_name='かたお', volforce='19.503')
+    if a.maya2.is_alive():
+        res = a.maya2.upload_best(
+            a, upload_all=True, player_name="かたお", volforce="19.503"
+        )
