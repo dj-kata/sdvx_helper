@@ -156,6 +156,7 @@ class UIText:
 
         # OBS control dialog
         websocket_group = 'OBS WebSocket Settings'
+        obs_control_enabled = 'Use OBS control with direct capture'
         websocket_host = 'Host:'
         websocket_port = 'Port:'
         websocket_password = 'Password:'
@@ -178,6 +179,9 @@ class UIText:
         source = 'Target Source'
         setting_complete = 'Setting complete'
         source_configured = "Monitor source set to '{target_source}'"
+        reconnected_to_obs = 'Reconnected to OBS'
+        failed_reconnection_to_obs = 'Failed to reconnect to OBS'
+        failed_reconnection_to_obs_with_error = 'Failed to reconnect to OBS:\n{error}'
 
     class obs_timing:
         '''OBS control timings'''

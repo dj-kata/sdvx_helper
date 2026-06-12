@@ -28,6 +28,8 @@ class Config:
         """直接取得対象のウィンドウタイトル"""
         self.obs_scene_collection: str = ''
         """起動時に切り替えるシーンコレクション（空=切り替えなし）"""
+        self.obs_control_enabled: bool = False
+        """直接取得モードでも OBS WebSocket 制御を有効にするか"""
         self.obs_control_settings: list = []
         """OBS 制御トリガー設定リスト"""
 

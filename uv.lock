@@ -527,39 +527,6 @@ wheels = [
 ]
 
 [[package]]
-name = "inf-daken-counter-obsw"
-version = "0.1.0"
-source = { virtual = "." }
-dependencies = [
-    { name = "bs4" },
-    { name = "cx-freeze" },
-    { name = "google-cloud-storage" },
-    { name = "imagehash" },
-    { name = "keyboard" },
-    { name = "numpy" },
-    { name = "obsws-python" },
-    { name = "opencv-python" },
-    { name = "pillow" },
-    { name = "pyside6" },
-    { name = "websockets" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "bs4", specifier = ">=0.0.2" },
-    { name = "cx-freeze", specifier = ">=8.5.3" },
-    { name = "google-cloud-storage", specifier = ">=3.9.0" },
-    { name = "imagehash", specifier = ">=4.3.2" },
-    { name = "keyboard", specifier = ">=0.13.5" },
-    { name = "numpy", specifier = ">=2.4.1" },
-    { name = "obsws-python", specifier = ">=1.8.0" },
-    { name = "opencv-python", specifier = ">=4.13.0.90" },
-    { name = "pillow", specifier = ">=12.1.0" },
-    { name = "pyside6", specifier = ">=6.10.1" },
-    { name = "websockets", specifier = ">=16.0" },
-]
-
-[[package]]
 name = "keyboard"
 version = "0.13.5"
 source = { registry = "https://pypi.org/simple" }
@@ -3885,6 +3852,39 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ef/5e/e565bd73991d42023eb82bb99e51c5b3d9e2c588ca9d4b3e2cc1d3ca62a6/scipy-1.17.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:f9eb55bb97d00f8b7ab95cb64f873eb0bf54d9446264d9f3609130381233483f", size = 37457743, upload-time = "2026-01-10T21:30:34.819Z" },
     { url = "https://files.pythonhosted.org/packages/58/a8/a66a75c3d8f1fb2b83f66007d6455a06a6f6cf5618c3dc35bc9b69dd096e/scipy-1.17.0-cp314-cp314t-win_amd64.whl", hash = "sha256:1ff269abf702f6c7e67a4b7aad981d42871a11b9dd83c58d2d2ea624efbd1088", size = 37098574, upload-time = "2026-01-10T21:30:40.782Z" },
     { url = "https://files.pythonhosted.org/packages/56/a5/df8f46ef7da168f1bc52cd86e09a9de5c6f19cc1da04454d51b7d4f43408/scipy-1.17.0-cp314-cp314t-win_arm64.whl", hash = "sha256:031121914e295d9791319a1875444d55079885bbae5bdc9c5e0f2ee5f09d34ff", size = 25246266, upload-time = "2026-01-10T21:30:45.923Z" },
+]
+
+[[package]]
+name = "sdvx-helper"
+version = "2.0.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "bs4" },
+    { name = "cx-freeze" },
+    { name = "google-cloud-storage" },
+    { name = "imagehash" },
+    { name = "keyboard" },
+    { name = "numpy" },
+    { name = "obsws-python" },
+    { name = "opencv-python" },
+    { name = "pillow" },
+    { name = "pyside6" },
+    { name = "websockets" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "bs4", specifier = ">=0.0.2" },
+    { name = "cx-freeze", specifier = ">=8.5.3" },
+    { name = "google-cloud-storage", specifier = ">=3.9.0" },
+    { name = "imagehash", specifier = ">=4.3.2" },
+    { name = "keyboard", specifier = ">=0.13.5" },
+    { name = "numpy", specifier = ">=2.4.1" },
+    { name = "obsws-python", specifier = ">=1.8.0" },
+    { name = "opencv-python", specifier = ">=4.13.0.90" },
+    { name = "pillow", specifier = ">=12.1.0" },
+    { name = "pyside6", specifier = ">=6.10.1" },
+    { name = "websockets", specifier = ">=16.0" },
 ]
 
 [[package]]

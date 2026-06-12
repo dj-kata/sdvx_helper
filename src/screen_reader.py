@@ -270,7 +270,8 @@ class ScreenReader:
 
     @staticmethod
     def _resolve_digit(dists: dict, img: Image.Image, rect: tuple,
-                        threshold: int = 10) -> str:
+                        threshold: int = 10,
+                        enable_68_correction: bool = True) -> str:
         """距離辞書 {数字: ハミング距離} から最適な数字文字を返す。
         0/8 混同は中央輝度、6/8 混同は中央輝度で補正する。
         """
@@ -284,7 +285,8 @@ class ScreenReader:
             return '8' if bri > _DIGIT_CENTER_TH else '0'
         # 6/8 混同: ベストが6か8で、距離差が閾値以内かつ距離が一定以上のとき右上輝度で判別
         # (距離が小さい=確信度高 の場合はテンプレートマッチを信頼してスキップ)
-        if (best_k in (6, 8)
+        if (enable_68_correction
+                and best_k in (6, 8)
                 and dists[best_k] >= _DIGIT_68_MIN_DIST
                 and abs(dists.get(6, 99) - dists.get(8, 99)) <= _DIGIT_68_AMBIGUITY_TH):
             # 文字の骨格があるはずの地点の平均輝度を基準にする
@@ -344,8 +346,9 @@ class ScreenReader:
                             rects_large: list, hash_large: dict,
                             rects_small: list, hash_small: dict) -> Optional[int]:
         """8桁スコアを読み取る（大字体N桁 + 小字体M桁）。
+
         各位置で専用テンプレートを優先し、失敗時のみ他字体テンプレートへフォールバック。
-        0/8・8/9 の混同は輝度サンプルで補正する。
+        背景色によって6/8補正が誤判定するケースがあるため、現在スコアでは無効化する。
         """
         def _read(rect, primary, fallback):
             h = imagehash.average_hash(img.crop(rect))
@@ -357,7 +360,7 @@ class ScreenReader:
                     d = int(abs(h - tmpl))
                     if k not in dists or d < dists[k]:
                         dists[k] = d
-            return self._resolve_digit(dists, img, rect)
+            return self._resolve_digit(dists, img, rect, enable_68_correction=False)
 
         large = ''.join(_read(r, hash_large, hash_small) for r in rects_large)
         small = ''.join(_read(r, hash_small, hash_large) for r in rects_small)

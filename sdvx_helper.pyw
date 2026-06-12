@@ -269,13 +269,13 @@ class MainWindow(MainWindowUI):
 
     def _check_obs_configuration(self):
         """OBS設定の問題があればダイアログを表示"""
-        if self.obs_manager.is_direct_capture():
+        if not self.obs_manager.uses_obs_websocket():
             return
         status = self.obs_manager.get_detailed_status()
         warnings = []
         if not status['is_connected']:
             warnings.append("• OBS WebSocketに接続できていません")
-        if not status['is_source_configured']:
+        if not self.obs_manager.is_direct_capture() and not status['is_source_configured']:
             warnings.append("• 監視対象ソースが設定されていません")
         if warnings:
             msg = "OBS設定に問題があります:\n\n" + "\n".join(warnings)
@@ -289,22 +289,30 @@ class MainWindow(MainWindowUI):
 
     def _execute_obs_triggers(self, trigger: str):
         """指定トリガーのOBS制御を実行"""
-        if self.obs_manager.is_direct_capture():
+        if not self.obs_manager.uses_obs_websocket():
+            logger.debug(f"OBSトリガースキップ({trigger}): OBS WebSocket未使用")
             return
         try:
             from src.obs_control import OBSControlData
             control_data = OBSControlData()
             control_data.set_config(self.config)
             settings = control_data.get_settings_by_trigger(trigger)
-            if not settings or not self.obs_manager.is_connected:
+            if not settings:
+                logger.debug(f"OBSトリガー設定なし: {trigger}")
                 return
+            if not self.obs_manager.is_connected:
+                logger.warning(f"OBSトリガースキップ({trigger}): OBS未接続")
+                return
+            logger.info(f"OBSトリガー実行: {trigger} ({len(settings)}件)")
             for setting in settings:
                 try:
                     action = setting.get("action")
+                    logger.debug(f"OBSトリガー設定: trigger={trigger}, setting={setting}")
                     if action == "switch_scene":
                         target = setting.get("scene")
                         if target:
-                            self.obs_manager.change_scene(target)
+                            ok = self.obs_manager.change_scene(target)
+                            logger.info(f"OBSシーン切替: target={target}, ok={bool(ok)}")
                     elif action in ("show_source", "hide_source"):
                         scene = setting.get("scene")
                         source = setting.get("source")
@@ -312,19 +320,38 @@ class MainWindow(MainWindowUI):
                             mod_scene, item_id = self.obs_manager.search_itemid(scene, source)
                             if item_id:
                                 if action == "show_source":
-                                    self.obs_manager.enable_source(mod_scene, item_id)
+                                    ok = self.obs_manager.enable_source(mod_scene, item_id)
                                 else:
-                                    self.obs_manager.disable_source(mod_scene, item_id)
+                                    ok = self.obs_manager.disable_source(mod_scene, item_id)
+                                logger.info(
+                                    f"OBSソース表示制御: action={action}, scene={mod_scene}, "
+                                    f"source={source}, item_id={item_id}, ok={bool(ok)}"
+                                )
+                            else:
+                                logger.warning(
+                                    f"OBSソース表示制御スキップ: action={action}, scene={scene}, source={source}, item_idなし"
+                                )
                     elif action == "autosave_source":
                         scene = setting.get("scene")
                         source = setting.get("source")
                         if scene and source:
-                            _, item_id = self.obs_manager.search_itemid(scene, source)
-                            if item_id:
-                                fname = (os.path.splitext(source)[0]
-                                         + f"_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.png")
-                                dst = Path(self.config.image_save_path).resolve() / fname
-                                self.obs_manager.save_screenshot_dst(source, str(dst), disable_wh=True)
+                            fname = (
+                                escape_for_filename(os.path.splitext(source)[0])
+                                + f"_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                            )
+                            dst = Path(self.config.image_save_path).resolve() / fname
+                            dst.parent.mkdir(parents=True, exist_ok=True)
+                            ok = self.obs_manager.save_screenshot_dst(source, str(dst), disable_wh=True)
+                            if ok:
+                                logger.info(f"OBSソースキャプチャ保存: {source} -> {dst}")
+                            else:
+                                logger.warning(
+                                    f"OBSソースキャプチャ保存失敗: scene={scene}, source={source}, dst={dst}"
+                                )
+                        else:
+                            logger.warning(f"OBSソースキャプチャ保存スキップ: scene/source未設定 {setting}")
+                    else:
+                        logger.warning(f"未知のOBSトリガーアクション: {setting}")
                 except Exception:
                     logger.error(f"トリガー実行エラー ({trigger}):\n{traceback.format_exc()}")
         except ImportError:
@@ -335,7 +362,7 @@ class MainWindow(MainWindowUI):
     def _write_obs_text(self, text: str):
         """OBSテキストソースに楽曲情報を書き込む"""
         source = self.config.obs_text_source_name
-        if source and self.obs_manager.is_connected and not self.obs_manager.is_direct_capture():
+        if source and self.obs_manager.is_connected and self.obs_manager.uses_obs_websocket():
             self.obs_manager.change_text(source, text)
 
     # ── 設定ダイアログ ────────────────────────────────────────────────────────
@@ -430,7 +457,9 @@ class MainWindow(MainWindowUI):
         )
         self.setWindowFlag(Qt.WindowStaysOnTopHint, self.config.keep_on_top)
         self.show()
-        if self.obs_manager.is_direct_capture() or not self.obs_manager.is_connected:
+        if not self.obs_manager.uses_obs_websocket():
+            self.obs_manager.disconnect()
+        elif not self.obs_manager.is_connected:
             self.obs_manager.connect()
 
     def show_about(self):
@@ -885,6 +914,8 @@ class MainWindow(MainWindowUI):
 
     def closeEvent(self, event):
         """アプリ終了時の処理"""
+        logger.info("アプリ終了処理開始")
+        QApplication.processEvents()
         self._execute_obs_triggers('app_end')
         self.remove_global_hotkeys()
         self.obs_manager.disconnect()

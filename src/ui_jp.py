@@ -156,6 +156,7 @@ class UIText:
 
         # 制御設定ダイアログ関連
         websocket_group = 'OBS WebSocket接続設定'
+        obs_control_enabled = '直接取得でもOBS制御を使う'
         websocket_host = 'ホスト:'
         websocket_port = 'ポート:'
         websocket_password = 'パスワード:'
@@ -178,6 +179,9 @@ class UIText:
         source = '対象ソース'
         setting_complete = '設定完了'
         source_configured = "監視対象ソースを '{target_source}' に設定しました"
+        reconnected_to_obs = 'OBSに再接続しました'
+        failed_reconnection_to_obs = 'OBSへの再接続に失敗しました'
+        failed_reconnection_to_obs_with_error = 'OBSへの再接続に失敗しました:\n{error}'
 
 
     class obs_timing:

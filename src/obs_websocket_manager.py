@@ -26,7 +26,7 @@ def _require_connection(func):
         try:
             return func(self, *args, **kwargs)
         except Exception as e:
-            # logger.error(f"Failed to {func.__name__}: {e}")
+            logger.warning(f"Failed to {func.__name__}: {e}")
             return None
     return wrapper
 
@@ -69,7 +69,7 @@ class OBSWebSocketManager(QObject):
         self.monitor_thread: Optional[threading.Thread] = None
         self.monitor_running = False
         self.stop_event = threading.Event()
-        # screenshot() 失敗の連続回数（切断検出用）
+        # screenshot() 失敗の連続回数（ログ抑制用）
         self._screenshot_failures = 0
         
         # 画面サイズ設定
@@ -93,10 +93,17 @@ class OBSWebSocketManager(QObject):
 
     def is_direct_capture(self) -> bool:
         return bool(self.config and getattr(self.config, 'capture_method', 'direct_window') == 'direct_window')
+
+    def is_obs_control_enabled(self) -> bool:
+        return bool(self.config and getattr(self.config, 'obs_control_enabled', False))
+
+    def uses_obs_websocket(self) -> bool:
+        """OBS WebSocket接続が必要な設定か。"""
+        return bool(self.config and (not self.is_direct_capture() or self.is_obs_control_enabled()))
     
     def connect(self):
         """OBSに接続"""
-        if self.is_direct_capture():
+        if not self.uses_obs_websocket():
             self.stop_monitor()
             if self.client:
                 try:
@@ -105,7 +112,7 @@ class OBSWebSocketManager(QObject):
                     pass
                 self.client = None
             self.is_connected = False
-            self._emit_status("直接取得モード", True)
+            self._emit_status("直接取得モード", False)
             return True
 
         if not OBSWS_AVAILABLE:
@@ -117,6 +124,8 @@ class OBSWebSocketManager(QObject):
             return False
         
         try:
+            self.stop_monitor()
+
             # 既存の接続を切断
             if self.client:
                 try:
@@ -166,13 +175,6 @@ class OBSWebSocketManager(QObject):
     
     def disconnect(self):
         """OBSから切断"""
-        if self.is_direct_capture():
-            self.stop_monitor()
-            self.is_connected = False
-            if self.ui:
-                self._emit_status(self.ui.obs.status_disconnected, False)
-            return
-
         logger.info("Disconnecting from OBS WebSocket")
         
         # 監視スレッドを停止
@@ -188,7 +190,8 @@ class OBSWebSocketManager(QObject):
 
         self.is_connected = False
         self._scene_collection_applied = False
-        self._emit_status(self.ui.obs.status_disconnected, False)
+        if self.ui:
+            self._emit_status(self.ui.obs.status_disconnected, False)
     
     def start_monitor(self):
         """接続監視スレッドを開始"""
@@ -241,9 +244,6 @@ class OBSWebSocketManager(QObject):
                 
                 # 接続状態チェック
                 if self.is_connected and self.client:
-                    # 接続中は何もしない。
-                    # 切断検出はメインスレッドの screenshot() 失敗が担う
-                    # （モニタースレッドと self.client を同時使用する race condition を避けるため）
                     consecutive_failures = 0
 
                 else:
@@ -334,11 +334,18 @@ class OBSWebSocketManager(QObject):
         """
         if not self.config:
             return self.ui.obs.not_configured, False
-        elif self.is_direct_capture():
+        elif self.is_direct_capture() and not self.is_obs_control_enabled():
             error = self.direct_capture.last_error if self.direct_capture else ""
             if error:
                 return f"直接取得: {error}", False
             return f"直接取得: {self.config.direct_capture_title}", True
+        elif self.is_direct_capture() and self.is_obs_control_enabled():
+            error = self.direct_capture.last_error if self.direct_capture else ""
+            if error:
+                return f"直接取得: {error}", False
+            if not self.is_connected:
+                return "直接取得 / OBS制御: 未接続", False
+            return f"直接取得 / OBS制御: 接続中 ({self.config.websocket_host}:{self.config.websocket_port})", True
         elif not OBSWS_AVAILABLE:
             return "obsws_python がインストールされていません", False
         elif not self.is_connected:
@@ -471,19 +478,15 @@ class OBSWebSocketManager(QObject):
             self.screen = None
 
     def _on_screenshot_failed(self):
-        """screenshot() 失敗を記録し、連続3回で切断と判定してモニタースレッドに通知する。
-        メインスレッドからのみ呼ばれる前提（モニタースレッドとの self.client 競合を排除）。
+        """screenshot() 失敗を記録する。
+
+        save_source_screenshot の失敗は、監視対象ソース名・シーンコレクション・
+        OBS側の一時的な状態でも起きるため、WebSocket切断とは扱わない。
         """
-        if not self.is_connected:
-            return
         self._screenshot_failures += 1
         if self._screenshot_failures >= 3:
-            logger.warning(f"OBS connection lost (screenshot failed {self._screenshot_failures} times)")
+            logger.warning(f"OBS screenshot failed {self._screenshot_failures} times")
             self._screenshot_failures = 0
-            self.is_connected = False
-            self.client = None
-            if self.ui:
-                self._emit_status(self.ui.obs.status_lost, False)
     
     @_require_connection
     def save_screenshot_dst(self, source: str, dst: str, disable_wh:bool=False) -> bool:

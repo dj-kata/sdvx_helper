@@ -6,7 +6,7 @@ OBS制御設定ダイアログ(PySide6版・改良版)
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QTableWidget,
                                QTableWidgetItem, QPushButton, QLabel, QComboBox,
                                QGroupBox, QHeaderView, QMessageBox, QFormLayout,
-                               QLineEdit, QSpinBox)
+                               QLineEdit, QSpinBox, QCheckBox)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
 from src.logger import get_logger
@@ -80,6 +80,9 @@ class OBSControlDialog(QDialog):
         websocket_group = QGroupBox(self.ui.obs.websocket_group)
         websocket_layout = QFormLayout()
         websocket_group.setLayout(websocket_layout)
+
+        self.obs_control_enabled_check = QCheckBox(self.ui.obs.obs_control_enabled)
+        websocket_layout.addRow("", self.obs_control_enabled_check)
         
         self.websocket_host_edit = QLineEdit()
         websocket_layout.addRow(self.ui.obs.websocket_host, self.websocket_host_edit)
@@ -241,6 +244,12 @@ class OBSControlDialog(QDialog):
     
     def update_scene_list(self):
         """OBSからシーン一覧を取得してコンボボックスを更新"""
+        self._apply_websocket_fields_to_config()
+
+        if not self.obs_manager.uses_obs_websocket():
+            logger.info("OBS WebSocketを使わない設定のためシーンリスト取得をスキップします")
+            return
+
         if not self.obs_manager.is_connected:
             logger.warning("OBSに接続されていません")
             return
@@ -248,6 +257,14 @@ class OBSControlDialog(QDialog):
         try:
             # OBSからシーン一覧を取得(List[Dict])
             scenes_data = self.obs_manager.get_scene_list()
+            if scenes_data is None:
+                logger.warning("OBSシーンリスト取得に失敗しました")
+                QMessageBox.warning(
+                    self,
+                    self.ui.message.error_title,
+                    "シーンリストの取得に失敗しました。\nOBS WebSocketの接続設定を確認してください。"
+                )
+                return
 
             self.target_scene_combo.clear()
             self.switch_scene_combo.clear()
@@ -270,7 +287,7 @@ class OBSControlDialog(QDialog):
 
     def _update_scene_collection_list(self):
         """OBSからシーンコレクション一覧を取得してコンボボックスを更新"""
-        if not self.obs_manager.is_connected:
+        if not self.obs_manager.uses_obs_websocket() or not self.obs_manager.is_connected:
             return
 
         try:
@@ -305,7 +322,7 @@ class OBSControlDialog(QDialog):
     def on_scene_collection_changed(self):
         """シーンコレクション選択変更時にOBS側を切り替える"""
         name = self.scene_collection_combo.currentData()
-        if not name or not self.obs_manager.is_connected:
+        if not name or not self.obs_manager.uses_obs_websocket() or not self.obs_manager.is_connected:
             return
         try:
             self.obs_manager.set_scene_collection(name)
@@ -316,12 +333,16 @@ class OBSControlDialog(QDialog):
     def on_target_scene_changed(self):
         """対象シーンが変更されたときにソース一覧を更新"""
         scene_name = self.target_scene_combo.currentText()
-        if not scene_name or not self.obs_manager.is_connected:
+        if not scene_name or not self.obs_manager.uses_obs_websocket() or not self.obs_manager.is_connected:
             return
         
         try:
             # OBSから指定シーンのソース一覧を取得(List[str])
             sources = self.obs_manager.get_source_list(scene_name)
+            if sources is None:
+                logger.warning(f"OBSソースリスト取得に失敗しました: {scene_name}")
+                self.target_source_combo.clear()
+                return
             
             self.target_source_combo.clear()
             for source in sources:
@@ -436,7 +457,11 @@ class OBSControlDialog(QDialog):
                 self.config.obs_control_settings.append(setting)
                 
                 logger.info(f"監視対象ソースを設定: {target_source} (シーン: {target_scene})")
-                QMessageBox.information(self, self.ui.obs.setting_complete, self.ui.obs.source_configured.format(target_source))
+                QMessageBox.information(
+                    self,
+                    self.ui.obs.setting_complete,
+                    self.ui.obs.source_configured.format(target_source=target_source)
+                )
                 
                 # フォームをリセット
                 self.reset_form()
@@ -562,6 +587,9 @@ class OBSControlDialog(QDialog):
         self.settings_table.setRowCount(0)
         
         # WebSocket設定を読み込む
+        self.obs_control_enabled_check.setChecked(
+            getattr(self.config, 'obs_control_enabled', False)
+        )
         self.websocket_host_edit.setText(self.config.websocket_host)
         self.websocket_port_spin.setValue(self.config.websocket_port)
         self.websocket_password_edit.setText(self.config.websocket_password)
@@ -611,16 +639,23 @@ class OBSControlDialog(QDialog):
     def reconnect_obs(self):
         """OBSに再接続"""
         try:
+            self._apply_websocket_fields_to_config()
+            self.obs_manager.set_config(self.config)
+
             self.obs_manager.disconnect()
             success = self.obs_manager.connect()
             if success:
                 self.update_scene_list()
-                QMessageBox.information(self, self.ui.message.success, self.ui.message.reconnected_to_obs)
+                QMessageBox.information(self, self.ui.message.success, self.ui.obs.reconnected_to_obs)
             else:
-                QMessageBox.warning(self, self.ui.message.error_title, self.ui.message.failed_reconnection_to_obs)
+                QMessageBox.warning(self, self.ui.message.error_title, self.ui.obs.failed_reconnection_to_obs)
         except Exception as e:
             logger.error(f"OBS再接続エラー: {e}")
-            QMessageBox.warning(self, self.ui.message.error_title, self.ui.message.failed_reconnection_to_obs_with_error.format(e))
+            QMessageBox.warning(
+                self,
+                self.ui.message.error_title,
+                self.ui.obs.failed_reconnection_to_obs_with_error.format(error=e)
+            )
     
     def clear_monitor_source(self):
         """監視対象ソースをクリア"""
@@ -643,13 +678,18 @@ class OBSControlDialog(QDialog):
             
             logger.info("監視対象ソースをクリアしました")
             QMessageBox.information(self, self.ui.message.completed_title, self.ui.message.target_source_removed)
+
+    def _apply_websocket_fields_to_config(self):
+        """ダイアログ上のOBS WebSocket設定をconfigへ反映する。"""
+        self.config.obs_control_enabled = self.obs_control_enabled_check.isChecked()
+        self.config.websocket_host = self.websocket_host_edit.text().strip() or "localhost"
+        self.config.websocket_port = self.websocket_port_spin.value()
+        self.config.websocket_password = self.websocket_password_edit.text()
     
     def accept(self):
         """OKボタン"""
         # WebSocket設定を保存
-        self.config.websocket_host = self.websocket_host_edit.text()
-        self.config.websocket_port = self.websocket_port_spin.value()
-        self.config.websocket_password = self.websocket_password_edit.text()
+        self._apply_websocket_fields_to_config()
 
         # シーンコレクション設定を保存
         selected_collection = self.scene_collection_combo.currentData()
