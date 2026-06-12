@@ -24,6 +24,17 @@ from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
 
+_TITLE_SPACE_TRANSLATION = str.maketrans({
+    '\u00a0': ' ',  # no-break space used in arcade CSV exports
+    '\u202f': ' ',  # narrow no-break space
+    '\u3000': ' ',  # ideographic space
+})
+
+
+def _normalize_title(title: str) -> str:
+    """CSVなど外部データ由来の曲名をDB照合用に軽く正規化する。"""
+    return title.translate(_TITLE_SPACE_TRANSLATION).strip()
+
 
 class RivalScoreEntry:
     """1譜面分のライバルスコア"""
@@ -194,7 +205,7 @@ class RivalFetchWorker(QThread):
             return ''
 
         for row in reader:
-            title    = _get(row, 'title', '楽曲名')
+            title    = _normalize_title(_get(row, 'title', '楽曲名'))
             diff_raw = _get(row, 'difficulty', '難易度').upper()
             score_s  = _get(row, 'score', 'ハイスコア', 'スコア')
             lamp_s   = _get(row, 'lamp', 'クリアランク', 'クリア')
@@ -234,7 +245,7 @@ class RivalFetchWorker(QThread):
             for s in scores:
                 if not isinstance(s, dict):
                     continue
-                title    = s.get('title', '')
+                title    = _normalize_title(s.get('title', ''))
                 diff_raw = s.get('difficulty', '').upper()
                 score    = s.get('score', 0)
                 if not title or not diff_raw:
@@ -298,7 +309,7 @@ class RivalManager(QObject):
                     entry.lamp = clear_lamp(r['lamp'])
                     entry.score = r['score']
                     entry.exscore = r['exscore']
-                    rd.scores[(r['title'], r['difficulty'])] = entry
+                    rd.scores[(_normalize_title(r['title']), r['difficulty'])] = entry
                 new_rivals.append(rd)
             
             self.rivals = new_rivals
@@ -317,7 +328,7 @@ class RivalManager(QObject):
             for rd in old_rivals:
                 for (title, diff_str), entry in rd.scores.items():
                     self.db.upsert_rival_score(
-                        rd.name, title, diff_str, 
+                        rd.name, _normalize_title(title), diff_str, 
                         entry.score, entry.lamp.value, entry.exscore
                     )
             self.db.commit()
@@ -342,9 +353,10 @@ class RivalManager(QObject):
                 )
             for rd in self.rivals:
                 if rd.error: continue
+                self.db.delete_rival(rd.name)
                 for (title, diff_str), entry in rd.scores.items():
                     self.db.upsert_rival_score(
-                        rd.name, title, diff_str,
+                        rd.name, _normalize_title(title), diff_str,
                         entry.score, entry.lamp.value, entry.exscore
                     )
             self.db.commit()
