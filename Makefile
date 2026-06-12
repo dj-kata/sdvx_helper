@@ -14,10 +14,6 @@ all: $(target_zip)
 
 $(target_zip): $(target) $(html_files) version.txt
 	@rm -rf $(target_zip)
-	@cp version.txt $(project_name)
-	@cp -a template $(project_name)
-	@mkdir -p $(project_name)/infnotebook
-	@cp -a infnotebook/resources $(project_name)/infnotebook/
 	@rm -rf $(project_name)/log
 	@rm -rf $(project_name)/*.json
 	@$(ZIP) $(target_zip) $(project_name)
