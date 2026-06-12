@@ -1436,20 +1436,14 @@ class Maya2TitleConverter:
         self.forward_table = {}
         self.backward_table = {}
 
-    def title_candidates(self, key: str):
-        """HTML entityだけを吸収する検索候補を返す。"""
+    def normalize_title(self, key: str) -> str:
+        """HTML entityだけを正規化した曲名を返す。"""
         if key is None:
-            return []
-        candidates = []
+            return ""
+        return html.unescape(key)
 
-        def append(value):
-            if value is not None and value not in candidates:
-                candidates.append(value)
-
-        append(key)
-        append(html.unescape(key))
-        append("".join(f"&#{ord(ch)};" if ord(ch) > 127 else ch for ch in key))
-        return candidates
+    def is_same_title(self, left: str, right: str) -> bool:
+        return self.normalize_title(left) == self.normalize_title(right)
 
     def forward(self, key: str) -> str:
         """sdvx_helper側の曲名をmaya2側の曲名に変換する
@@ -1710,9 +1704,8 @@ class ManageMaya2:
         ret = None
         try:
             logger.debug(f"title:{title}, fumen:{fumen}")
-            title_candidates = self.conv_table.title_candidates(title)
             for m in self.master_db:
-                if m.get("title") in title_candidates:
+                if self.conv_table.is_same_title(m.get("title"), title):
                     for c in m.get("charts"):
                         # 指定の名前が存在 or 最上位譜面でかつこのループが下位譜面でない
                         if (
@@ -1728,9 +1721,8 @@ class ManageMaya2:
     def search_musicinfo(self, title):
         """楽曲を検索する"""
         ret = None
-        title_candidates = self.conv_table.title_candidates(title)
         for m in self.master_db:
-            if m.get("title") in title_candidates:
+            if self.conv_table.is_same_title(m.get("title"), title):
                 ret = m
         return ret
 
