@@ -414,10 +414,17 @@ def launch_gui() -> None:
             self._data: list[dict] = []
             self._filtered: list[dict] = []
             self._search = ''
+            self._exclude_titles: set[str] = set()
 
         def set_data(self, data: list[dict]):
             self.beginResetModel()
             self._data = data
+            self._apply_filter()
+            self.endResetModel()
+
+        def set_exclude_titles(self, titles: set[str]):
+            self.beginResetModel()
+            self._exclude_titles = titles
             self._apply_filter()
             self.endResetModel()
 
@@ -428,14 +435,16 @@ def launch_gui() -> None:
             self.endResetModel()
 
         def _apply_filter(self):
-            if not self._search:
-                self._filtered = self._data[:]
-            else:
+            rows = self._data
+            if self._exclude_titles:
+                rows = [m for m in rows if m.get('title', '') not in self._exclude_titles]
+            if self._search:
                 s = self._search
-                self._filtered = [
-                    m for m in self._data
+                rows = [
+                    m for m in rows
                     if any(s in _normalize_search_text(m.get(f, '')) for f in self._SEARCH_FIELDS)
                 ]
+            self._filtered = rows
 
         def rowCount(self, parent=QModelIndex()):
             return len(self._filtered)
@@ -549,9 +558,9 @@ def launch_gui() -> None:
             for rb in (self._rb_v1, self._rb_v2):
                 rb.toggled.connect(self._on_filter_changed)
                 filter_layout.addWidget(rb)
-            self._cb_missing_master = QCheckBox('マスタにない曲を表示')
-            self._cb_missing_master.stateChanged.connect(self._on_filter_changed)
-            filter_layout.addWidget(self._cb_missing_master)
+            self._cb_missing_db = QCheckBox('DBにない曲を表示')
+            self._cb_missing_db.stateChanged.connect(self._on_filter_changed)
+            filter_layout.addWidget(self._cb_missing_db)
             ll.addWidget(filter_box)
 
             diff_box = QGroupBox('難易度フィルタ')
@@ -574,7 +583,7 @@ def launch_gui() -> None:
             self._btn_add = QPushButton('選択曲をv2に追加\n（マスタ曲名でキー）')
             self._btn_add.setEnabled(False)
             self._btn_add.setToolTip(
-                'v1表示で「マスタにない曲を表示」がONのときに\n'
+                'v1表示で「DBにない曲を表示」がONのときに\n'
                 'SDVX DB行とポータルマスタ行を両方選択してクリック'
             )
             self._btn_add.clicked.connect(self._on_add_to_v2)
@@ -678,6 +687,7 @@ def launch_gui() -> None:
             else:
                 self._v2 = {}
 
+            self._refresh_portal_filter()
             self._refresh_sdvx_table()
 
         def _start_fetch(self):
@@ -699,6 +709,7 @@ def launch_gui() -> None:
             self._portal_count_label.setText(f'({len(master_db)} 曲)')
             self._btn_fetch.setEnabled(True)
             self.statusBar().showMessage(f'ポータルマスタ取得完了: {len(master_db)} 曲')
+            self._refresh_portal_filter()
             self._refresh_sdvx_table()
 
         def _on_portal_error(self, msg: str):
@@ -708,24 +719,28 @@ def launch_gui() -> None:
         # ── テーブル更新 ──────────────────────────────────────────────────────
 
         def _refresh_sdvx_table(self):
-            exclude_set = self._portal_title_set if self._cb_missing_master.isChecked() else None
             if self._rb_v2.isChecked():
-                rows    = _build_rows(self._v2, exclude_set=exclude_set)
-                n_songs = len({r[0] for r in rows}) if exclude_set is not None else len(self._v2.get('titles', {}))
-                suffix  = '・マスタなし' if exclude_set is not None else ''
-                label   = f'SDVX DB (v2{suffix}) — {n_songs} 曲 / {len(rows)} 譜面'
+                rows    = _build_rows(self._v2)
+                n_songs = len(self._v2.get('titles', {}))
+                label   = f'SDVX DB (v2) — {n_songs} 曲 / {len(rows)} 譜面'
                 self._sdvx_model.set_rows(rows)
                 self._sdvx_model.set_v2_hashes(set())
             else:
-                rows    = _build_rows(self._v1, exclude_set=exclude_set)
-                n_songs = len({r[0] for r in rows}) if exclude_set is not None else len(self._v1.get('titles', {}))
-                suffix  = '・マスタなし' if exclude_set is not None else ''
-                label   = f'SDVX DB (v1{suffix}) — {n_songs} 曲 / {len(rows)} 譜面'
+                rows    = _build_rows(self._v1)
+                n_songs = len(self._v1.get('titles', {}))
+                label   = f'SDVX DB (v1) — {n_songs} 曲 / {len(rows)} 譜面'
                 self._sdvx_model.set_rows(rows)
-                self._sdvx_model.set_v2_hashes(_build_v2_hashes(self._v2) if exclude_set is not None else set())
+                self._sdvx_model.set_v2_hashes(set())
 
             self._sdvx_label.setText(label)
             self._update_add_button()
+
+        def _refresh_portal_filter(self):
+            if self._cb_missing_db.isChecked():
+                db = self._v2 if self._rb_v2.isChecked() else self._v1
+                self._portal_model.set_exclude_titles(set(db.get('titles', {}).keys()))
+            else:
+                self._portal_model.set_exclude_titles(set())
 
         # ── イベントハンドラ ──────────────────────────────────────────────────
 
@@ -749,6 +764,7 @@ def launch_gui() -> None:
 
         def _on_filter_changed(self):
             self._sdvx_search.clear()
+            self._refresh_portal_filter()
             self._refresh_sdvx_table()
             self._update_add_button()
 
@@ -766,7 +782,7 @@ def launch_gui() -> None:
             portal_sel = self._portal_view.selectionModel().selectedRows()
             can_add = (
                 self._rb_v1.isChecked()
-                and self._cb_missing_master.isChecked()
+                and self._cb_missing_db.isChecked()
                 and bool(sdvx_sel)
                 and bool(portal_sel)
             )
@@ -899,6 +915,7 @@ def launch_gui() -> None:
                 QMessageBox.critical(self, 'エラー', f'v2追加失敗:\n{e}')
                 return
 
+            self._refresh_portal_filter()
             self._refresh_sdvx_table()
             self.statusBar().showMessage(
                 f'v2へ追加完了: {added_title} ({hash_count}譜面にhash登録)'
