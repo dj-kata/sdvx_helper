@@ -193,6 +193,45 @@ def update_jacket_hash(v2: dict, title: str, diff_name: str, hash_hex: str) -> t
     return len(target_keys), scope
 
 
+def add_portal_song_to_v2(portal_entry: dict, v2: dict, hash_hex: str) -> tuple[bool, str, int]:
+    """ポータルマスタの曲をv2へ新規追加する。
+
+    Returns:
+        (追加したか, 曲名, hash登録譜面数)
+    """
+    title = portal_entry.get('title', '')
+    if not title:
+        raise ValueError('ポータルマスタの曲名が取得できません')
+    if title in v2.get('titles', {}):
+        return False, title, 0
+
+    levels = {'nov': 0, 'adv': 0, 'exh': 0, 'APPEND': 0}
+    chart_keys = []
+    for chart in portal_entry.get('charts', []):
+        cdiff = chart.get('difficulty', '')
+        db_key = _DIFF_NAME_TO_KEY.get(cdiff, 'APPEND')
+        level = int(chart.get('level') or 0)
+        if level:
+            levels[db_key] = level
+            if db_key not in chart_keys:
+                chart_keys.append(db_key)
+
+    v2.setdefault('titles', {})[title] = [
+        title,
+        portal_entry.get('artist', ''),
+        '',
+        levels['nov'],
+        levels['adv'],
+        levels['exh'],
+        levels['APPEND'],
+    ]
+
+    for db_key in chart_keys:
+        v2.setdefault('jacket', {}).setdefault(db_key, {})[title] = hash_hex
+
+    return True, title, len(chart_keys)
+
+
 def _normalize_search_text(text: str) -> str:
     """検索用に半角カナ・全角カナ・ひらがなを寄せる。"""
     normalized = unicodedata.normalize('NFKC', str(text)).lower()
@@ -280,9 +319,10 @@ def launch_gui() -> None:
             QVBoxLayout, QHBoxLayout, QGroupBox, QRadioButton, QCheckBox,
             QLineEdit, QLabel, QPushButton, QTableView,
             QHeaderView, QAbstractItemView, QMessageBox, QStatusBar, QInputDialog,
+            QMenu,
         )
         from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QThread, Signal, QSortFilterProxyModel
-        from PySide6.QtGui import QColor
+        from PySide6.QtGui import QColor, QAction
     except ImportError:
         print('[ERROR] PySide6 がインストールされていません。')
         sys.exit(1)
@@ -505,11 +545,13 @@ def launch_gui() -> None:
             filter_layout = QVBoxLayout(filter_box)
             self._rb_v1        = QRadioButton('v1 (musiclist.pkl)')
             self._rb_v2        = QRadioButton('v2 (musiclistv2.sdvxh)')
-            self._rb_unmatched = QRadioButton('v1にあってマスタにない曲')
-            self._rb_v1.setChecked(True)
-            for rb in (self._rb_v1, self._rb_v2, self._rb_unmatched):
+            self._rb_v2.setChecked(True)
+            for rb in (self._rb_v1, self._rb_v2):
                 rb.toggled.connect(self._on_filter_changed)
                 filter_layout.addWidget(rb)
+            self._cb_missing_master = QCheckBox('マスタにない曲を表示')
+            self._cb_missing_master.stateChanged.connect(self._on_filter_changed)
+            filter_layout.addWidget(self._cb_missing_master)
             ll.addWidget(filter_box)
 
             diff_box = QGroupBox('難易度フィルタ')
@@ -532,7 +574,7 @@ def launch_gui() -> None:
             self._btn_add = QPushButton('選択曲をv2に追加\n（マスタ曲名でキー）')
             self._btn_add.setEnabled(False)
             self._btn_add.setToolTip(
-                '「v1にあってマスタにない曲」表示中に\n'
+                'v1表示で「マスタにない曲を表示」がONのときに\n'
                 'SDVX DB行とポータルマスタ行を両方選択してクリック'
             )
             self._btn_add.clicked.connect(self._on_add_to_v2)
@@ -577,6 +619,8 @@ def launch_gui() -> None:
             self._portal_view.verticalHeader().setDefaultSectionSize(22)
             self._portal_view.verticalHeader().setVisible(False)
             self._portal_view.selectionModel().selectionChanged.connect(self._update_add_button)
+            self._portal_view.setContextMenuPolicy(Qt.CustomContextMenu)
+            self._portal_view.customContextMenuRequested.connect(self._show_portal_context_menu)
             rl.addWidget(self._portal_view)
 
             hsplit.addWidget(right)
@@ -664,24 +708,21 @@ def launch_gui() -> None:
         # ── テーブル更新 ──────────────────────────────────────────────────────
 
         def _refresh_sdvx_table(self):
+            exclude_set = self._portal_title_set if self._cb_missing_master.isChecked() else None
             if self._rb_v2.isChecked():
-                rows    = _build_rows(self._v2)
-                n_songs = len(self._v2.get('titles', {}))
-                label   = f'SDVX DB (v2) — {n_songs} 曲 / {len(rows)} 譜面'
+                rows    = _build_rows(self._v2, exclude_set=exclude_set)
+                n_songs = len({r[0] for r in rows}) if exclude_set is not None else len(self._v2.get('titles', {}))
+                suffix  = '・マスタなし' if exclude_set is not None else ''
+                label   = f'SDVX DB (v2{suffix}) — {n_songs} 曲 / {len(rows)} 譜面'
                 self._sdvx_model.set_rows(rows)
                 self._sdvx_model.set_v2_hashes(set())
-            elif self._rb_unmatched.isChecked():
-                rows    = _build_rows(self._v1, exclude_set=self._portal_title_set)
-                n_songs = len({r[0] for r in rows})
-                label   = f'SDVX DB (v1のみ・マスタになし) — {n_songs} 曲 / {len(rows)} 譜面'
-                self._sdvx_model.set_rows(rows)
-                self._sdvx_model.set_v2_hashes(_build_v2_hashes(self._v2))
             else:
-                rows    = _build_rows(self._v1)
-                n_songs = len(self._v1.get('titles', {}))
-                label   = f'SDVX DB (v1) — {n_songs} 曲 / {len(rows)} 譜面'
+                rows    = _build_rows(self._v1, exclude_set=exclude_set)
+                n_songs = len({r[0] for r in rows}) if exclude_set is not None else len(self._v1.get('titles', {}))
+                suffix  = '・マスタなし' if exclude_set is not None else ''
+                label   = f'SDVX DB (v1{suffix}) — {n_songs} 曲 / {len(rows)} 譜面'
                 self._sdvx_model.set_rows(rows)
-                self._sdvx_model.set_v2_hashes(set())
+                self._sdvx_model.set_v2_hashes(_build_v2_hashes(self._v2) if exclude_set is not None else set())
 
             self._sdvx_label.setText(label)
             self._update_add_button()
@@ -693,6 +734,18 @@ def launch_gui() -> None:
 
         def _on_portal_search(self, text: str):
             self._portal_model.set_search(text)
+
+        def _show_portal_context_menu(self, pos):
+            idx = self._portal_view.indexAt(pos)
+            if not idx.isValid():
+                return
+            self._portal_view.selectRow(idx.row())
+
+            menu = QMenu(self)
+            add_action = QAction('v2へ新規追加...', self)
+            add_action.triggered.connect(self._on_add_portal_song_to_v2)
+            menu.addAction(add_action)
+            menu.exec(self._portal_view.viewport().mapToGlobal(pos))
 
         def _on_filter_changed(self):
             self._sdvx_search.clear()
@@ -712,7 +765,8 @@ def launch_gui() -> None:
             sdvx_sel   = self._sdvx_view.selectionModel().selectedRows()
             portal_sel = self._portal_view.selectionModel().selectedRows()
             can_add = (
-                self._rb_unmatched.isChecked()
+                self._rb_v1.isChecked()
+                and self._cb_missing_master.isChecked()
                 and bool(sdvx_sel)
                 and bool(portal_sel)
             )
@@ -798,6 +852,57 @@ def launch_gui() -> None:
                 self.statusBar().showMessage(f'hash更新完了: {title} 全{count}譜面へコピー')
             else:
                 self.statusBar().showMessage(f'hash更新完了: {title} {diff_name}')
+
+        def _on_add_portal_song_to_v2(self):
+            portal_rows = self._portal_view.selectionModel().selectedRows()
+            if not portal_rows:
+                return
+
+            portal_entry = self._portal_model.get_row(portal_rows[0].row())
+            title = portal_entry.get('title', '')
+            if not title:
+                QMessageBox.warning(self, 'エラー', 'ポータルマスタの曲名が取得できません。')
+                return
+            if title in self._v2.get('titles', {}):
+                QMessageBox.information(self, '情報', f'既にv2へ登録済みです:\n{title}')
+                return
+
+            hash_hex, ok = QInputDialog.getText(
+                self,
+                'v2へ新規追加',
+                f'{title}\n全譜面に登録する jacket hash:',
+                QLineEdit.Normal,
+                '',
+            )
+            if not ok:
+                return
+
+            hash_hex = hash_hex.strip().lower()
+            if not hash_hex:
+                QMessageBox.warning(self, 'エラー', 'hashが空です。')
+                return
+            try:
+                int(hash_hex, 16)
+            except ValueError:
+                QMessageBox.warning(self, 'エラー', 'hashは16進数で入力してください。')
+                return
+
+            try:
+                added, added_title, hash_count = add_portal_song_to_v2(
+                    portal_entry, self._v2, hash_hex
+                )
+                if not added:
+                    QMessageBox.information(self, '情報', f'既にv2へ登録済みです:\n{added_title}')
+                    return
+                _save_sdvxh(self._v2, _MUSICLIST_V2)
+            except Exception as e:
+                QMessageBox.critical(self, 'エラー', f'v2追加失敗:\n{e}')
+                return
+
+            self._refresh_sdvx_table()
+            self.statusBar().showMessage(
+                f'v2へ追加完了: {added_title} ({hash_count}譜面にhash登録)'
+            )
 
     # ── 起動 ─────────────────────────────────────────────────────────────────
 
