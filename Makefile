@@ -9,16 +9,16 @@ version=$(shell head -n1 version.txt)
 ZIP ?= 7z a -tzip -mx=1 -mmt=on
 
 # all: $(target_zip)
-top: $(target)
+top: $(target_zip)
 all: $(target_zip)
 
-$(target_zip): $(target) $(html_files) version.txt
+$(target_zip): $(target)
 	@rm -rf $(target_zip)
 	@rm -rf $(project_name)/log
 	@rm -rf $(project_name)/*.json
 	@$(ZIP) $(target_zip) $(project_name)
 
-$(target): $(srcs)
+$(target): $(srcs) $(html_files) version.txt
 	@rm -rf $(project_name)
 	@$(wuv) run setup.py build
 	@echo "不要なファイルを削除中..."
