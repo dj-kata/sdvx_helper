@@ -44,6 +44,8 @@ class Config:
 
         # ─── 画像保存 ─────────────────────────────────────────────────────
         self.image_save_path: str  = 'results'
+        self.image_save_format: str = 'png'
+        """保存するリザルト画像の形式。'png' または 'jpg'"""
         self.autosave_image:  bool = True
         """リザルト画面を自動保存するか"""
         self.autosave_updated_score_only: bool = False
@@ -104,6 +106,8 @@ class Config:
             for key, val in data.items():
                 if hasattr(self, key):
                     setattr(self, key, val)
+            if self.image_save_format not in ('png', 'jpg'):
+                self.image_save_format = 'png'
             logger.info(f"config.json ロード完了")
         except FileNotFoundError:
             logger.info("config.json が見つかりません。デフォルト設定を使用します。")

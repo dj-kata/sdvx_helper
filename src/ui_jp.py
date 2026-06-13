@@ -70,6 +70,9 @@ class UIText:
         """画像保存設定タブ"""
         path_group = '保存先'
         image_save_path = '画像保存先:'
+        image_format = '保存形式:'
+        image_format_png = 'PNG'
+        image_format_jpg = 'JPG'
         autosave_image = 'リザルト画面を自動保存する'
         autosave_updated_score_only = '更新があったスコアのみ保存'
         summary_updated_results_only = 'レシートにも更新されたリザルトのみ含む'

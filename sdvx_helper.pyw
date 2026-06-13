@@ -48,9 +48,30 @@ logger = get_logger('sdvx_helper')
 
 try:
     with open('version.txt', 'r') as f:
-        SWVER = f.readline().strip().lstrip('v')
+        tmp = f.readline().strip()
+        SWVER = tmp[2:] if tmp.startswith('v.') else tmp.lstrip('v')
 except Exception:
     SWVER = "0.0.0"
+
+
+def check_auto_update():
+    """起動前にGitHub releaseを確認し、更新があればupdaterを実行する。"""
+    try:
+        from src.update import GitHubUpdater
+
+        updater = GitHubUpdater(
+            github_author='dj-kata',
+            github_repo='sdvx_helper',
+            zipfile_basename='sdvx_helper',
+            current_version=SWVER,
+            main_exe_name='sdvx_helper.exe',
+            updator_exe_name='sdvx_helper.exe',
+        )
+        updater.check_and_update()
+    except SystemExit:
+        raise
+    except Exception:
+        logger.error(f"自動アップデート確認エラー:\n{traceback.format_exc()}")
 
 
 class MainWindow(MainWindowUI):
@@ -208,7 +229,8 @@ class MainWindow(MainWindowUI):
             start_time = self.start_time_with_offset
             candidates = sorted(
                 (
-                    p for p in image_dir.glob("*.png")
+                    p for ext in ("*.png", "*.jpg", "*.jpeg")
+                    for p in image_dir.glob(ext)
                     if p.is_file() and int(p.stat().st_mtime) >= start_time
                 ),
                 key=lambda p: p.stat().st_mtime,
@@ -348,13 +370,21 @@ class MainWindow(MainWindowUI):
                         scene = setting.get("scene")
                         source = setting.get("source")
                         if scene and source:
+                            image_format = getattr(self.config, 'image_save_format', 'png')
+                            if image_format not in ('png', 'jpg'):
+                                image_format = 'png'
                             fname = (
                                 escape_for_filename(os.path.splitext(source)[0])
-                                + f"_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+                                + f"_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.{image_format}"
                             )
                             dst = Path(self.config.image_save_path).resolve() / fname
                             dst.parent.mkdir(parents=True, exist_ok=True)
-                            ok = self.obs_manager.save_screenshot_dst(source, str(dst), disable_wh=True)
+                            ok = self.obs_manager.save_screenshot_dst(
+                                source,
+                                str(dst),
+                                disable_wh=True,
+                                image_format=image_format,
+                            )
                             if ok:
                                 logger.info(f"OBSソースキャプチャ保存: {source} -> {dst}")
                             else:
@@ -887,6 +917,10 @@ class MainWindow(MainWindowUI):
     def save_image(self, score=None, exscore=None, lamp=None, screen=None):
         """現在の画面キャプチャを保存する"""
         try:
+            image_format = getattr(self.config, 'image_save_format', 'png')
+            if image_format not in ('png', 'jpg'):
+                image_format = 'png'
+
             date_str = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             if self.current_title and self.current_diff:
                 parts = [
@@ -901,9 +935,9 @@ class MainWindow(MainWindowUI):
                 if lamp is not None:
                     parts.append(str(lamp))
                 parts.append(date_str)
-                filename = "_".join(parts) + ".png"
+                filename = "_".join(parts) + f".{image_format}"
             else:
-                filename = f"sdvx_{date_str}.png"
+                filename = f"sdvx_{date_str}.{image_format}"
 
             filename = escape_for_filename(filename)
             os.makedirs(self.config.image_save_path, exist_ok=True)
@@ -912,7 +946,12 @@ class MainWindow(MainWindowUI):
             # 回転補正済み画像を優先、なければ生キャプチャ
             screen = screen or self._current_result_screen()
             if screen is not None:
-                screen.save(str(full_path))
+                if image_format == 'jpg':
+                    if screen.mode not in ('RGB', 'L'):
+                        screen = screen.convert('RGB')
+                    screen.save(str(full_path), format='JPEG', quality=92, optimize=True)
+                else:
+                    screen.save(str(full_path), format='PNG')
                 logger.info(f"画像保存: {full_path}")
                 self.statusBar().showMessage(f"保存: {filename}", 5000)
                 return True
@@ -987,4 +1026,5 @@ def main():
 
 
 if __name__ == "__main__":
+    check_auto_update()
     main()

@@ -489,7 +489,13 @@ class OBSWebSocketManager(QObject):
             self._screenshot_failures = 0
     
     @_require_connection
-    def save_screenshot_dst(self, source: str, dst: str, disable_wh:bool=False) -> bool:
+    def save_screenshot_dst(
+        self,
+        source: str,
+        dst: str,
+        disable_wh: bool = False,
+        image_format: str = 'png',
+    ) -> bool:
         """スクリーンショットを保存"""
         if disable_wh:
             picw = None
@@ -497,9 +503,11 @@ class OBSWebSocketManager(QObject):
         else:
             picw = self.picw
             pich = self.pich
+        if image_format not in ('png', 'jpg'):
+            image_format = 'png'
         self.client.save_source_screenshot(
-            source, 'png', dst,
-            picw, pich, 100
+            source, image_format, dst,
+            picw, pich, 92 if image_format == 'jpg' else 100
         )
         return True
 

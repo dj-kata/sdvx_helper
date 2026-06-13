@@ -18,7 +18,7 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 class GitHubUpdater:
-    def __init__(self, github_author='', github_repo='', current_version='', main_exe_name=None, updator_exe_name=None):
+    def __init__(self, github_author='', github_repo='', zipfile_basename='', current_version='', main_exe_name=None, updator_exe_name=None):
         """
         GitHub自動アップデータの初期化
         
@@ -30,6 +30,7 @@ class GitHubUpdater:
         """
         self.github_author = github_author
         self.github_repo = github_repo
+        self.zipfile_basename = zipfile_basename
         self.current_version = current_version
         self.main_exe_name = main_exe_name or "main.exe"
         self.updator_exe_name = updator_exe_name or "update.exe"
@@ -74,7 +75,7 @@ class GitHubUpdater:
         logger.debug(f"github_repo:{self.github_author}/{self.github_repo}")
         try:
             latest_version = self.get_latest_version()
-            download_url = f"https://github.com/{self.github_author}/{self.github_repo}/releases/download/{latest_version}/{self.github_repo}.zip"
+            download_url = f"https://github.com/{self.github_author}/{self.github_repo}/releases/download/{latest_version}/{self.zipfile_basename}.zip"
             logger.debug(f"latest_version:{latest_version}, current:{self.current_version}")
             
             # バージョン比較
@@ -177,47 +178,49 @@ class GitHubUpdater:
         for item in self.base_dir.iterdir():
             if item.name not in ['temp_update', 'backup'] and item.is_file():
                 shutil.copy2(item, self.backup_dir)
-    
-    def replace_files2(self):
-        target_dir = '.'
-        logger.debug(f'now moving..., repo:{self.github_repo}')
-        p = Path(f'tmp/{self.github_repo}')
-        failed_list = []
-        logger.debug('now moving...')
-        for f in p.iterdir():
-            logger.debug(f"f:{f}, is_dir:{f.is_dir()}")
-            if f.is_dir():
-                subdir=f.relative_to(f'tmp/{self.github_repo}')
-                logger.debug(f"mkdir {subdir}")
-                os.makedirs(subdir, exist_ok=True)
-        for f in p.glob('**/*.*'):
-            try:
-                base = str(f.relative_to(f'tmp/{self.github_repo}'))
-                if self.updator_exe_name in str(f):
-                    shutil.copy2(str(f), target_dir+'/new_'+base)
-                    logger.debug(f"from={str(f)}, to={target_dir+'/new_'+base}")
-                else:
-                    shutil.move(str(f), target_dir+'/'+base)
-                    logger.debug(f"from={str(f)}, to={target_dir+'/'+base}")
-            except Exception:
-                if self.updator_exe_name not in str(f):
-                    failed_list.append(f)
-                logger.debug(f"error! ({f})")
-                logger.debug(traceback.format_exc())
-        shutil.rmtree(f'tmp/{self.github_repo}')
-        out = ''
-        if len(failed_list) > 0:
-            out = '更新に失敗したファイル(tmp/tmp.zipから手動展開してください): '
-            out += '\n'.join(failed_list)
 
-    def create_restart_script(self, new_exe_path):
+    def copy_and_skip_errors(self, src, dst):
+        # コピー先ディレクトリを作成
+        os.makedirs(dst, exist_ok=True)
+
+        for root, dirs, files in os.walk(src):
+            # 相対パスを計算して、コピー先の階層を再現
+            rel_path = os.path.relpath(root, src)
+            dest_dir = os.path.join(dst, rel_path)
+            os.makedirs(dest_dir, exist_ok=True)
+
+            for file in files:
+                src_file = os.path.join(root, file)
+                dst_file = os.path.join(dest_dir, file)
+            
+                try:
+                    # copy2 はメタデータ（作成日時など）も保持して上書きコピー
+                    shutil.copy2(src_file, dst_file)
+                except (PermissionError, OSError):
+                    # 実行中のファイルなどでアクセス拒否された場合はここに来る
+                    logger.error(f"スキップ（使用中）: {file}")
+                    continue 
+
+    def create_restart_script(self, old_exe_path):
         logger.info('')
         """再起動用スクリプト作成"""
         if sys.platform.startswith('win'):
             script_path = self.base_dir / "restart_update.bat"
             script_content = f"""@echo off
 timeout /t 2 /nobreak >nul
-move "{new_exe_path}" "{self.base_dir / self.updator_exe_name}"
+:: 2. もし古いプロセスが残っていたら強制終了（念のため）
+taskkill /f /im "{self.main_exe_name}" >nul 2>&1
+
+:retry_del
+timeout /t 1 /nobreak >nul
+if exist "{old_exe_path}" (
+    del /f /q "{old_exe_path}" >nul 2>&1
+    if exist "{old_exe_path}" (
+        echo 削除再試行中...
+        goto retry_del
+    )
+)
+
 start "" "{self.main_exe_name}"
 del "%~f0"
 """
@@ -242,57 +245,6 @@ del "%~f0"
         if self.root:
             self.root.destroy()
         sys.exit(0)
-    
-    def run_update(self):
-        """アップデート実行"""
-        try:
-            # 最新版をチェック
-            is_update_available, latest_version, download_url = self.check_for_updates()
-            
-            if not is_update_available:
-                messagebox.showinfo("更新確認", "お使いのバージョンは最新です。")
-                if self.root:
-                    self.root.destroy()
-                return False
-            
-            # GUIを表示
-            if not self.root:
-                self.create_gui()
-            
-            # ダウンロード
-            zip_path = self.temp_dir / f"update_{latest_version}.zip"
-            self.temp_dir.mkdir(exist_ok=True)
-            
-            self.download_file(download_url, zip_path)
-            
-            # 解凍・置き換え
-            self.extract_and_replace_files(zip_path)
-
-            self.update_status("更新完了！プログラムを再起動します...", 100)
-            time.sleep(2)
-            
-            # 再起動スクリプトを実行
-            script_path = self.base_dir / ("restart_update.bat" if sys.platform.startswith('win') 
-                                         else "restart_update.sh")
-            if script_path.exists():
-                if sys.platform.startswith('win'):
-                    subprocess.Popen([str(script_path)], shell=True)
-                else:
-                    subprocess.Popen(['/bin/bash', str(script_path)])
-                
-                if self.root:
-                    self.root.destroy()
-                sys.exit(0)
-            
-            return True
-            
-        except Exception as e:
-            error_msg = f"更新エラー: {e}"
-            print(error_msg)
-            if self.root:
-                messagebox.showerror("エラー", error_msg)
-            self.cleanup()
-            return False
     
     def extract_zip_file(self, zip_path):
         """zipファイルを解凍する。tmp直下にそのまま解凍する。
@@ -341,11 +293,13 @@ del "%~f0"
                             self.download_file(download_url, zip_path)
                             self.extract_zip_file(zip_path)
                             logger.info('replace')
-                            self.replace_files2()
+                            old_exe_name = f"old_{self.main_exe_name}"
+                            # 実行中のmain fileをリネーム(できるらしい)
+                            os.rename(self.main_exe_name, old_exe_name)
+                            self.copy_and_skip_errors(self.temp_dir/self.zipfile_basename, Path('.'))
                             
-                            new_exe_path = Path('.') / f"new_{self.updator_exe_name}"
                             # 更新完了後にメインプログラムを再起動するためのバッチファイルを作成
-                            self.create_restart_script(new_exe_path)
+                            self.create_restart_script(old_exe_name)
 
                             self.update_status("更新完了！プログラムを再起動します...", 100)
                             #self.root.after(2000, self.restart_program)
@@ -384,12 +338,20 @@ del "%~f0"
                                      else "restart_update.sh")
         if script_path.exists():
             if sys.platform.startswith('win'):
-                subprocess.Popen([str(script_path)], shell=True)
+                subprocess.Popen(
+                    ["cmd", "/c", str(script_path)],
+                    shell=True,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    close_fds=True,
+                    creationflags=subprocess.CREATE_NEW_CONSOLE # 新しいウィンドウで開く（デバッグに便利）
+                    )
             else:
                 subprocess.Popen(['/bin/bash', str(script_path)])
             
-            if self.root:
-                self.root.destroy()
+            # if self.root:
+                # self.root.destroy()
             sys.exit(0)
 
 
@@ -406,10 +368,11 @@ def main():
 
     updater = GitHubUpdater(
         github_author='dj-kata',
-        github_repo='inf_daken_counter_obsw',
+        github_repo='sdvx_helper',
+        zipfile_basename='sdvx_helper',
         current_version=SWVER,           # 現在のバージョン
-        main_exe_name="notes_counter.exe",  # メインプログラムのexe名
-        updator_exe_name="notes_counter.exe",           # アップデート用プログラムのexe名
+        main_exe_name="sdvx_helper.exe",  # メインプログラムのexe名
+        updator_exe_name="sdvx_helper.exe",           # アップデート用プログラムのexe名
     )
     
     # メインプログラムから呼び出す場合

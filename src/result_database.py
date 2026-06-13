@@ -824,9 +824,13 @@ class ResultDatabase:
             return
         
         count = 0
-        # ファイル名パターン: sdvx_{title}_{diff}_{score}_{ex}_{lamp}_{date}.png
+        # ファイル名パターン: sdvx_{title}_{diff}_{score}_{ex}_{lamp}_{date}.{png,jpg}
         # または単に diff と title が入っていれば chart_id が作れる
-        for img_path in save_path.glob("*.png"):
+        for img_path in (
+            p
+            for pattern in ("*.png", "*.jpg", "*.jpeg")
+            for p in save_path.glob(pattern)
+        ):
             basename = img_path.stem
             # アンダースコアで分割して推測を試みる
             parts = basename.split("_")

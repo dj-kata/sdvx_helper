@@ -70,6 +70,9 @@ class UIText:
         """Image save settings tab"""
         path_group = 'Save Path'
         image_save_path = 'Image save path:'
+        image_format = 'Image format:'
+        image_format_png = 'PNG'
+        image_format_jpg = 'JPG'
         autosave_image = 'Auto-save result screen'
         autosave_updated_score_only = 'Save only results with score updates'
         summary_updated_results_only = 'Receipt includes only updated results'

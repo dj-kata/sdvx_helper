@@ -199,7 +199,11 @@ class ImageImportWorker(QThread):
             import os
 
             p = Path(self.folder_path)
-            files = sorted(list(p.glob("*.png")))
+            files = sorted(
+                f
+                for pattern in ("*.png", "*.jpg", "*.jpeg")
+                for f in p.glob(pattern)
+            )
             total = len(files)
             registered = 0
 
@@ -392,6 +396,18 @@ class ConfigDialog(QDialog):
         path_row.addWidget(self.image_save_path_edit)
         path_row.addWidget(browse_button)
         path_layout.addRow(self.ui.image_save.image_save_path, path_row)
+
+        self.image_format_group = QButtonGroup()
+        self.image_format_png_radio = QRadioButton(self.ui.image_save.image_format_png)
+        self.image_format_jpg_radio = QRadioButton(self.ui.image_save.image_format_jpg)
+        self.image_format_group.addButton(self.image_format_png_radio, 0)
+        self.image_format_group.addButton(self.image_format_jpg_radio, 1)
+
+        format_row = QHBoxLayout()
+        format_row.addWidget(self.image_format_png_radio)
+        format_row.addWidget(self.image_format_jpg_radio)
+        format_row.addStretch()
+        path_layout.addRow(self.ui.image_save.image_format, format_row)
 
         self.autosave_image_check = QCheckBox(self.ui.image_save.autosave_image)
         path_layout.addRow(self.autosave_image_check)
@@ -934,6 +950,10 @@ class ConfigDialog(QDialog):
         self.summary_updated_results_only_check.setChecked(
             getattr(self.config, 'summary_updated_results_only', False)
         )
+        if getattr(self.config, 'image_save_format', 'png') == 'jpg':
+            self.image_format_jpg_radio.setChecked(True)
+        else:
+            self.image_format_png_radio.setChecked(True)
         self.csv_export_path_edit.setText(self.config.csv_export_path)
 
         capture_method = getattr(self.config, 'capture_method', 'direct_window')
@@ -973,6 +993,11 @@ class ConfigDialog(QDialog):
         )
         self.config.summary_updated_results_only = (
             self.summary_updated_results_only_check.isChecked()
+        )
+        self.config.image_save_format = (
+            'jpg'
+            if self.image_format_group.checkedId() == 1
+            else 'png'
         )
         self.config.csv_export_path = self.csv_export_path_edit.text()
         self.config.capture_method = (
