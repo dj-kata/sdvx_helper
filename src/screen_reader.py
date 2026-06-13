@@ -546,6 +546,7 @@ class ScreenReader:
             return {
                 'title':      title,
                 'difficulty': diff,
+                'jacket_img': jacket_img,
                 'lamp':       lamp,
                 'score':      score,
                 'exscore':    exscore,

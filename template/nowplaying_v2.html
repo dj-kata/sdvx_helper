@@ -179,15 +179,6 @@
             }
         }
 
-        function outputImageBase() {
-            return location.pathname.indexOf("/template/") >= 0 ? "../out/" : "";
-        }
-
-        function updateJacketFromFile() {
-            const base = outputImageBase();
-            setImage("jacket", base + "select_jacket.png?" + Date.now());
-        }
-
         function setText(id, value, fallback) {
             document.getElementById(id).textContent = value || fallback;
         }
@@ -202,15 +193,10 @@
             setText("difficulty", data.difficulty, "---");
         }
 
-        updateJacketFromFile();
-        setInterval(updateJacketFromFile, 1000);
         SDVXWebSocketClient.connect({
             type: "nowplaying",
             target: "nowplaying",
-            onData: update,
-            onState: function(state) {
-                if (state === "disconnected") updateJacketFromFile();
-            }
+            onData: update
         });
     </script>
 </body>

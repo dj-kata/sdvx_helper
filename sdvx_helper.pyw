@@ -614,6 +614,8 @@ class MainWindow(MainWindowUI):
         cursong_key = (title, diff)
         if cursong_key != self._last_select_cursong_key:
             self.result_database.broadcast_cursong_data(title, diff)
+            self._save_nowplaying_images(data, warn_missing=False)
+            self._broadcast_nowplaying(data, title, diff, info, level)
             self._last_select_cursong_key = cursong_key
 
         # スコアビューワが開いていれば編集パネルを更新（自動登録も内部で判断）
@@ -641,9 +643,7 @@ class MainWindow(MainWindowUI):
         data = self.screen_reader.read_from_detect()
         if not data:
             logger.warning("detect認識失敗: read_from_detect returned None")
-            if image_data:
-                self.detect_read_done = True
-                self._broadcast_nowplaying(image_data, '', '', None, '')
+            self.detect_read_done = True
             return
 
         title = data.get('title')
@@ -651,9 +651,7 @@ class MainWindow(MainWindowUI):
         logger.info(f"detect認識結果: title={title!r}, difficulty={diff}")
         if not title or diff is None:
             logger.warning(f"detect認識不足: title={title!r}, difficulty={diff}")
-            if image_data:
-                self.detect_read_done = True
-                self._broadcast_nowplaying(data, title or '', diff if diff is not None else '', None, '')
+            self.detect_read_done = True
             return
 
         self.current_title = title
@@ -665,7 +663,6 @@ class MainWindow(MainWindowUI):
         level = info.get_level(diff) if info else None
         lv_str = f"Lv.{level}" if level else ""
         self._write_obs_text(f"{title}\n{diff} {lv_str}")
-        self._broadcast_nowplaying(data, title, diff, info, level)
 
         logger.info(f"detect: {get_title_with_chart(title, diff)} {lv_str}")
         self.statusBar().showMessage(f"detect: {get_title_with_chart(title, diff)} {lv_str}", 5000)
@@ -683,7 +680,7 @@ class MainWindow(MainWindowUI):
             logger.error(f"画像エンコード失敗:\n{traceback.format_exc()}")
             return ''
 
-    def _save_nowplaying_images(self, data: dict):
+    def _save_nowplaying_images(self, data: dict, warn_missing: bool = True):
         """v1互換: 曲決定画面の切り出し画像をout/select_*.pngへ保存する。"""
         out_dir = Path('out')
         out_dir.mkdir(exist_ok=True)
@@ -704,7 +701,7 @@ class MainWindow(MainWindowUI):
                     path = out_dir / filename
                     image.save(path)
                     logger.info(f"nowplaying画像保存: {path} size={getattr(image, 'size', None)}")
-                else:
+                elif warn_missing:
                     logger.warning(f"nowplaying画像なし: key={key}, file={filename}")
         except Exception:
             logger.error(f"nowplaying画像保存失敗:\n{traceback.format_exc()}")
