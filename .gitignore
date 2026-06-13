@@ -19,3 +19,4 @@ out/*
 debug/*
 config.json
 sdvx_helper.db
+results/*
