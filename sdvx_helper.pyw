@@ -352,7 +352,13 @@ class MainWindow(MainWindowUI):
                         scene = setting.get("scene")
                         source = setting.get("source")
                         if scene and source:
-                            mod_scene, item_id = self.obs_manager.search_itemid(scene, source)
+                            found = self.obs_manager.search_itemid(scene, source)
+                            if not found:
+                                logger.warning(
+                                    f"OBSソース表示制御スキップ: action={action}, scene={scene}, source={source}, シーン/ソース取得失敗"
+                                )
+                                continue
+                            mod_scene, item_id = found
                             if item_id:
                                 if action == "show_source":
                                     ok = self.obs_manager.enable_source(mod_scene, item_id)
