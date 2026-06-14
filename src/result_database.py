@@ -171,7 +171,13 @@ class ResultDatabase:
 
         # select からのリザルトは更新があるときのみ登録
         if result.detect_mode == detect_mode.select and db_score is not None:
-            if result.score <= db_score and result.lamp.value <= db_lamp.value:
+            is_score_updated = result.score > db_score
+            is_exscore_updated = (
+                result.exscore is not None
+                and (db_exscore is None or result.exscore > db_exscore)
+            )
+            is_lamp_updated = result.lamp.value > db_lamp.value
+            if not (is_score_updated or is_exscore_updated or is_lamp_updated):
                 logger.info(f"select result skipped (no update): {result}")
                 return False
 

@@ -10,6 +10,7 @@ SDVX スコアビューワ
 from __future__ import annotations
 
 import datetime
+import time
 import traceback
 from typing import Optional
 
@@ -269,6 +270,13 @@ class ScoreViewer(QMainWindow):
         self._edit_data: dict = {}
         self._edit_autofill_title: str = ''  # 最後に自動補完したタイトル
         self._last_auto_registered: tuple | None = None
+        self._last_auto_attempted: tuple | None = None
+        self._last_auto_attempted_at: float = 0.0
+        self._last_auto_no_update: tuple | None = None
+        self._auto_register_min_interval_sec = 1.0
+        self._auto_register_retry_timer = QTimer(self)
+        self._auto_register_retry_timer.setSingleShot(True)
+        self._auto_register_retry_timer.timeout.connect(self._try_auto_register)
         self._all_titles: list[str] = []
         # portal削除ワーカー管理
         self._delete_worker: _PortalDeleteWorker | None = None
@@ -572,6 +580,9 @@ class ScoreViewer(QMainWindow):
             self._edit_lamp_combo.addItem(str(lp), lp)
         op_v.addWidget(self._edit_lamp_combo)
         self._edit_autoregister_cb = QCheckBox("自動登録")
+        self._edit_autoregister_cb.stateChanged.connect(
+            lambda _: self._reset_auto_register_guard()
+        )
         op_v.addWidget(self._edit_autoregister_cb)
         self._edit_add_btn = QPushButton("追加")
         self._edit_add_btn.clicked.connect(self._on_edit_add_clicked)
@@ -1237,6 +1248,8 @@ class ScoreViewer(QMainWindow):
 
         prev_title = self._edit_data.get('title')
         self._edit_data = new_data
+        if title != prev_title:
+            self._reset_auto_register_guard()
 
         # 認識結果ラベルを更新
         self._edit_title_label.setText(title or '(未認識)')
@@ -1290,6 +1303,7 @@ class ScoreViewer(QMainWindow):
         title = self._get_effective_title()
         diff  = data.get('diff')
         score = data.get('score')
+        exscore = data.get('exscore')
         lamp  = self._edit_lamp_combo.currentData()
 
         if not title or diff is None or score is None:
@@ -1297,13 +1311,62 @@ class ScoreViewer(QMainWindow):
         if lamp is None or lamp == clear_lamp.noplay:
             return
 
-        key = (title, diff, score, lamp)
+        key = (title, diff, score, exscore, lamp)
         if key == self._last_auto_registered:
             return
+        if key == self._last_auto_attempted:
+            return
 
-        added = self._do_register(title, diff, score, data.get('exscore'), lamp, auto=True)
+        no_update_key = (title, diff, score, lamp)
+        is_update = self._is_auto_register_update(title, diff, score, exscore, lamp)
+        if not is_update and no_update_key == self._last_auto_no_update:
+            return
+        if not is_update:
+            self._last_auto_no_update = no_update_key
+            return
+
+        now = time.monotonic()
+        elapsed = now - self._last_auto_attempted_at
+        if elapsed < self._auto_register_min_interval_sec:
+            remaining_ms = int((self._auto_register_min_interval_sec - elapsed) * 1000) + 1
+            if not self._auto_register_retry_timer.isActive():
+                self._auto_register_retry_timer.start(max(50, remaining_ms))
+            return
+
+        self._last_auto_attempted = key
+        self._last_auto_attempted_at = now
+        added = self._do_register(title, diff, score, exscore, lamp, auto=True)
         if added:
             self._last_auto_registered = key
+            self._last_auto_no_update = None
+
+    def _reset_auto_register_guard(self):
+        """自動登録の連打抑止状態をリセットする。"""
+        self._last_auto_attempted = None
+        self._last_auto_attempted_at = 0.0
+        self._last_auto_no_update = None
+        self._auto_register_retry_timer.stop()
+
+    def _is_auto_register_update(
+        self,
+        title: str,
+        diff: difficulty,
+        score: int,
+        exscore: Optional[int],
+        lamp: clear_lamp,
+    ) -> bool:
+        """自動登録前に、自己ベスト更新があるかを軽く判定する。"""
+        best_score, best_exscore, best_lamp = self.result_database.get_best(
+            title=title,
+            diff=diff,
+        )
+        if best_score is None:
+            return True
+        if score > best_score:
+            return True
+        if exscore is not None and (best_exscore is None or exscore > best_exscore):
+            return True
+        return lamp.value > best_lamp.value
 
     def _on_edit_add_clicked(self):
         """追加ボタンがクリックされたとき"""
