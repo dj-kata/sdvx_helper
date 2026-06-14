@@ -555,9 +555,14 @@ class MainWindow(MainWindowUI):
         # OBSトリガー実行
         trigger_map = {
             (detect_mode.select, detect_mode.detect): ("select_end", "detect_start"),
+            (detect_mode.select, detect_mode.init):   ("select_end", None),
+            (detect_mode.select, detect_mode.play):   ("select_end", "play_start"),
             (detect_mode.init,   detect_mode.detect): (None, "detect_start"),
+            (detect_mode.init,   detect_mode.play):   (None, "play_start"),
+            (detect_mode.init,   detect_mode.result): (None, "result_start"),
             (detect_mode.detect, detect_mode.play):   ("detect_end", "play_start"),
             (detect_mode.detect, detect_mode.init):   ("detect_end", None),
+            (detect_mode.detect, detect_mode.result): ("detect_end", "result_start"),
             (detect_mode.play,   detect_mode.result): ("play_end",  "result_start"),
             (detect_mode.play,   detect_mode.init):   ("play_end",  None),
             (detect_mode.result, detect_mode.select): ("result_end","select_start"),
@@ -700,7 +705,6 @@ class MainWindow(MainWindowUI):
                 if image is not None:
                     path = out_dir / filename
                     image.save(path)
-                    logger.info(f"nowplaying画像保存: {path} size={getattr(image, 'size', None)}")
                 elif warn_missing:
                     logger.warning(f"nowplaying画像なし: key={key}, file={filename}")
         except Exception:
