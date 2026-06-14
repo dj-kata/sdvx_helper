@@ -798,7 +798,7 @@ class MainWindow(MainWindowUI):
             self.play_count += 1
             self.last_saved_song = get_title_with_chart(title, diff)
             if self.score_viewer is not None and self.score_viewer.isVisible():
-                self.score_viewer.refresh_data()
+                self.score_viewer._refresh_song_row(title, diff)
 
             # WebSocket配信
             self.result_database.broadcast_today_results_data(self.start_time_with_offset)

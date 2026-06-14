@@ -708,6 +708,9 @@ class ScoreViewer(QMainWindow):
             finally:
                 self.setUpdatesEnabled(True)
                 self._score_table.setSortingEnabled(was_enabled)
+            if was_enabled:
+                self._score_table.sortByColumn(self._sort_col, self._sort_order)
+            self._apply_filter()
         else:
             # 履歴がなくなったなら行を消す必要がある
             self.refresh_data()
@@ -1088,59 +1091,61 @@ class ScoreViewer(QMainWindow):
     def _show_portal_uploads(self, title: str, diff_enum):
         """portal送信済みテーブルを更新"""
         self._portal_table.setSortingEnabled(False)
-        self._portal_table.clearContents()
-        self._portal_table.setRowCount(0)
+        try:
+            self._portal_table.clearContents()
+            self._portal_table.setRowCount(0)
 
-        if not self.portal_manager or not self.portal_manager.master_db:
+            if not self.portal_manager or not self.portal_manager.master_db:
+                self._portal_label.setText(
+                    'portal マスタ未受信のため表示できません' if self.portal_manager
+                    else 'portal連携が無効です'
+                )
+                return
+
+            entries = self.portal_manager.get_uploaded_scores(title, diff_enum)
+            diff_str = str(diff_enum) if diff_enum else ''
             self._portal_label.setText(
-                'portal マスタ未受信のため表示できません' if self.portal_manager
-                else 'portal連携が無効です'
+                f"portal送信履歴: {title}  [{diff_str}]  ({len(entries)} 件)"
             )
-            return
 
-        entries = self.portal_manager.get_uploaded_scores(title, diff_enum)
-        diff_str = str(diff_enum) if diff_enum else ''
-        self._portal_label.setText(
-            f"portal送信履歴: {title}  [{diff_str}]  ({len(entries)} 件)"
-        )
+            def _mk(text, sort_val=None) -> _SortItem:
+                it = _SortItem(str(text))
+                it.setTextAlignment(Qt.AlignCenter)
+                it.setFlags(it.flags() & ~Qt.ItemIsEditable)
+                if sort_val is not None:
+                    it.setData(Qt.UserRole, sort_val)
+                return it
 
-        def _mk(text, sort_val=None) -> _SortItem:
-            it = _SortItem(str(text))
-            it.setTextAlignment(Qt.AlignCenter)
-            it.setFlags(it.flags() & ~Qt.ItemIsEditable)
-            if sort_val is not None:
-                it.setData(Qt.UserRole, sort_val)
-            return it
+            for entry in entries:
+                row = self._portal_table.rowCount()
+                self._portal_table.insertRow(row)
 
-        for entry in entries:
-            row = self._portal_table.rowCount()
-            self._portal_table.insertRow(row)
+                # Rev列 — エントリ参照を UserRole+1 に格納（ソート後も正しく参照できる）
+                rev_item = _mk(entry.revision, entry.revision)
+                rev_item.setData(Qt.UserRole + 1, entry)
+                self._portal_table.setItem(row, 0, rev_item)
 
-            # Rev列 — エントリ参照を UserRole+1 に格納（ソート後も正しく参照できる）
-            rev_item = _mk(entry.revision, entry.revision)
-            rev_item.setData(Qt.UserRole + 1, entry)
-            self._portal_table.setItem(row, 0, rev_item)
+                uploaded_at = getattr(entry, 'uploaded_at', None)
+                date_str  = uploaded_at.strftime('%Y-%m-%d %H:%M') if uploaded_at else '—'
+                date_sort = uploaded_at.timestamp() if uploaded_at else 0
+                self._portal_table.setItem(row, 1, _mk(date_str, date_sort))
 
-            uploaded_at = getattr(entry, 'uploaded_at', None)
-            date_str  = uploaded_at.strftime('%Y-%m-%d %H:%M') if uploaded_at else '—'
-            date_sort = uploaded_at.timestamp() if uploaded_at else 0
-            self._portal_table.setItem(row, 1, _mk(date_str, date_sort))
+                self._portal_table.setItem(row, 2, _mk(entry.score or '', entry.score or 0))
+                ex = entry.exscore if entry.exscore is not None else '—'
+                self._portal_table.setItem(row, 3, _mk(ex, entry.exscore if entry.exscore is not None else -1))
 
-            self._portal_table.setItem(row, 2, _mk(entry.score or '', entry.score or 0))
-            ex = entry.exscore if entry.exscore is not None else '—'
-            self._portal_table.setItem(row, 3, _mk(ex, entry.exscore if entry.exscore is not None else -1))
+                lamp     = convert_lamp(entry.lamp or '')
+                lamp_bg  = _LAMP_BG.get(lamp, QColor(185, 185, 185))
+                lum      = (lamp_bg.red() * 299 + lamp_bg.green() * 587 + lamp_bg.blue() * 114) // 1000
+                lamp_item = _mk(entry.lamp or '', lamp.value)
+                lamp_item.setBackground(QBrush(lamp_bg))
+                lamp_item.setForeground(QBrush(QColor(20, 20, 20) if lum > 150 else QColor(255, 255, 255)))
+                self._portal_table.setItem(row, 4, lamp_item)
 
-            lamp     = convert_lamp(entry.lamp or '')
-            lamp_bg  = _LAMP_BG.get(lamp, QColor(185, 185, 185))
-            lum      = (lamp_bg.red() * 299 + lamp_bg.green() * 587 + lamp_bg.blue() * 114) // 1000
-            lamp_item = _mk(entry.lamp or '', lamp.value)
-            lamp_item.setBackground(QBrush(lamp_bg))
-            lamp_item.setForeground(QBrush(QColor(20, 20, 20) if lum > 150 else QColor(255, 255, 255)))
-            self._portal_table.setItem(row, 4, lamp_item)
-
-        self._portal_table.setSortingEnabled(True)
-        self._portal_table.sortByColumn(0, Qt.DescendingOrder)  # Rev降順（最新が上）
-        self._portal_del_btn.setEnabled(False)
+            self._portal_table.sortByColumn(0, Qt.DescendingOrder)  # Rev降順（最新が上）
+        finally:
+            self._portal_table.setSortingEnabled(True)
+            self._portal_del_btn.setEnabled(False)
 
     def _delete_portal_entry(self):
         """選択したportal送信済みエントリを削除（バックグラウンドスレッドで通信）"""
