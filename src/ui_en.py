@@ -182,6 +182,7 @@ class UIText:
         source = 'Target Source'
         setting_complete = 'Setting complete'
         source_configured = "Monitor source set to '{target_source}'"
+        duplicate_setting = 'The same OBS control setting is already registered'
         reconnected_to_obs = 'Reconnected to OBS'
         failed_reconnection_to_obs = 'Failed to reconnect to OBS'
         failed_reconnection_to_obs_with_error = 'Failed to reconnect to OBS:\n{error}'

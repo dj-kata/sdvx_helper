@@ -468,6 +468,15 @@ class OBSControlDialog(QDialog):
                 
                 # 早期リターン(テーブルに追加しない)
                 return
+
+            if self._has_duplicate_setting(setting):
+                QMessageBox.warning(
+                    self,
+                    self.ui.message.warning_title,
+                    self.ui.obs.duplicate_setting
+                )
+                logger.info(f"重複するOBS制御設定の追加をスキップ: {setting}")
+                return
             
             # 設定を追加
             self.config.obs_control_settings.append(setting)
@@ -514,6 +523,15 @@ class OBSControlDialog(QDialog):
                 action_item.setBackground(bg_color)
                 scene_item.setBackground(bg_color)
                 source_item.setBackground(bg_color)
+
+    def _has_duplicate_setting(self, setting):
+        """同一のOBS制御設定が既に登録済みか確認する。"""
+        keys = ("timing", "action", "scene", "source")
+        return any(
+            existing.get("action") != "set_monitor_source"
+            and all(existing.get(key) == setting.get(key) for key in keys)
+            for existing in self.config.obs_control_settings
+        )
     
     def reset_form(self):
         """フォームをリセット"""
@@ -521,15 +539,6 @@ class OBSControlDialog(QDialog):
         
         # 実行タイミングは空白項目（インデックス0）を選択
         self.timing_combo.setCurrentIndex(0)
-        
-        # シーンとソースのコンボボックスをクリア
-        self.target_source_combo.clear()
-        
-        # 対象シーンと切り替え先シーンは最初の項目を選択（項目がある場合）
-        if self.target_scene_combo.count() > 0:
-            self.target_scene_combo.setCurrentIndex(0)
-        if self.switch_scene_combo.count() > 0:
-            self.switch_scene_combo.setCurrentIndex(0)
         
         # アクション変更に伴うフィールドの有効/無効を更新
         self.on_action_changed()
