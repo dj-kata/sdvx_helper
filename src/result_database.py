@@ -54,6 +54,7 @@ class ResultDatabase:
         self.db = SQLiteDatabase(_DB_PATH)
         self.results: List[OneResult] = []  # メモリ上のキャッシュ
         self._bests_cache: Dict[Tuple[str, difficulty], OneBestData] = {}
+        self._results_by_chart: Dict[str, List[OneResult]] = {}
 
         self.config = config
         self.ws_server = None
@@ -210,6 +211,7 @@ class ResultDatabase:
 
         # メモリキャッシュ更新
         self.results.append(result)
+        self._add_to_result_index(result)
 
         # ベストキャッシュ更新
         key = (result.title, result.difficulty)
@@ -230,7 +232,8 @@ class ResultDatabase:
             
             if result in self.results:
                 self.results.remove(result)
-            
+            self._remove_from_result_index(result)
+
             # ベストキャッシュ再点検
             self._refresh_best_cache(result.title, result.difficulty)
             return True
@@ -271,6 +274,7 @@ class ResultDatabase:
         try:
             rows = self.db.get_all_personal_results()
             self.results = []
+            self._results_by_chart = {}
             for r in rows:
                 res = OneResult(
                     title=r['title'],
@@ -286,6 +290,7 @@ class ResultDatabase:
                 )
                 res.id = r['id']
                 self.results.append(res)
+                self._add_to_result_index(res)
             
             # ベストキャッシュの初期構築
             self._bests_cache = self.get_all_best_results(use_cache=False)
@@ -520,7 +525,28 @@ class ResultDatabase:
             key = calc_chart_id(title, diff)
         if key is None:
             return []
-        return [r for r in self.results if r.chart_id == key]
+        return list(self._results_by_chart.get(key, []))
+
+    def _add_to_result_index(self, result: OneResult):
+        """譜面単位の検索用インデックスへリザルトを追加する。"""
+        chart_id = result.chart_id
+        if chart_id:
+            self._results_by_chart.setdefault(chart_id, []).append(result)
+
+    def _remove_from_result_index(self, result: OneResult):
+        """譜面単位の検索用インデックスからリザルトを削除する。"""
+        chart_id = result.chart_id
+        if not chart_id:
+            return
+        indexed = self._results_by_chart.get(chart_id)
+        if not indexed:
+            return
+        try:
+            indexed.remove(result)
+        except ValueError:
+            return
+        if not indexed:
+            self._results_by_chart.pop(chart_id, None)
 
     def get_best(self,
                  title: str = None,
