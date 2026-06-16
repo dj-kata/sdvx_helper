@@ -184,8 +184,16 @@
             }
         }
 
+        function decodeText(value) {
+            if (value === null || value === undefined || value === "") return "";
+            const decoder = decodeText.decoder || document.createElement("textarea");
+            decodeText.decoder = decoder;
+            decoder.innerHTML = String(value);
+            return decoder.value;
+        }
+
         function setText(id, value, fallback) {
-            document.getElementById(id).textContent = value || fallback;
+            document.getElementById(id).textContent = decodeText(value) || fallback;
         }
 
         function update(data) {

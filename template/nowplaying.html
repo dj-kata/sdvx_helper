@@ -149,11 +149,19 @@
             if (!data) return;
             const images = data.images || {};
             setImage("jacket", images.jacket);
-            document.getElementById("title").textContent = data.title || "---";
+            document.getElementById("title").textContent = decodeText(data.title) || "---";
             document.getElementById("meta").textContent = [
-                data.difficulty || "",
-                data.level ? "Lv." + data.level : ""
+                decodeText(data.difficulty),
+                data.level ? "Lv." + decodeText(data.level) : ""
             ].filter(Boolean).join(" / ") || "---";
+        }
+
+        function decodeText(value) {
+            if (value === null || value === undefined || value === "") return "";
+            const decoder = decodeText.decoder || document.createElement("textarea");
+            decodeText.decoder = decoder;
+            decoder.innerHTML = String(value);
+            return decoder.value;
         }
 
         SDVXWebSocketClient.connect({
