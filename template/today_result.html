@@ -153,9 +153,16 @@
         <script src="./sdvx_ws_client.js"></script>
         <script>
         var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
+        var entityDecoder = document.createElement('textarea');
+        var lastRenderedResultsHtml = '';
+
+        function decodeHtmlEntity(value) {
+            entityDecoder.innerHTML = String(value == null ? '' : value);
+            return entityDecoder.value;
+        }
 
         function esc(value) {
-            return String(value == null ? '' : value).replace(/[&<>"']/g, function(ch) {
+            return decodeHtmlEntity(value).replace(/[&<>"']/g, function(ch) {
                 return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
             });
         }
@@ -193,8 +200,7 @@
 
         function jacketHtml(src) {
             var path = src || '../resources/no_jacket.png';
-            var sep = path.indexOf('?') >= 0 ? '&' : '?';
-            return '<img class="jacket-img" src="' + esc(path) + sep + 't=' + Date.now() + '" alt="">';
+            return '<img class="jacket-img" src="' + esc(path) + '" alt="">';
         }
 
         function shortScore(value) {
@@ -246,6 +252,8 @@
                 out += '</tr>';
             });
 
+            if (out === lastRenderedResultsHtml) return;
+            lastRenderedResultsHtml = out;
             document.getElementById('results-tbody').innerHTML = out;
         }
 

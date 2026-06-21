@@ -233,8 +233,17 @@
         </div>
         <script src="./sdvx_ws_client.js"></script>
         <script>
+        const entityDecoder = document.createElement("textarea");
+        let lastBestLampHtml = "";
+        let lastHistoryHtml = "";
+
+        function decodeHtmlEntity(value) {
+            entityDecoder.innerHTML = String(value == null ? "" : value);
+            return entityDecoder.value;
+        }
+
         function esc(value) {
-            return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
+            return decodeHtmlEntity(value).replace(/[&<>"']/g, function(ch) {
                 return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
             });
         }
@@ -279,13 +288,17 @@
         function update(data) {
             if (!data) return;
             const diff = data.display_difficulty || data.cdiff || data.difficulty || "";
-            document.getElementById("music").textContent = data.title || "---";
+            document.getElementById("music").textContent = decodeHtmlEntity(data.title || "---");
             document.getElementById("best-diff").textContent = diff ? "(" + diff + ")" : "";
             document.getElementById("best-lv").textContent = data.lv || "";
             document.getElementById("grade-s-tier").textContent = data.gradeS_tier || "";
             document.getElementById("puc-tier").textContent = data.PUC_tier || "";
             document.getElementById("best-score").textContent = fmtScore(data.best_score);
-            document.getElementById("best-lamp").innerHTML = lampHtml(data.best_lamp);
+            const bestLampHtml = lampHtml(data.best_lamp);
+            if (bestLampHtml !== lastBestLampHtml) {
+                lastBestLampHtml = bestLampHtml;
+                document.getElementById("best-lamp").innerHTML = bestLampHtml;
+            }
             document.getElementById("vf").textContent = data.vf ? (Number(data.vf) / 10).toFixed(1) : "";
 
             let out = '<tr><td height="50"><font size="40"><center>date</center></font></td>';
@@ -303,6 +316,8 @@
                 out += '<td>' + lampIcon(item.lamp) + "</td>";
                 out += "</tr>";
             });
+            if (out === lastHistoryHtml) return;
+            lastHistoryHtml = out;
             document.getElementById("history-body").innerHTML = out;
         }
         SDVXWebSocketClient.connect({

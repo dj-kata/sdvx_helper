@@ -117,11 +117,20 @@
 </div>
 <script src="./sdvx_ws_client.js"></script>
 <script>
+const entityDecoder = document.createElement("textarea");
+let lastRivalDifficultyHtml = "";
+let lastRivalHtml = "";
+
+function decodeHtmlEntity(value) {
+    entityDecoder.innerHTML = String(value == null ? "" : value);
+    return entityDecoder.value;
+}
+
 function headerEnabled() {
     return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--enable-header").trim(), 10) === 1;
 }
 function esc(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
+    return decodeHtmlEntity(value).replace(/[&<>"']/g, function(ch) {
         return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
     });
 }
@@ -153,8 +162,12 @@ function update(data) {
     if (!data) return;
     const diff = data.difficulty || "";
     document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
-    document.getElementById("music").textContent = data.title || "---";
-    document.getElementById("difficulty").innerHTML = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
+    document.getElementById("music").textContent = decodeHtmlEntity(data.title || "---");
+    const difficultyHtml = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
+    if (difficultyHtml !== lastRivalDifficultyHtml) {
+        lastRivalDifficultyHtml = difficultyHtml;
+        document.getElementById("difficulty").innerHTML = difficultyHtml;
+    }
     document.getElementById("lv").textContent = data.lv ? "Lv." + data.lv : "";
 
     const items = data.rival_items || [];
@@ -172,6 +185,8 @@ function update(data) {
         out += "<td>" + fmtExScore(item.exscore) + "</td>";
         out += "</tr>";
     });
+    if (out === lastRivalHtml) return;
+    lastRivalHtml = out;
     document.getElementById("rival-body").innerHTML = out;
 }
 document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
