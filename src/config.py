@@ -52,6 +52,10 @@ class Config:
         """True の場合、自己ベスト更新があったリザルト画像のみ保存する"""
         self.summary_updated_results_only: bool = False
         """True の場合、summary_*.png には自己ベスト更新があったリザルトのみ含める"""
+        self.save_summary_on_exit: bool = False
+        """True の場合、アプリ終了時に summary_full.png を画像保存先へ保存する"""
+        self.summary_exit_filename: str = 'datetime'
+        """終了時レシート画像ファイル名。'datetime' または 'date'"""
 
         # ─── Discord連携 ──────────────────────────────────────────────────
         self.discord_webhook_url: str = ''
@@ -118,6 +122,8 @@ class Config:
                     setattr(self, key, val)
             if self.image_save_format not in ('png', 'jpg'):
                 self.image_save_format = 'png'
+            if self.summary_exit_filename not in ('datetime', 'date'):
+                self.summary_exit_filename = 'datetime'
             logger.info(f"config.json ロード完了")
         except FileNotFoundError:
             logger.info("config.json が見つかりません。デフォルト設定を使用します。")

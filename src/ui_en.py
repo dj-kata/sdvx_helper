@@ -77,6 +77,10 @@ class UIText:
         autosave_image = 'Auto-save result screen'
         autosave_updated_score_only = 'Save only results with score updates'
         summary_updated_results_only = 'Receipt includes only updated results'
+        save_summary_on_exit = 'Save receipt image when app exits'
+        summary_exit_filename = 'Receipt filename:'
+        summary_exit_filename_datetime = 'Date + time'
+        summary_exit_filename_date = 'Date only'
         csv_group = 'CSV Export'
         csv_export_path = 'CSV export path (empty=out/):'
 

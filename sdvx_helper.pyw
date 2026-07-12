@@ -1017,6 +1017,38 @@ class MainWindow(MainWindowUI):
             self.statusBar().showMessage("画像保存エラー", 3000)
         return False
 
+    def _save_summary_image_on_exit(self):
+        """終了時に out/summary_full.png を画像保存先へ JPG として保存する。"""
+        if not getattr(self.config, 'save_summary_on_exit', False):
+            return
+
+        src = Path('out') / 'summary_full.png'
+        if not src.exists():
+            logger.info(f"終了時レシート画像保存スキップ: {src} がありません")
+            return
+
+        try:
+            now = datetime.datetime.now()
+            if getattr(self.config, 'summary_exit_filename', 'datetime') == 'date':
+                prefix = now.strftime('%Y%m%d')
+            else:
+                prefix = now.strftime('%Y%m%d_%H%M')
+
+            filename = f"{prefix}_sdvx_summary.jpg"
+            dst_dir = Path(self.config.image_save_path)
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            dst = dst_dir / filename
+
+            from PIL import Image
+            with Image.open(src) as img:
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(str(dst), format='JPEG', quality=95, optimize=True)
+
+            logger.info(f"終了時レシート画像保存: {dst}")
+        except Exception:
+            logger.error(f"終了時レシート画像保存エラー:\n{traceback.format_exc()}")
+
     # ── 終了処理 ──────────────────────────────────────────────────────────────
 
     def closeEvent(self, event):
@@ -1038,6 +1070,8 @@ class MainWindow(MainWindowUI):
         # CSV出力
         csv_path = self.config.csv_export_path or None
         self.result_database.write_best_csv(csv_path=csv_path)
+
+        self._save_summary_image_on_exit()
 
         # Portal: 今日のプレーログをバックグラウンドで送信（最大15秒待機）
         # 起動直後などでプレー回数が 0 の場合はスキップして高速終了

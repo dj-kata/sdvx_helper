@@ -77,6 +77,10 @@ class UIText:
         autosave_image = 'リザルト画面を自動保存する'
         autosave_updated_score_only = '更新があったスコアのみ保存'
         summary_updated_results_only = 'レシートにも更新されたリザルトのみ含む'
+        save_summary_on_exit = 'アプリ終了時にレシート画像を保存する'
+        summary_exit_filename = 'レシートのファイル名:'
+        summary_exit_filename_datetime = '日付+時刻'
+        summary_exit_filename_date = '日付のみ'
         csv_group = 'CSV出力'
         csv_export_path = 'CSV出力先(空=out/):'
 

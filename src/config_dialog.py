@@ -421,6 +421,37 @@ class ConfigDialog(QDialog):
         )
         path_layout.addRow(self.summary_updated_results_only_check)
 
+        self.save_summary_on_exit_check = QCheckBox(
+            self.ui.image_save.save_summary_on_exit
+        )
+        self.save_summary_on_exit_check.toggled.connect(
+            self._update_summary_exit_filename_enabled
+        )
+        path_layout.addRow(self.save_summary_on_exit_check)
+
+        self.summary_exit_filename_group = QButtonGroup()
+        self.summary_exit_filename_datetime_radio = QRadioButton(
+            self.ui.image_save.summary_exit_filename_datetime
+        )
+        self.summary_exit_filename_date_radio = QRadioButton(
+            self.ui.image_save.summary_exit_filename_date
+        )
+        self.summary_exit_filename_group.addButton(
+            self.summary_exit_filename_datetime_radio, 0
+        )
+        self.summary_exit_filename_group.addButton(
+            self.summary_exit_filename_date_radio, 1
+        )
+
+        summary_filename_row = QHBoxLayout()
+        summary_filename_row.addWidget(self.summary_exit_filename_datetime_radio)
+        summary_filename_row.addWidget(self.summary_exit_filename_date_radio)
+        summary_filename_row.addStretch()
+        self.summary_exit_filename_label = QLabel(
+            self.ui.image_save.summary_exit_filename
+        )
+        path_layout.addRow(self.summary_exit_filename_label, summary_filename_row)
+
         layout.addWidget(path_group)
 
         csv_group = QGroupBox(self.ui.image_save.csv_group)
@@ -439,6 +470,12 @@ class ConfigDialog(QDialog):
         layout.addWidget(csv_group)
         layout.addStretch()
         return widget
+
+    def _update_summary_exit_filename_enabled(self, checked: bool):
+        """終了時レシート保存が有効な場合だけファイル名形式を選べるようにする。"""
+        self.summary_exit_filename_label.setEnabled(checked)
+        self.summary_exit_filename_datetime_radio.setEnabled(checked)
+        self.summary_exit_filename_date_radio.setEnabled(checked)
 
     def create_capture_tab(self):
         """キャプチャ設定タブ"""
@@ -960,6 +997,13 @@ class ConfigDialog(QDialog):
         self.summary_updated_results_only_check.setChecked(
             getattr(self.config, 'summary_updated_results_only', False)
         )
+        save_summary_on_exit = getattr(self.config, 'save_summary_on_exit', False)
+        self.save_summary_on_exit_check.setChecked(save_summary_on_exit)
+        if getattr(self.config, 'summary_exit_filename', 'datetime') == 'date':
+            self.summary_exit_filename_date_radio.setChecked(True)
+        else:
+            self.summary_exit_filename_datetime_radio.setChecked(True)
+        self._update_summary_exit_filename_enabled(save_summary_on_exit)
         if getattr(self.config, 'image_save_format', 'png') == 'jpg':
             self.image_format_jpg_radio.setChecked(True)
         else:
@@ -1003,6 +1047,14 @@ class ConfigDialog(QDialog):
         )
         self.config.summary_updated_results_only = (
             self.summary_updated_results_only_check.isChecked()
+        )
+        self.config.save_summary_on_exit = (
+            self.save_summary_on_exit_check.isChecked()
+        )
+        self.config.summary_exit_filename = (
+            'date'
+            if self.summary_exit_filename_group.checkedId() == 1
+            else 'datetime'
         )
         self.config.image_save_format = (
             'jpg'
