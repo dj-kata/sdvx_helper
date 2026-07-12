@@ -59,6 +59,15 @@ _LAMP_FILE: Dict[clear_lamp, str] = {
 _RES_DIR = 'resources'
 _OUT_DIR = 'out'
 
+
+def _height_for_rows(row_count: int, min_rows: int) -> int:
+    try:
+        clamped_min_rows = max(0, min(1000, int(min_rows)))
+    except Exception:
+        clamped_min_rows = 15
+    rows = max(row_count, clamped_min_rows)
+    return _LOG_MARGIN * 2 + rows * _LOG_ROWSIZE
+
 # テキスト版レイアウト座標
 _DIFF_BAR_X   = 10
 _DIFF_BAR_W   = 8
@@ -143,28 +152,33 @@ def _load_lamp_cache() -> Dict[clear_lamp, Optional[Image.Image]]:
 
 # ─── テキスト描画版 ──────────────────────────────────────────────────────────
 
-def generate_summary(results: List['OneResult'], bg_alpha: int = 200) -> bool:
+def generate_summary(
+    results: List['OneResult'],
+    bg_alpha: int = 200,
+    min_rows: int = 15,
+) -> bool:
     """今日のリザルトリストからテキスト描画でサマリー画像を生成して out/ に保存する。
 
     メインスレッドをブロックしないようバックグラウンドスレッドで実行する。
     """
     # スレッド内で実行して main thread をブロックしない
     def _run():
-        _generate_summary_sync(results, bg_alpha)
+        _generate_summary_sync(results, bg_alpha, min_rows)
     threading.Thread(target=_run, daemon=True).start()
     return True
 
 
-def _generate_summary_sync(results: List['OneResult'], bg_alpha: int) -> bool:
+def _generate_summary_sync(
+    results: List['OneResult'],
+    bg_alpha: int,
+    min_rows: int = 15,
+) -> bool:
     """generate_summary の同期実行版（テスト・直接呼び出し用）。"""
     try:
         _ensure_cache()
         target = list(results)
-        if not target:
-            logger.debug('サマリー生成スキップ: リザルトなし')
-            return False
 
-        h = _LOG_MARGIN * 2 + len(target) * _LOG_ROWSIZE
+        h = _height_for_rows(len(target), min_rows)
         bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
         bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
 
@@ -286,12 +300,13 @@ def capture_summary_item_from_screen(
 def generate_summary_from_items(
     items: List[ResultSummaryItem],
     bg_alpha: int = 200,
+    min_rows: int = 15,
 ) -> bool:
     """保持しているリザルト切り出しパーツから summary_*.png を生成する。"""
     snapshot = list(items)
 
     def _run():
-        _generate_from_items_sync(snapshot, bg_alpha)
+        _generate_from_items_sync(snapshot, bg_alpha, min_rows)
     threading.Thread(target=_run, daemon=True).start()
     return True
 
@@ -299,17 +314,15 @@ def generate_summary_from_items(
 def _generate_from_items_sync(
     items: List[ResultSummaryItem],
     bg_alpha: int,
+    min_rows: int = 15,
 ) -> bool:
     try:
         from src.define import params as _params
 
         _ensure_cache()
         target = sorted(items, key=lambda item: item.timestamp, reverse=True)
-        if not target:
-            logger.debug('スクリーンショット版サマリー生成スキップ: 対象パーツなし')
-            return False
 
-        h = _LOG_MARGIN * 2 + len(target) * _LOG_ROWSIZE
+        h = _height_for_rows(len(target), min_rows)
         bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
         bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
 

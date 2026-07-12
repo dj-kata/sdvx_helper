@@ -421,6 +421,13 @@ class ConfigDialog(QDialog):
         )
         path_layout.addRow(self.summary_updated_results_only_check)
 
+        self.summary_min_rows_spin = QSpinBox()
+        self.summary_min_rows_spin.setRange(0, 1000)
+        path_layout.addRow(
+            self.ui.image_save.summary_min_rows,
+            self.summary_min_rows_spin,
+        )
+
         self.save_summary_on_exit_check = QCheckBox(
             self.ui.image_save.save_summary_on_exit
         )
@@ -997,6 +1004,11 @@ class ConfigDialog(QDialog):
         self.summary_updated_results_only_check.setChecked(
             getattr(self.config, 'summary_updated_results_only', False)
         )
+        try:
+            summary_min_rows = int(getattr(self.config, 'summary_min_rows', 15))
+        except Exception:
+            summary_min_rows = 15
+        self.summary_min_rows_spin.setValue(max(0, min(1000, summary_min_rows)))
         save_summary_on_exit = getattr(self.config, 'save_summary_on_exit', False)
         self.save_summary_on_exit_check.setChecked(save_summary_on_exit)
         if getattr(self.config, 'summary_exit_filename', 'datetime') == 'date':
@@ -1048,6 +1060,7 @@ class ConfigDialog(QDialog):
         self.config.summary_updated_results_only = (
             self.summary_updated_results_only_check.isChecked()
         )
+        self.config.summary_min_rows = self.summary_min_rows_spin.value()
         self.config.save_summary_on_exit = (
             self.save_summary_on_exit_check.isChecked()
         )

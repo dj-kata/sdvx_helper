@@ -227,27 +227,45 @@ class MainWindow(MainWindowUI):
     def _load_recent_result_images_for_summary(self):
         """起動時に保存済みリザルト画像からsummary用パーツを復元する。"""
         try:
+            if not self.config.autosave_image:
+                summary_results = self.result_database.get_today_results(
+                    self.start_time_with_offset
+                )
+                if getattr(self.config, 'summary_updated_results_only', False):
+                    summary_results = [
+                        r for r in summary_results
+                        if self._is_result_updated(
+                            r,
+                            r.bestscore,
+                            r.bestexscore,
+                            None,
+                        )
+                    ]
+                generate_summary(
+                    summary_results,
+                    min_rows=getattr(self.config, 'summary_min_rows', 15),
+                )
+                logger.info(f"起動時summary再生成: テキスト版 {len(summary_results)}件")
+                return
+
             image_dir = Path(self.config.image_save_path)
-            if not image_dir.exists():
-                return
-
             start_time = self.start_time_with_offset
-            candidates = sorted(
-                (
-                    p for ext in ("*.png", "*.jpg", "*.jpeg")
-                    for p in image_dir.glob(ext)
-                    if p.is_file() and int(p.stat().st_mtime) >= start_time
-                ),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-            if not candidates:
-                return
-
             loaded = 0
             skipped_non_result = 0
             skipped_no_update = 0
             items = []
+            candidates = []
+
+            if image_dir.exists():
+                candidates = sorted(
+                    (
+                        p for ext in ("*.png", "*.jpg", "*.jpeg")
+                        for p in image_dir.glob(ext)
+                        if p.is_file() and int(p.stat().st_mtime) >= start_time
+                    ),
+                    key=lambda p: p.stat().st_mtime,
+                    reverse=True,
+                )
 
             from PIL import Image
 
@@ -275,18 +293,20 @@ class MainWindow(MainWindowUI):
                 except Exception:
                     logger.debug(f"起動時summary画像読み込みスキップ: {path}\n{traceback.format_exc()}")
 
-            if items:
-                self._result_summary_items = sorted(
-                    items,
-                    key=lambda item: item.timestamp,
-                    reverse=True,
-                )
-                generate_summary_from_items(self._result_summary_items)
-                logger.info(
-                    "起動時summary復元: "
-                    f"{loaded}件 読み込み / 非リザルト {skipped_non_result}件 / "
-                    f"更新なし {skipped_no_update}件"
-                )
+            self._result_summary_items = sorted(
+                items,
+                key=lambda item: item.timestamp,
+                reverse=True,
+            )
+            generate_summary_from_items(
+                self._result_summary_items,
+                min_rows=getattr(self.config, 'summary_min_rows', 15),
+            )
+            logger.info(
+                "起動時summary再生成: "
+                f"{loaded}件 読み込み / 非リザルト {skipped_non_result}件 / "
+                f"更新なし {skipped_no_update}件"
+            )
         except Exception:
             logger.error(f"起動時summary復元エラー:\n{traceback.format_exc()}")
 
@@ -834,7 +854,10 @@ class MainWindow(MainWindowUI):
                     if getattr(self.config, 'summary_updated_results_only', False)
                     else self.result_database.get_today_results(self.start_time_with_offset)
                 )
-                generate_summary(summary_results)
+                generate_summary(
+                    summary_results,
+                    min_rows=getattr(self.config, 'summary_min_rows', 15),
+                )
 
             screen = self._current_result_screen()
             self._send_discord_result(
@@ -855,7 +878,10 @@ class MainWindow(MainWindowUI):
                     )
                     if summary_item is not None:
                         self._result_summary_items.append(summary_item)
-                        generate_summary_from_items(self._result_summary_items)
+                        generate_summary_from_items(
+                            self._result_summary_items,
+                            min_rows=getattr(self.config, 'summary_min_rows', 15),
+                        )
 
                 if self._should_save_result_image(is_result_updated):
                     self.save_image(
@@ -1028,6 +1054,16 @@ class MainWindow(MainWindowUI):
             return
 
         try:
+            summary_mtime = int(src.stat().st_mtime)
+            if summary_mtime < self.start_time_with_offset:
+                logger.info(
+                    "終了時レシート画像保存スキップ: "
+                    f"{src} が自動読み込み範囲外です "
+                    f"(mtime={datetime.datetime.fromtimestamp(summary_mtime)}, "
+                    f"start={datetime.datetime.fromtimestamp(self.start_time_with_offset)})"
+                )
+                return
+
             now = datetime.datetime.now()
             if getattr(self.config, 'summary_exit_filename', 'datetime') == 'date':
                 prefix = now.strftime('%Y%m%d')

@@ -52,6 +52,8 @@ class Config:
         """True の場合、自己ベスト更新があったリザルト画像のみ保存する"""
         self.summary_updated_results_only: bool = False
         """True の場合、summary_*.png には自己ベスト更新があったリザルトのみ含める"""
+        self.summary_min_rows: int = 15
+        """summary_*.png の最低表示曲数。0～1000"""
         self.save_summary_on_exit: bool = False
         """True の場合、アプリ終了時に summary_full.png を画像保存先へ保存する"""
         self.summary_exit_filename: str = 'datetime'
@@ -122,6 +124,10 @@ class Config:
                     setattr(self, key, val)
             if self.image_save_format not in ('png', 'jpg'):
                 self.image_save_format = 'png'
+            try:
+                self.summary_min_rows = max(0, min(1000, int(self.summary_min_rows)))
+            except Exception:
+                self.summary_min_rows = 15
             if self.summary_exit_filename not in ('datetime', 'date'):
                 self.summary_exit_filename = 'datetime'
             logger.info(f"config.json ロード完了")

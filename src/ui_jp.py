@@ -77,6 +77,7 @@ class UIText:
         autosave_image = 'リザルト画面を自動保存する'
         autosave_updated_score_only = '更新があったスコアのみ保存'
         summary_updated_results_only = 'レシートにも更新されたリザルトのみ含む'
+        summary_min_rows = 'レシート画像の最低曲数:'
         save_summary_on_exit = 'アプリ終了時にレシート画像を保存する'
         summary_exit_filename = 'レシートのファイル名:'
         summary_exit_filename_datetime = '日付+時刻'
