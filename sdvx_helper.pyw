@@ -116,7 +116,10 @@ class MainWindow(MainWindowUI):
 
         # ライバルマネージャー（Portal取得も同時に行う）
         self.rival_manager = RivalManager(parent=self)
-        self.rival_manager.load_cache()
+        self.rival_manager.load_cache(
+            self.config.rivals,
+            include_portal=bool(self.config.portal_token),
+        )
         self.result_database.rival_manager = self.rival_manager
         portal_fn = (self.portal_manager.get_rivals
                      if self.config.portal_token else None)

@@ -741,12 +741,23 @@ class ConfigDialog(QDialog):
             self._rival_status_label.setText("")
             return
         tm = getattr(self.rival_manager, 'last_fetch_time', None)
-        n  = len(self.rival_manager.rivals)
+        csv_rivals = [
+            r for r in self.rival_manager.rivals
+            if getattr(r, 'source', 'csv') != 'portal'
+        ]
+        portal_rivals = [
+            r for r in self.rival_manager.rivals
+            if getattr(r, 'source', 'csv') == 'portal'
+        ]
+        n  = len(csv_rivals)
+        suffix = f" + Portal {len(portal_rivals)}人" if portal_rivals else ""
         if tm:
-            ok = sum(1 for r in self.rival_manager.rivals if not r.error)
-            self._rival_status_label.setText(f"取得: {tm}  ({ok}/{n}人)")
+            ok = sum(1 for r in csv_rivals if not r.error)
+            self._rival_status_label.setText(f"取得: {tm}  ({ok}/{n}人{suffix})")
         elif n:
-            self._rival_status_label.setText(f"キャッシュ ({n}人)")
+            self._rival_status_label.setText(f"キャッシュ ({n}人{suffix})")
+        elif portal_rivals:
+            self._rival_status_label.setText(f"キャッシュ (Portal {len(portal_rivals)}人)")
         else:
             self._rival_status_label.setText("")
 
@@ -788,12 +799,12 @@ class ConfigDialog(QDialog):
         """全ライバルデータを再取得"""
         if self.rival_manager is None:
             return
-        if not self.config.rivals:
-            self._rival_status_label.setText("未登録")
-            return
         self._rival_status_label.setText("取得中...")
         portal_fn = (self.portal_manager.get_rivals
                      if self.portal_manager and self.config.portal_token else None)
+        if not self.config.rivals and portal_fn is None:
+            self._rival_status_label.setText("未登録")
+            return
         self.rival_manager.start_fetch(self.config.rivals, portal_fetch_fn=portal_fn)
 
     # ── ボタンハンドラ ────────────────────────────────────────────────────────

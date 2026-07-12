@@ -327,6 +327,8 @@ class RivalManager(QObject):
         self.rivals:            List[RivalData]         = []
         self._worker:           Optional[RivalFetchWorker] = None
         self.last_fetch_time:   Optional[str]           = None
+        self._active_csv_names: Optional[set[str]]       = None
+        self._include_portal_cache: bool                 = True
 
     def shutdown(self):
         """アプリ終了時のクリーンアップ"""
@@ -340,11 +342,57 @@ class RivalManager(QObject):
     # portal内部IDパターン (rival_1, rival_2, ...) → 古いキャッシュと判定
     _PORTAL_ID_PATTERN = re.compile(r'^rival_\d+$')
 
-    def load_cache(self):
+    def _set_active_rivals(
+        self,
+        rival_configs: Optional[List[Dict[str, str]]] = None,
+        include_portal: bool = True,
+    ):
+        """現在の設定に残っている CSV ライバル名を記録する。"""
+        if rival_configs is not None:
+            self._active_csv_names = {
+                cfg.get('name', '').strip()
+                for cfg in rival_configs
+                if cfg.get('name', '').strip()
+            }
+        self._include_portal_cache = include_portal
+
+    def _is_active_rival(self, rival: RivalData) -> bool:
+        if rival.source == 'portal':
+            return self._include_portal_cache
+        if self._active_csv_names is None:
+            return True
+        return rival.name in self._active_csv_names
+
+    def _delete_stale_cache_rows(self):
+        """設定から消えた CSV ライバル、および無効時の Portal キャッシュを削除する。"""
+        try:
+            if self._active_csv_names is not None:
+                if self._active_csv_names:
+                    placeholders = ','.join('?' for _ in self._active_csv_names)
+                    self.db.execute(
+                        f"DELETE FROM rival_scores "
+                        f"WHERE source != 'portal' AND rival_name NOT IN ({placeholders})",
+                        tuple(self._active_csv_names),
+                    )
+                else:
+                    self.db.execute("DELETE FROM rival_scores WHERE source != 'portal'")
+            if not self._include_portal_cache:
+                self.db.execute("DELETE FROM rival_scores WHERE source = 'portal'")
+            self.db.commit()
+        except Exception as e:
+            logger.error(f"古いライバルDB削除失敗: {e}")
+
+    def load_cache(
+        self,
+        rival_configs: Optional[List[Dict[str, str]]] = None,
+        include_portal: bool = True,
+    ):
         """SQLite からライバルデータを読み込む。初回は旧キャッシュからの移行。"""
+        self._set_active_rivals(rival_configs, include_portal)
         # 1. 移行チェック
         if os.path.exists(self.CACHE_PATH):
             self._migrate_from_bz2pkl()
+        self._delete_stale_cache_rows()
 
         # 2. SQLite から読み込み
         try:
@@ -360,7 +408,8 @@ class RivalManager(QObject):
                     entry.score = r['score']
                     entry.exscore = r['exscore']
                     rd.scores[(_normalize_title(r['title']), r['difficulty'])] = entry
-                new_rivals.append(rd)
+                if self._is_active_rival(rd):
+                    new_rivals.append(rd)
             
             self.rivals = new_rivals
             logger.info(f"ライバルDB読み込み完了 ({len(self.rivals)} 人)")
@@ -402,6 +451,8 @@ class RivalManager(QObject):
                     f"DELETE FROM rival_scores WHERE rival_name NOT IN ({placeholders})",
                     tuple(active_names),
                 )
+            else:
+                self.db.execute("DELETE FROM rival_scores")
             for rd in self.rivals:
                 if rd.error: continue
                 self.db.delete_rival(rd.name)
@@ -418,6 +469,8 @@ class RivalManager(QObject):
 
     def delete_cached_rival(self, rival_name: str):
         """指定ライバルをメモリとSQLiteキャッシュから削除する。"""
+        if self._active_csv_names is not None:
+            self._active_csv_names.discard(rival_name)
         self.rivals = [r for r in self.rivals if r.name != rival_name]
         try:
             self.db.delete_rival(rival_name)
@@ -441,8 +494,11 @@ class RivalManager(QObject):
             portal_fetch_fn: ポータル API からライバルリストを返す callable。
                              None の場合はポータル取得をスキップ。
         """
+        self._set_active_rivals(rival_configs, portal_fetch_fn is not None)
         if not rival_configs and portal_fetch_fn is None:
             self.rivals = []
+            self.last_fetch_time = None
+            self._save_cache()
             self.rivals_loaded.emit()
             return
 
@@ -459,7 +515,7 @@ class RivalManager(QObject):
         self._worker.start()
 
     def _on_fetch_finished(self, results: List[RivalData]):
-        self.rivals          = results
+        self.rivals          = [rd for rd in results if self._is_active_rival(rd)]
         self.last_fetch_time = datetime.datetime.now().strftime('%H:%M')
         self._save_cache()
         self.rivals_loaded.emit()
