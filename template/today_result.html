@@ -129,6 +129,14 @@
             font-variant-numeric: tabular-nums;
         }
 
+        .ex-max-label {
+            color: #ffe36e;
+        }
+
+        .ex-max-diff {
+            color: #ffffff;
+        }
+
         /* 難易度カラー */
         .diff-nov {
             color: #60b8ff;
@@ -285,10 +293,31 @@
             if (!max) return ex ? ex.toLocaleString() : '';
 
             var rate = ex / max;
-            if (rate < 0.98) return (rate * 100).toFixed(1) + '%';
+            if (rate < 0.98) return (Math.floor(rate * 1000) / 10).toFixed(1) + '%';
 
             var diff = Math.max(max - ex, 0);
             return diff ? 'MAX-' + diff.toLocaleString() : 'MAX';
+        }
+
+        function formatExScoreHtml(exscore, maxExscore) {
+            if (exscore == null) return '';
+
+            var ex = Number(exscore) || 0;
+            var max = Number(maxExscore) || 0;
+            if (!max) return esc(ex ? ex.toLocaleString() : '');
+
+            var rate = ex / max;
+            if (rate < 0.98) {
+                return esc((Math.floor(rate * 1000) / 10).toFixed(1) + '%');
+            }
+
+            var diff = Math.max(max - ex, 0);
+            if (!diff) {
+                return '<span class="ex-max-label">MAX</span>';
+            }
+
+            return '<span class="ex-max-label">MAX</span>'
+                + '<span class="ex-max-diff">-' + esc(diff.toLocaleString()) + '</span>';
         }
 
         function updateTodayResults(data) {
@@ -318,7 +347,7 @@
                 out += '<td class="col-title ' + diffClass + '">' + esc(item.title || '') + '</td>';
                 out += '<td class="col-score ' + scoreClass + '">' + shortScore(score) + '</td>';
                 out += '<td class="col-grade ' + gradeClass + '">' + esc(item.grade || '') + '</td>';
-                out += '<td class="col-ex">' + esc(formatExScore(item.exscore, item.max_exscore)) + '</td>';
+                out += '<td class="col-ex">' + formatExScoreHtml(item.exscore, item.max_exscore) + '</td>';
                 out += '</tr>';
             });
 
