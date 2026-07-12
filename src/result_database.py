@@ -5,6 +5,7 @@ import bz2
 import csv
 import datetime
 import functools
+import json
 import os
 import pickle
 import threading
@@ -66,6 +67,8 @@ class ResultDatabase:
         self.rival_manager = None
         self.jacket_dir = Path('jackets')
         self.jacket_dir.mkdir(exist_ok=True)
+        self._jacket_status_path = self.jacket_dir / '_status.json'
+        self._result_jacket_chart_ids = self._load_jacket_status()
         self.load()
 
         if config is not None:
@@ -118,6 +121,35 @@ class ResultDatabase:
             self.ws_loop.call_soon_threadsafe(self.ws_loop.stop)
         self.db.close()
         logger.info("WebSocketサーバーを停止しました")
+
+    def _load_jacket_status(self) -> set[str]:
+        """リザルト画面由来で確定保存済みのchart_idを読み込む。"""
+        try:
+            if not self._jacket_status_path.exists():
+                return set()
+            data = json.loads(self._jacket_status_path.read_text(encoding='utf-8'))
+            if isinstance(data, dict):
+                ids = data.get('result_saved_chart_ids', [])
+            else:
+                ids = data
+            return {str(chart_id) for chart_id in ids if chart_id}
+        except Exception:
+            logger.warning(f"ジャケット保存状態の読み込みに失敗: {self._jacket_status_path}")
+            return set()
+
+    def _write_jacket_status(self):
+        """リザルト画面由来で確定保存済みのchart_idを書き出す。"""
+        try:
+            self.jacket_dir.mkdir(exist_ok=True)
+            data = {
+                'result_saved_chart_ids': sorted(self._result_jacket_chart_ids),
+            }
+            self._jacket_status_path.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2),
+                encoding='utf-8',
+            )
+        except Exception:
+            logger.error(f"ジャケット保存状態の書き込みに失敗:\n{traceback.format_exc()}")
 
     # ─── WebSocket 配信 ──────────────────────────────────────────────────────
 
@@ -822,21 +854,35 @@ class ResultDatabase:
                 'lamp':       b.best_lamp.value,
                 'lamp_img':   _LAMP_FILE.get(b.best_lamp),
                 'vf':         b.vf,
+                'jacket_exists': (self.jacket_dir / f"{b.chart_id}.png").exists(),
             })
         return {'total_vf': total_vf, 'items': items}
 
-    def save_jacket_image(self, chart_id: str, image: Image.Image) -> bool:
-        """指定したchart_idのジャケット画像が未保存の場合、保存する。"""
+    def save_jacket_image(self, chart_id: str, image: Image.Image, source: str = 'result') -> bool:
+        """ジャケット画像を保存する。
+
+        source='select' は仮保存として、既存ファイルがない場合のみ保存する。
+        source='result' は確定保存として、未確定なら既存ファイルを上書きして保存する。
+        """
         if not chart_id or image is None:
             return False
-        
+
         path = self.jacket_dir / f"{chart_id}.png"
-        if path.exists():
+        is_result_source = source == 'result'
+
+        if is_result_source and chart_id in self._result_jacket_chart_ids:
             return False
-        
+        if not is_result_source and path.exists():
+            return False
+
         try:
             image.save(str(path))
-            logger.info(f"ジャケット画像を保存しました: {chart_id}")
+            if is_result_source:
+                self._result_jacket_chart_ids.add(chart_id)
+                self._write_jacket_status()
+                logger.info(f"ジャケット画像を確定保存しました: {chart_id}")
+            else:
+                logger.info(f"ジャケット画像を仮保存しました: {chart_id}")
             return True
         except Exception:
             logger.error(f"ジャケット画像の保存に失敗しました: {chart_id}")
@@ -880,7 +926,7 @@ class ResultDatabase:
             if not cid:
                 continue
             
-            if (self.jacket_dir / f"{cid}.png").exists():
+            if cid in self._result_jacket_chart_ids:
                 continue
             
             try:

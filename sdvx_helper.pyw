@@ -23,7 +23,7 @@ except ImportError:
 
 from src.config import Config
 from src.classes import detect_mode
-from src.funcs import get_title_with_chart, escape_for_filename
+from src.funcs import calc_chart_id, get_title_with_chart, escape_for_filename
 from src.obs_websocket_manager import OBSWebSocketManager
 from src.songinfo import SongDatabase, update_musiclist_from_remote
 from src.screen_reader import ScreenReader
@@ -631,6 +631,10 @@ class MainWindow(MainWindowUI):
         self.current_title = title
         self.current_diff  = diff
 
+        chart_id = calc_chart_id(title, diff)
+        if self.result_database.save_jacket_image(chart_id, data.get('jacket_img'), source='select'):
+            self.result_database.broadcast_vf_data()
+
         # v1の gen_history_cursong 相当: 選曲画面で認識した曲の履歴/ライバル表示を更新
         cursong_key = (title, diff)
         if cursong_key != self._last_select_cursong_key:
@@ -789,6 +793,12 @@ class MainWindow(MainWindowUI):
             self.result_pre = result
             return
 
+        result_jacket_saved = self.result_database.save_jacket_image(
+            result.chart_id,
+            data.get('jacket_img'),
+            source='result',
+        )
+
         pre_score, pre_exscore, pre_lamp = self.result_database.get_best(
             title=title,
             diff=diff,
@@ -802,8 +812,6 @@ class MainWindow(MainWindowUI):
         should_include_summary = self._should_include_summary_result(is_result_updated)
 
         if self.result_database.add(result):
-            # ジャケット画像を保存
-            self.result_database.save_jacket_image(result.chart_id, data.get('jacket_img'))
             self.result_database.save()
             self.play_count += 1
             self.last_saved_song = get_title_with_chart(title, diff)
@@ -861,6 +869,9 @@ class MainWindow(MainWindowUI):
 
             logger.info(f"リザルト登録: {result}")
             self.statusBar().showMessage(f"リザルト登録: {get_title_with_chart(title, diff)}", 10000)
+        elif result_jacket_saved:
+            self.result_database.broadcast_vf_data()
+            self.result_database.broadcast_today_results_data(self.start_time_with_offset)
 
     def _send_discord_result(self, result, info, pre_score, pre_exscore,
                              is_result_updated: bool, screen):
