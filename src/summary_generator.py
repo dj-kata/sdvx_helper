@@ -34,8 +34,6 @@ logger = get_logger(__name__)
 
 _LOG_MARGIN  = 20
 _LOG_ROWSIZE = 40
-_LOG_MAXNUM  = 30
-
 _FULL_WIDTH  = 960
 _SMALL_WIDTH = 590
 
@@ -161,12 +159,12 @@ def _generate_summary_sync(results: List['OneResult'], bg_alpha: int) -> bool:
     """generate_summary の同期実行版（テスト・直接呼び出し用）。"""
     try:
         _ensure_cache()
-        target = results[:_LOG_MAXNUM]
+        target = list(results)
         if not target:
             logger.debug('サマリー生成スキップ: リザルトなし')
             return False
 
-        h = _LOG_MARGIN * 2 + _LOG_MAXNUM * _LOG_ROWSIZE
+        h = _LOG_MARGIN * 2 + len(target) * _LOG_ROWSIZE
         bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
         bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
 
@@ -306,12 +304,12 @@ def _generate_from_items_sync(
         from src.define import params as _params
 
         _ensure_cache()
-        target = sorted(items, key=lambda item: item.timestamp, reverse=True)[:_LOG_MAXNUM]
+        target = sorted(items, key=lambda item: item.timestamp, reverse=True)
         if not target:
             logger.debug('スクリーンショット版サマリー生成スキップ: 対象パーツなし')
             return False
 
-        h = _LOG_MARGIN * 2 + _LOG_MAXNUM * _LOG_ROWSIZE
+        h = _LOG_MARGIN * 2 + len(target) * _LOG_ROWSIZE
         bg_full  = Image.new('RGBA', (_FULL_WIDTH,  h), (0, 0, 0, bg_alpha))
         bg_small = Image.new('RGBA', (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
 
@@ -348,7 +346,6 @@ def _generate_from_screenshots_sync(
             reverse=True,
         )
         files = [f for f in all_files if os.path.getmtime(f) >= start_time]
-        files = files[:_LOG_MAXNUM]
 
         if not files:
             logger.debug('スクリーンショット版サマリー生成スキップ: 対象ファイルなし')

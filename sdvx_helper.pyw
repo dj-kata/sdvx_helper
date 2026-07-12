@@ -250,8 +250,6 @@ class MainWindow(MainWindowUI):
             from PIL import Image
 
             for path in candidates:
-                if len(items) >= 30:
-                    break
                 try:
                     with Image.open(path) as img:
                         self.screen_reader.update_screen(img)
@@ -280,7 +278,7 @@ class MainWindow(MainWindowUI):
                     items,
                     key=lambda item: item.timestamp,
                     reverse=True,
-                )[:30]
+                )
                 generate_summary_from_items(self._result_summary_items)
                 logger.info(
                     "起動時summary復元: "
@@ -814,7 +812,6 @@ class MainWindow(MainWindowUI):
             if not self.config.autosave_image:
                 if should_include_summary:
                     self._text_summary_results.append(result)
-                    self._text_summary_results = self._text_summary_results[-30:]
                 summary_results = (
                     self._text_summary_results
                     if getattr(self.config, 'summary_updated_results_only', False)
@@ -832,7 +829,6 @@ class MainWindow(MainWindowUI):
                     )
                     if summary_item is not None:
                         self._result_summary_items.append(summary_item)
-                        self._result_summary_items = self._result_summary_items[-30:]
                         generate_summary_from_items(self._result_summary_items)
 
                 if self._should_save_result_image(is_result_updated):
