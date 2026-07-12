@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import json
 import traceback
 
 import requests
@@ -75,26 +76,33 @@ def _image_to_png_bytes(screen) -> bytes | None:
 
 def build_discord_content(result, artist: str = '',
                           pre_score: int | None = None,
-                          pre_exscore: int | None = None) -> str:
+                          pre_exscore: int | None = None,
+                          extra_lines: list[str] | None = None,
+                          show_delta: bool = True) -> str:
     artist_part = artist or "-"
     level_part = f"Lv.{result.level}" if result.level else "Lv.-"
     lines = [
         f"{artist_part} / {result.title} [{result.difficulty}] {level_part}",
         f"lamp: {discord_lamp_name(result.lamp)}",
-        f"score: {_fmt_score(result.score)}{_fmt_delta(result.score, pre_score)}",
+        f"score: {_fmt_score(result.score)}"
+        f"{_fmt_delta(result.score, pre_score) if show_delta else ''}",
     ]
     if result.exscore is not None:
         lines.append(
             f"ex-score: {_fmt_score(result.exscore)}"
-            f"{_fmt_delta(result.exscore, pre_exscore)}"
+            f"{_fmt_delta(result.exscore, pre_exscore) if show_delta else ''}"
         )
+    if extra_lines:
+        lines.extend(extra_lines)
     return "\n".join(lines)
 
 
 def post_result_to_discord(config, result, artist: str = '',
                            pre_score: int | None = None,
                            pre_exscore: int | None = None,
-                           screen=None) -> bool:
+                           screen=None,
+                           extra_lines: list[str] | None = None,
+                           show_delta: bool = True) -> bool:
     """Discord Webhookへ送信する。呼び出し側でバックグラウンド実行すること。"""
     url = getattr(config, 'discord_webhook_url', '').strip()
     if not url:
@@ -105,10 +113,15 @@ def post_result_to_discord(config, result, artist: str = '',
         artist=artist,
         pre_score=pre_score,
         pre_exscore=pre_exscore,
+        extra_lines=extra_lines,
+        show_delta=show_delta,
     )
-    data = {
+    payload = {
         'content': content,
-        'allowed_mentions': '{"parse":[]}',
+        'allowed_mentions': {'parse': []},
+    }
+    data = {
+        'payload_json': json.dumps(payload, ensure_ascii=False),
     }
     files = None
     image_bytes = _image_to_png_bytes(screen)
