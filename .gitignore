@@ -18,5 +18,6 @@ portal_secret.txt
 out/*
 debug/*
 config.json
+.env
 sdvx_helper.db
 results/*

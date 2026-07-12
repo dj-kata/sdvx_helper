@@ -30,6 +30,10 @@ from src.classes import difficulty, clear_lamp, detect_mode
 from src.funcs import convert_difficulty, convert_lamp
 from src.config import Config
 from src.logger import get_logger
+from src.unknown_jacket_webhook import (
+    has_registered_jacket_hash,
+    post_missing_hash_from_edit,
+)
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -247,12 +251,14 @@ class ScoreViewer(QMainWindow):
     def __init__(self, config: Config, result_database: ResultDatabase,
                  rival_manager: RivalManager = None,
                  portal_manager: 'PortalManager' = None,
-                 parent=None):
+                 parent=None,
+                 app_version: str = 'v.0.0.0'):
         super().__init__(parent)
         self.config = config
         self.result_database = result_database
         self.rival_manager = rival_manager
         self.portal_manager = portal_manager
+        self.app_version = app_version
         self._bests: dict = {}
         self._history_map: dict[int, object] = {}
         self._current_rival: str | None = None
@@ -1234,6 +1240,7 @@ class ScoreViewer(QMainWindow):
         score: Optional[int],
         exscore: Optional[int],
         lamp: Optional[clear_lamp],
+        jacket_img=None,
     ):
         """メインウィンドウから選曲画面の認識データを受け取り、編集パネルを更新する。
         編集モードが OFF の場合は何もしない。
@@ -1241,8 +1248,14 @@ class ScoreViewer(QMainWindow):
         if not self._edit_mode_cb.isChecked():
             return
 
-        new_data = {'title': title, 'diff': diff,
-                    'score': score, 'exscore': exscore, 'lamp': lamp}
+        new_data = {
+            'title': title,
+            'diff': diff,
+            'score': score,
+            'exscore': exscore,
+            'lamp': lamp,
+            'jacket_img': jacket_img,
+        }
         if new_data == self._edit_data:
             return  # 変化なし: 10Hz 連呼による無駄な UI 更新を防ぐ
 
@@ -1416,6 +1429,14 @@ class ScoreViewer(QMainWindow):
         )
         added = self.result_database.add(result)
         if added:
+            if not has_registered_jacket_hash(
+                self.result_database.song_database, title, diff
+            ):
+                post_missing_hash_from_edit(
+                    diff,
+                    self._edit_data.get('jacket_img'),
+                    version=self.app_version,
+                )
             self._refresh_song_row(title, diff)
             prefix = "自動登録" if auto else "登録"
             self.statusBar().showMessage(

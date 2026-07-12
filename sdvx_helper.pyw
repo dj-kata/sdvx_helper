@@ -37,6 +37,7 @@ from src.score_viewer import ScoreViewer
 from src.obs_dialog import OBSControlDialog
 from src.discord_dialog import DiscordConfigDialog
 from src.discord_webhook import post_result_to_discord, should_send_discord_result
+from src.unknown_jacket_webhook import post_unknown_result_jacket
 from src.main_window import MainWindowUI
 from src.rival_data import RivalManager
 from src.portal_manager import PortalManager
@@ -511,6 +512,7 @@ class MainWindow(MainWindowUI):
             self.config, self.result_database,
             rival_manager=self.rival_manager,
             portal_manager=self.portal_manager,
+            app_version=f"v.{SWVER}",
         )
         self.score_viewer.show()
 
@@ -639,6 +641,12 @@ class MainWindow(MainWindowUI):
         score   = data.get('score')
         exscore = data.get('exscore')
 
+        if self.score_viewer is not None and self.score_viewer.isVisible():
+            self.score_viewer.update_select_data(
+                title, diff, score, exscore, lamp,
+                jacket_img=data.get('jacket_img'),
+            )
+
         if not title or diff is None or lamp is None or score is None:
             return
 
@@ -662,10 +670,6 @@ class MainWindow(MainWindowUI):
             self._save_nowplaying_images(data, warn_missing=False)
             self._broadcast_nowplaying(data, title, diff, info, level)
             self._last_select_cursong_key = cursong_key
-
-        # スコアビューワが開いていれば編集パネルを更新（自動登録も内部で判断）
-        if self.score_viewer is not None and self.score_viewer.isVisible():
-            self.score_viewer.update_select_data(title, diff, score, exscore, lamp)
 
     def _process_detect(self):
         """楽曲情報画面の処理: detect判定後、短く待って曲情報を読み取る"""
@@ -784,7 +788,16 @@ class MainWindow(MainWindowUI):
         if score is None or lamp is None:
             return
 
-        title = data.get('title') or self.current_title
+        recognized_title = data.get('title')
+        if not recognized_title:
+            post_unknown_result_jacket(
+                data.get('difficulty'),
+                data.get('jacket_img'),
+                self._current_result_screen(),
+                version=f"v.{SWVER}",
+            )
+
+        title = recognized_title or self.current_title
         diff  = data.get('difficulty') or self.current_diff
         if not title or diff is None:
             return
