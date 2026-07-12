@@ -320,8 +320,7 @@ class ConfigDialog(QDialog):
         self._img_worker = None
 
         self.setWindowTitle(self.ui.window.settings_title)
-        self.setMinimumWidth(500)
-        self.setMinimumHeight(400)
+        self.setMinimumSize(750, 600)
 
         self.init_ui()
         self.load_config_values()
