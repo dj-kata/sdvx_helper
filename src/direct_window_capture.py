@@ -82,25 +82,31 @@ class DirectWindowCapture:
         enum_windows_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
         target_exe = self.config.direct_capture_exe.strip().casefold()
         target_title = self.config.direct_capture_title.strip().casefold()
-        found: list[int] = []
+        title_matches: list[int] = []
+        exe_matches: list[int] = []
 
         def callback(hwnd, _lparam):
             if not self._is_window_usable(hwnd):
                 return True
 
             title = self._window_text(hwnd)
-            if target_title and target_title not in title.casefold():
-                return True
-
             exe_name = self._window_process_name(hwnd)
             if target_exe and exe_name.casefold() != target_exe:
                 return True
 
-            found.append(int(hwnd))
-            return False
+            hwnd_int = int(hwnd)
+            if target_title and target_title in title.casefold():
+                title_matches.append(hwnd_int)
+                return False
+            exe_matches.append(hwnd_int)
+            return True
 
         user32.EnumWindows(enum_windows_proc(callback), 0)
-        return found[0] if found else None
+        if title_matches:
+            return title_matches[0]
+        # SDVX のウィンドウタイトルが一時的に空/別名になる環境があるため、
+        # exe が一致していればフォールバックで対象にする。
+        return exe_matches[0] if exe_matches else None
 
     def _is_window_usable(self, hwnd: int) -> bool:
         user32 = ctypes.windll.user32
@@ -108,7 +114,7 @@ class DirectWindowCapture:
             return False
         if user32.IsIconic(hwnd):
             return False
-        return bool(self._window_text(hwnd).strip())
+        return True
 
     def _window_text(self, hwnd: int) -> str:
         user32 = ctypes.windll.user32

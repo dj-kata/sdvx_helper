@@ -86,7 +86,6 @@ class MainWindow(MainWindowUI):
     def __init__(self):
         self.config = Config()
         super().__init__(self.config)
-        self._prepare_output_templates()
 
         self.song_database = SongDatabase()
         self.result_database = ResultDatabase(config=self.config)
@@ -182,18 +181,6 @@ class MainWindow(MainWindowUI):
         self.setup_global_hotkeys()
 
         logger.info("アプリケーション起動完了")
-
-    def _prepare_output_templates(self):
-        """OBSへ登録しやすいようにtemplate/*.htmlをout/へ同期する。"""
-        out_dir = Path('out')
-        out_dir.mkdir(exist_ok=True)
-        for src in Path('template').glob('*.html'):
-            dst = out_dir / src.name
-            try:
-                if src.exists():
-                    dst.write_bytes(src.read_bytes())
-            except Exception:
-                logger.error(f"HTMLテンプレート同期失敗: {src} -> {dst}\n{traceback.format_exc()}")
 
     # ── プロパティ ────────────────────────────────────────────────────────────
 
@@ -663,6 +650,7 @@ class MainWindow(MainWindowUI):
         chart_id = calc_chart_id(title, diff)
         if self.result_database.save_jacket_image(chart_id, data.get('jacket_img'), source='select'):
             self.result_database.broadcast_vf_data()
+            self.result_database.broadcast_today_results_data(self.start_time_with_offset)
 
         # v1の gen_history_cursong 相当: 選曲画面で認識した曲の履歴/ライバル表示を更新
         cursong_key = (title, diff)

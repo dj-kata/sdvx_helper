@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView,
     QCheckBox, QLineEdit, QLabel, QGroupBox,
     QPushButton, QMessageBox, QComboBox, QListWidget,
+    QApplication,
 )
 from PySide6.QtCore import Qt, QByteArray, QObject, Signal, QTimer
 from PySide6.QtGui import QColor, QBrush, QPainter
@@ -31,7 +32,7 @@ from src.funcs import convert_difficulty, convert_lamp
 from src.config import Config
 from src.logger import get_logger
 from src.unknown_jacket_webhook import (
-    has_registered_jacket_hash,
+    has_matching_jacket_hash,
     post_missing_hash_from_edit,
 )
 
@@ -284,6 +285,8 @@ class ScoreViewer(QMainWindow):
         self._auto_register_retry_timer.setSingleShot(True)
         self._auto_register_retry_timer.timeout.connect(self._try_auto_register)
         self._all_titles: list[str] = []
+        self._refreshing = False
+        self._refresh_signature: tuple | None = None
         # portal削除ワーカー管理
         self._delete_worker: _PortalDeleteWorker | None = None
         self._pending_delete_entry = None
@@ -448,9 +451,9 @@ class ScoreViewer(QMainWindow):
         layout.addWidget(self._edit_mode_cb)
 
         # 更新ボタン
-        refresh_btn = QPushButton("データ更新")
-        refresh_btn.clicked.connect(self.refresh_data)
-        layout.addWidget(refresh_btn)
+        self._refresh_btn = QPushButton("データ更新")
+        self._refresh_btn.clicked.connect(self.refresh_data)
+        layout.addWidget(self._refresh_btn)
 
         layout.addStretch()
         return box
@@ -639,20 +642,52 @@ class ScoreViewer(QMainWindow):
 
     def refresh_data(self):
         """DBからデータを再読み込みして表示を更新"""
+        if self._refreshing:
+            return
+
+        self._refreshing = True
+        old_button_text = self._refresh_btn.text()
+        self._refresh_btn.setEnabled(False)
+        self._refresh_btn.setText("更新中...")
+        self.statusBar().showMessage("データ更新中...")
+        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.processEvents()
         self.setUpdatesEnabled(False)
         try:
             # portalマスタがあれば4th難易度名マップ・ティアマップを更新
+            next_4th_diff_map = {}
+            next_tier_map = {}
             if self.portal_manager and self.portal_manager.master_db:
-                self._4th_diff_map = self.portal_manager.get_4th_diff_map()
-                self._tier_map     = self.portal_manager.get_tier_map()
+                next_4th_diff_map = self.portal_manager.get_4th_diff_map()
+                next_tier_map     = self.portal_manager.get_tier_map()
             # 曲名リストを更新（songDBから全タイトル）
-            self._all_titles = sorted(
+            next_all_titles = sorted(
                 self.result_database.song_database._songs.keys()
             )
-            self._bests = self.result_database.get_all_best_results()
-            self._refresh_rival_combo()
-            self._populate_score_table()
+            next_bests = self.result_database.get_all_best_results()
+            rival_names = self.result_database.get_rival_names()
             total_vf = self.result_database.get_total_vf()
+            signature = self._make_refresh_signature(
+                next_bests, next_4th_diff_map, next_tier_map,
+                next_all_titles, rival_names, total_vf,
+            )
+
+            self._all_titles = next_all_titles
+            self._4th_diff_map = next_4th_diff_map
+            self._tier_map = next_tier_map
+            self._bests = next_bests
+            self._refresh_rival_combo(rival_names)
+
+            if signature != self._refresh_signature:
+                self._populate_score_table()
+                self._refresh_signature = signature
+            else:
+                self.statusBar().showMessage(
+                    f"データ変更なし  |  総VF: {total_vf / 1000:.3f}  |  登録譜面数: {len(self._bests)}",
+                    3000,
+                )
+                return
+
             self.statusBar().showMessage(
                 f"総VF: {total_vf / 1000:.3f}  |  登録譜面数: {len(self._bests)}"
             )
@@ -660,10 +695,55 @@ class ScoreViewer(QMainWindow):
             logger.error(f"refresh_data エラー:\n{traceback.format_exc()}")
         finally:
             self.setUpdatesEnabled(True)
+            QApplication.restoreOverrideCursor()
+            self._refresh_btn.setText(old_button_text)
+            self._refresh_btn.setEnabled(True)
+            self._refreshing = False
 
-    def _refresh_rival_combo(self):
+    def _make_refresh_signature(
+        self,
+        bests: dict,
+        diff_map: dict,
+        tier_map: dict,
+        all_titles: list[str],
+        rival_names: list[str],
+        total_vf: int,
+    ) -> tuple:
+        """表示再構築が必要なデータ変更だけを判定するための軽量な指紋。"""
+        best_sig = tuple(
+            sorted(
+                (
+                    title,
+                    diff.value if diff else None,
+                    best.level,
+                    best.best_score,
+                    best.best_exscore,
+                    best.best_lamp.value if best.best_lamp else None,
+                    best.last_timestamp,
+                    best.play_count,
+                    best.vf,
+                )
+                for (title, diff), best in bests.items()
+            )
+        )
+        diff_sig = tuple(sorted(diff_map.items()))
+        tier_sig = tuple(sorted(
+            ((title, diff.value if diff else None), tiers)
+            for (title, diff), tiers in tier_map.items()
+        ))
+        return (
+            best_sig,
+            diff_sig,
+            tier_sig,
+            tuple(all_titles),
+            tuple(rival_names),
+            total_vf,
+        )
+
+    def _refresh_rival_combo(self, names: list[str] | None = None):
         """ライバルコンボボックスを最新状態に更新"""
-        names = self.result_database.get_rival_names()
+        if names is None:
+            names = self.result_database.get_rival_names()
         current = self._rival_combo.currentText()
         self._rival_combo.blockSignals(True)
         self._rival_combo.clear()
@@ -1231,7 +1311,12 @@ class ScoreViewer(QMainWindow):
     # ── 編集パネル ────────────────────────────────────────────────────────────
 
     def _on_edit_mode_toggled(self, state: int):
-        self._edit_panel.setVisible(self._edit_mode_cb.isChecked())
+        enabled = self._edit_mode_cb.isChecked()
+        self._edit_panel.setVisible(enabled)
+        if enabled and self._edit_data:
+            self._render_edit_data()
+            if self._edit_autoregister_cb.isChecked():
+                self._try_auto_register()
 
     def update_select_data(
         self,
@@ -1243,11 +1328,8 @@ class ScoreViewer(QMainWindow):
         jacket_img=None,
     ):
         """メインウィンドウから選曲画面の認識データを受け取り、編集パネルを更新する。
-        編集モードが OFF の場合は何もしない。
+        編集モードが OFF の間も最後の認識値は保持する。
         """
-        if not self._edit_mode_cb.isChecked():
-            return
-
         new_data = {
             'title': title,
             'diff': diff,
@@ -1263,6 +1345,23 @@ class ScoreViewer(QMainWindow):
         self._edit_data = new_data
         if title != prev_title:
             self._reset_auto_register_guard()
+
+        if not self._edit_mode_cb.isChecked():
+            return
+
+        self._render_edit_data()
+
+        # 自動登録チェック
+        if self._edit_autoregister_cb.isChecked():
+            self._try_auto_register()
+
+    def _render_edit_data(self):
+        """保持している選曲画面認識データを編集パネルへ反映する。"""
+        title = self._edit_data.get('title')
+        diff = self._edit_data.get('diff')
+        score = self._edit_data.get('score')
+        exscore = self._edit_data.get('exscore')
+        lamp = self._edit_data.get('lamp')
 
         # 認識結果ラベルを更新
         self._edit_title_label.setText(title or '(未認識)')
@@ -1285,10 +1384,6 @@ class ScoreViewer(QMainWindow):
             idx = self._edit_lamp_combo.findData(lamp)
             if idx >= 0:
                 self._edit_lamp_combo.setCurrentIndex(idx)
-
-        # 自動登録チェック
-        if self._edit_autoregister_cb.isChecked():
-            self._try_auto_register()
 
     def _do_edit_search(self):
         """曲名検索ボックスの内容で候補リストを絞り込む（デバウンス後に実行）"""
@@ -1429,8 +1524,11 @@ class ScoreViewer(QMainWindow):
         )
         added = self.result_database.add(result)
         if added:
-            if not has_registered_jacket_hash(
-                self.result_database.song_database, title, diff
+            if not has_matching_jacket_hash(
+                self.result_database.song_database,
+                title,
+                diff,
+                self._edit_data.get('jacket_img'),
             ):
                 post_missing_hash_from_edit(
                     diff,

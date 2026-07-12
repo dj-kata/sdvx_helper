@@ -144,6 +144,11 @@ class SongDatabase:
         """曲名から楽曲情報を返す。未登録ならNone。"""
         return self._songs.get(title)
 
+    def has_chart(self, title: str, diff: difficulty) -> bool:
+        """指定譜面がmaya2/portalマスタに存在するかを返す。"""
+        info = self.get_song_info(title)
+        return bool(info and info.get_level(diff))
+
     def convert_v1_title(self, title: str) -> str:
         """v1表記の曲名をv2(portal)表記へ変換する。対応がなければ元の曲名を返す。"""
         return self._v1_to_v2_titles.get(title, title)

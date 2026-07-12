@@ -9,7 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../out/websocket.css">
+    <link rel="stylesheet" href="./websocket.css">
     <style>
         body {
             height: 100%;
@@ -293,8 +293,16 @@
             const lv = esc(item.lv);
             const displayDiff = esc(item.cdiff || item.difficulty || "");
             const chartId = encodeURIComponent(item.chart_id || "");
+            const jacketVersion = Number(item.jacket_version) || 0;
             if (item.jacket_exists && chartId) delete missingJackets[chartId];
-            const jacket = chartId && (item.jacket_exists || !missingJackets[chartId]) ? "../jackets/" + chartId + ".png" : NO_JACKET_SRC;
+            let jacket = item.jacket_img || "";
+            if ((!jacket || jacket === NO_JACKET_SRC) && chartId && (item.jacket_exists || !missingJackets[chartId])) {
+                jacket = "../jackets/" + chartId + ".jpg";
+            }
+            if (jacket.indexOf("../jackets/") === 0 && jacketVersion) {
+                jacket += "?v=" + jacketVersion;
+            }
+            if (!jacket) jacket = NO_JACKET_SRC;
             const updated = item.updated ? ' id="updated"' : "";
 
             let out = "";

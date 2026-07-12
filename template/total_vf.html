@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=RocknRoll+One&family=Black+Ops+One&family=Monomaniac+One&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="../out/websocket.css">
+    <link rel="stylesheet" href="./websocket.css">
     <style>
         :root {
             --accent-cyan: #00f2ff;
@@ -248,11 +248,19 @@
                 const displayDiff = item.cdiff || item.difficulty || '';
                 const lvClass = `lv${Number(item.lv) || 0}`;
                 const chartId = encodeURIComponent(item.chart_id || '');
+                const jacketVersion = Number(item.jacket_version) || 0;
+                let jacket = item.jacket_img || (chartId ? `../jackets/${chartId}.jpg` : '../resources/no_jacket.png');
+                if (jacket === '../resources/no_jacket.png' && chartId) {
+                    jacket = `../jackets/${chartId}.jpg`;
+                }
+                if (jacket.indexOf('../jackets/') === 0 && jacketVersion) {
+                    jacket += `?v=${jacketVersion}`;
+                }
 
                 div.innerHTML = `
                     <div class="rank">${esc(item.rank)}</div>
                     <div class="jacket-container">
-                        <img class="jacket" src="../jackets/${chartId}.png" onerror="this.src='../resources/no_jacket.png';">
+                        <img class="jacket" src="${esc(jacket)}" onerror="this.src='../resources/no_jacket.png';">
                     </div>
                     <div class="title-diff">
                         <div class="title">${esc(item.title)}</div>

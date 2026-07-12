@@ -29,6 +29,8 @@ _DB_PATH = 'sdvx_helper.db'
 
 _PLAYLOG_PATH = Path('playlog.sdvxh')
 _RIVAL_PATH   = Path('rival.sdvxh')
+_JACKET_EXT = '.jpg'
+_JACKET_FALLBACK_EXTS = (_JACKET_EXT, '.png')
 
 
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
@@ -84,8 +86,8 @@ class ResultDatabase:
     def _write_websocket_config(self):
         """HTMLから読むWebSocketポート設定を書き出す。"""
         try:
-            Path('out').mkdir(exist_ok=True)
-            css_path = Path('out') / 'websocket.css'
+            Path('template').mkdir(exist_ok=True)
+            css_path = Path('template') / 'websocket.css'
             css_path.write_text(
                 "/* SDVX Helper auto-generated websocket settings. */\n"
                 ":root {\n"
@@ -247,10 +249,11 @@ class ResultDatabase:
         self._add_to_result_index(result)
 
         # ベストキャッシュ更新
-        key = (result.title, result.difficulty)
-        if key not in self._bests_cache:
-            self._bests_cache[key] = OneBestData()
-        self._bests_cache[key].update(result)
+        if self._is_master_chart_result(result):
+            key = (result.title, result.difficulty)
+            if key not in self._bests_cache:
+                self._bests_cache[key] = OneBestData()
+            self._bests_cache[key].update(result)
 
         logger.debug(f"result added! len:{len(self.results)} {result}")
         return True
@@ -279,6 +282,7 @@ class ResultDatabase:
         results = self.search(title=title, diff=diff)
         target = [r for r in results
                   if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        target = [r for r in target if self._is_master_chart_result(r)]
         
         key = (title, diff)
         if not target:
@@ -384,6 +388,18 @@ class ResultDatabase:
                 logger.info(f"v1曲名表記をv2/portal表記へ更新: {updated} 件")
         except Exception:
             logger.warning(f"v1曲名表記の正規化に失敗:\n{traceback.format_exc()}")
+
+    def _is_master_chart_result(self, result: OneResult) -> bool:
+        """VF/ベスト集計へ入れてよいmaya2/portalマスタ収録譜面かを判定する。"""
+        if result.title is None or result.difficulty is None:
+            return False
+        if self.song_database.has_chart(result.title, result.difficulty):
+            return True
+        logger.debug(
+            "master未収録譜面をベスト/VF集計から除外: "
+            f"title={result.title!r} diff={result.difficulty}"
+        )
+        return False
 
     def save(self):
         """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""
@@ -628,6 +644,8 @@ class ResultDatabase:
                 continue
             if result.title is None or result.difficulty is None:
                 continue
+            if not self._is_master_chart_result(result):
+                continue
 
             key = (result.title, result.difficulty)
             if key not in bests:
@@ -786,7 +804,8 @@ class ResultDatabase:
         for r in today:
             info = self.song_database.get_song_info(r.title)
             lv = info.get_level(r.difficulty) if info else r.level
-            jacket_path = self.jacket_dir / f"{r.chart_id}.png"
+            jacket_path = self._jacket_path(r.chart_id)
+            jacket_version = self._jacket_version(jacket_path)
             max_exscore = self._get_max_exscore(r.title, r.difficulty)
             items.append({
                 'chart_id':   r.chart_id,
@@ -799,7 +818,8 @@ class ResultDatabase:
                 'grade':      r.grade,
                 'lamp':       r.lamp.value,
                 'vf':         r.vf,
-                'jacket_img': f"../jackets/{r.chart_id}.png" if jacket_path.exists() else "../resources/no_jacket.png",
+                'jacket_img': self._jacket_url(r.chart_id),
+                'jacket_version': jacket_version,
                 'pre_score':  r.bestscore   or 0,
                 'pre_ex':     r.bestexscore or 0,
                 'is_score_updated': r.is_score_updated(),
@@ -855,9 +875,36 @@ class ResultDatabase:
                 'lamp':       b.best_lamp.value,
                 'lamp_img':   _LAMP_FILE.get(b.best_lamp),
                 'vf':         b.vf,
-                'jacket_exists': (self.jacket_dir / f"{b.chart_id}.png").exists(),
+                'jacket_img':  self._jacket_url(b.chart_id),
+                'jacket_exists': self._jacket_file_exists(b.chart_id),
+                'jacket_version': self._jacket_version(self._jacket_path(b.chart_id)),
             })
         return {'total_vf': total_vf, 'items': items}
+
+    def _jacket_path(self, chart_id: str) -> Path:
+        """保存済みジャケットのパスを返す。新規保存は jpg、既存 png は互換で読む。"""
+        for ext in _JACKET_FALLBACK_EXTS:
+            path = self.jacket_dir / f"{chart_id}{ext}"
+            if path.exists():
+                return path
+        return self.jacket_dir / f"{chart_id}{_JACKET_EXT}"
+
+    def _jacket_url(self, chart_id: str) -> str:
+        path = self._jacket_path(chart_id)
+        if path.exists():
+            return f"../jackets/{path.name}"
+        return "../resources/no_jacket.png"
+
+    def _jacket_file_exists(self, chart_id: str) -> bool:
+        return self._jacket_path(chart_id).exists()
+
+    @staticmethod
+    def _jacket_version(path: Path) -> int:
+        """ブラウザ側のジャケット画像キャッシュを更新するための版番号。"""
+        try:
+            return int(path.stat().st_mtime)
+        except OSError:
+            return 0
 
     def save_jacket_image(self, chart_id: str, image: Image.Image, source: str = 'result') -> bool:
         """ジャケット画像を保存する。
@@ -868,16 +915,17 @@ class ResultDatabase:
         if not chart_id or image is None:
             return False
 
-        path = self.jacket_dir / f"{chart_id}.png"
+        path = self.jacket_dir / f"{chart_id}{_JACKET_EXT}"
         is_result_source = source == 'result'
+        has_jacket_file = self._jacket_file_exists(chart_id)
 
-        if is_result_source and chart_id in self._result_jacket_chart_ids:
+        if is_result_source and chart_id in self._result_jacket_chart_ids and has_jacket_file:
             return False
-        if not is_result_source and path.exists():
+        if not is_result_source and has_jacket_file:
             return False
 
         try:
-            image.save(str(path))
+            image.convert('RGB').save(str(path), format='JPEG', quality=85, optimize=True)
             if is_result_source:
                 self._result_jacket_chart_ids.add(chart_id)
                 self._write_jacket_status()
@@ -927,7 +975,7 @@ class ResultDatabase:
             if not cid:
                 continue
             
-            if cid in self._result_jacket_chart_ids:
+            if cid in self._result_jacket_chart_ids and self._jacket_file_exists(cid):
                 continue
             
             try:

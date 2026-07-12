@@ -104,6 +104,30 @@ def has_registered_jacket_hash(song_database, title: str, diff: difficulty) -> b
         return True
 
 
+def has_matching_jacket_hash(
+    song_database,
+    title: str,
+    diff: difficulty,
+    jacket_img: Image.Image | None,
+    threshold: int = 10,
+) -> bool:
+    """指定譜面の登録済みhashが、今回のジャケット画像と一致扱いできるか。"""
+    if jacket_img is None:
+        return False
+    try:
+        info = song_database.get_song_info(title)
+        if not info:
+            return False
+        hash_hex = info.get_jacket_hash(diff)
+        if not hash_hex:
+            return False
+        current_hash = imagehash.average_hash(jacket_img)
+        return abs(imagehash.hex_to_hash(hash_hex) - current_hash) < threshold
+    except Exception:
+        logger.warning(f"ジャケットhash一致確認失敗:\n{traceback.format_exc()}")
+        return True
+
+
 def _difficulty_label(diff: difficulty | None) -> str:
     if diff is None:
         return 'UNKNOWN'
@@ -161,6 +185,28 @@ def _post_unknown_jacket(
         return False
 
 
+def _post_unknown_jacket_and_release_on_failure(
+    url: str,
+    route_name: str,
+    diff: difficulty,
+    hash_hex: str,
+    version: str,
+    attachment_img: Image.Image | None,
+    key: tuple[str, str, str],
+) -> None:
+    ok = _post_unknown_jacket(
+        url,
+        route_name,
+        diff,
+        hash_hex,
+        version,
+        attachment_img,
+    )
+    if not ok:
+        with _sent_lock:
+            _sent_keys.discard(key)
+
+
 def post_unknown_result_jacket(
     diff: difficulty | None,
     jacket_img: Image.Image | None,
@@ -191,8 +237,8 @@ def post_unknown_result_jacket(
 
     attachment = crop_unknown_result_attachment(screen) or jacket_img
     threading.Thread(
-        target=_post_unknown_jacket,
-        args=(url, route_name, diff, hash_hex, version, attachment),
+        target=_post_unknown_jacket_and_release_on_failure,
+        args=(url, route_name, diff, hash_hex, version, attachment, key),
         daemon=True,
         name='UnknownJacketWebhookThread',
     ).start()
@@ -206,26 +252,30 @@ def post_missing_hash_from_edit(
 ) -> bool:
     """スコアビューワ編集登録でDBにhashが無い譜面のジャケットを送信する。"""
     if diff is None:
+        logger.info("編集登録ジャケットWebhookスキップ: 難易度なし")
         return False
 
     url = _webhook_url(EDIT_MISSING_HASH_URL_ENV)
     if not url:
+        logger.info(f"編集登録ジャケットWebhookスキップ: {EDIT_MISSING_HASH_URL_ENV} 未設定")
         return False
 
     hash_hex = jacket_hash_hex(jacket_img)
     if not hash_hex:
+        logger.info("編集登録ジャケットWebhookスキップ: ジャケット画像/hashなし")
         return False
 
     route_name = EDIT_MISSING_HASH_URL_ENV.removesuffix('_WEBHOOK_URL')
     key = (route_name, _difficulty_label(diff), hash_hex)
     with _sent_lock:
         if key in _sent_keys:
+            logger.info(f"編集登録ジャケットWebhookスキップ: 送信済み {hash_hex}")
             return False
         _sent_keys.add(key)
 
     threading.Thread(
-        target=_post_unknown_jacket,
-        args=(url, route_name, diff, hash_hex, version, jacket_img),
+        target=_post_unknown_jacket_and_release_on_failure,
+        args=(url, route_name, diff, hash_hex, version, jacket_img, key),
         daemon=True,
         name='MissingJacketHashWebhookThread',
     ).start()

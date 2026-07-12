@@ -6,7 +6,7 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="../out/websocket.css">
+        <link rel="stylesheet" href="./websocket.css">
         <style>
             * { box-sizing: border-box; }
 
@@ -153,8 +153,9 @@
         <script src="./sdvx_ws_client.js"></script>
         <script>
         var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
+        var NO_JACKET_SRC = '../resources/no_jacket.png';
+        var missingJackets = Object.create(null);
         var entityDecoder = document.createElement('textarea');
-        var lastRenderedResultsHtml = '';
 
         function decodeHtmlEntity(value) {
             entityDecoder.innerHTML = String(value == null ? '' : value);
@@ -198,9 +199,32 @@
             return file ? '<img class="lamp-img" src="../resources/' + file + '?v=1" alt="">' : '';
         }
 
-        function jacketHtml(src) {
-            var path = src || '../resources/no_jacket.png';
-            return '<img class="jacket-img" src="' + esc(path) + '" alt="">';
+        function jacketHtml(item) {
+            item = item || {};
+            var chartId = String(item.chart_id || '');
+            var encodedChartId = chartId ? encodeURIComponent(chartId) : '';
+            var jacketVersion = Number(item.jacket_version) || 0;
+            var path = item.jacket_img || '';
+            if ((!path || path === NO_JACKET_SRC) && encodedChartId) {
+                path = '../jackets/' + encodedChartId + '.jpg';
+            }
+            if (path.indexOf('../jackets/') === 0 && jacketVersion) {
+                path += '?v=' + jacketVersion;
+            }
+            if (!path) path = NO_JACKET_SRC;
+
+            return '<img class="jacket-img" src="' + esc(path) + '" data-chart-id="' + esc(encodedChartId) + '" alt="">';
+        }
+
+        function attachJacketFallbacks() {
+            document.querySelectorAll('.jacket-img').forEach(function(img) {
+                img.onerror = function() {
+                    var chartId = img.dataset.chartId || '';
+                    if (chartId) missingJackets[chartId] = true;
+                    img.onerror = null;
+                    img.src = NO_JACKET_SRC;
+                };
+            });
         }
 
         function shortScore(value) {
@@ -242,7 +266,7 @@
                 var gradeClass = getGradeClass(item.grade || '');
 
                 out += '<tr class="' + rowClass + '">';
-                out += '<td class="col-jacket">' + jacketHtml(item.jacket_img) + '</td>';
+                out += '<td class="col-jacket">' + jacketHtml(item) + '</td>';
                 out += '<td class="col-lv">' + (item.lv || '') + '</td>';
                 out += '<td class="col-lamp">' + lampHtml(lamp) + '</td>';
                 out += '<td class="col-title ' + diffClass + '">' + esc(item.title || '') + '</td>';
@@ -252,9 +276,8 @@
                 out += '</tr>';
             });
 
-            if (out === lastRenderedResultsHtml) return;
-            lastRenderedResultsHtml = out;
             document.getElementById('results-tbody').innerHTML = out;
+            attachJacketFallbacks();
         }
 
         window.addEventListener('DOMContentLoaded', function() {
