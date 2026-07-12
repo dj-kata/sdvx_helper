@@ -22,6 +22,7 @@ from src.logger import get_logger
 from src.funcs import load_ui_text, convert_difficulty, convert_lamp
 from src.result import OneResult
 from src.classes import detect_mode
+from src.result_image import expand_result_info_area
 logger = get_logger(__name__)
 
 from typing import TYPE_CHECKING
@@ -215,7 +216,7 @@ class ImageImportWorker(QThread):
 
                 try:
                     with Image.open(f) as img:
-                        self.screen_reader.update_screen(img)
+                        self.screen_reader.update_screen(expand_result_info_area(img))
                         mode = self.screen_reader.detect_screen()
                         
                         if mode == detect_mode.result:
@@ -410,6 +411,11 @@ class ConfigDialog(QDialog):
 
         self.autosave_image_check = QCheckBox(self.ui.image_save.autosave_image)
         path_layout.addRow(self.autosave_image_check)
+
+        self.autosave_result_info_area_only_check = QCheckBox(
+            self.ui.image_save.autosave_result_info_area_only
+        )
+        path_layout.addRow(self.autosave_result_info_area_only_check)
 
         self.autosave_updated_score_only_check = QCheckBox(
             self.ui.image_save.autosave_updated_score_only
@@ -998,6 +1004,9 @@ class ConfigDialog(QDialog):
 
         self.image_save_path_edit.setText(self.config.image_save_path)
         self.autosave_image_check.setChecked(self.config.autosave_image)
+        self.autosave_result_info_area_only_check.setChecked(
+            getattr(self.config, 'autosave_result_info_area_only', False)
+        )
         self.autosave_updated_score_only_check.setChecked(
             getattr(self.config, 'autosave_updated_score_only', False)
         )
@@ -1054,6 +1063,9 @@ class ConfigDialog(QDialog):
 
         self.config.image_save_path = self.image_save_path_edit.text()
         self.config.autosave_image = self.autosave_image_check.isChecked()
+        self.config.autosave_result_info_area_only = (
+            self.autosave_result_info_area_only_check.isChecked()
+        )
         self.config.autosave_updated_score_only = (
             self.autosave_updated_score_only_check.isChecked()
         )

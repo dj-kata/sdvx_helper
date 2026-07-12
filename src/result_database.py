@@ -20,6 +20,7 @@ from src.volforce import calc_total_vf, calc_vf, VF_TOP_N
 from src.songinfo import SongDatabase
 from src.logger import get_logger
 from PIL import Image
+from src.result_image import expand_result_info_area
 from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
@@ -930,7 +931,8 @@ class ResultDatabase:
                 continue
             
             try:
-                img = Image.open(img_path)
+                with Image.open(img_path) as src:
+                    img = expand_result_info_area(src)
                 jacket = img.crop(RECT_RESULT_JACKET)
                 if self.save_jacket_image(cid, jacket):
                     count += 1

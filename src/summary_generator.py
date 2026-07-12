@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from src.classes import clear_lamp, difficulty
 from src.logger import get_logger
+from src.result_image import expand_result_info_area
 
 if TYPE_CHECKING:
     from src.result import OneResult
@@ -271,7 +272,7 @@ def capture_summary_item_from_screen(
         from src.define import params as _params
 
         _ensure_cache()
-        src = img.convert('RGB')
+        src = expand_result_info_area(img).convert('RGB')
 
         def _crop(prefix: str) -> Image.Image:
             sx = _params[f'log_crop_{prefix}_sx']
@@ -391,6 +392,7 @@ def _put_result_from_screenshot(
     params: dict,
 ) -> None:
     """1枚のリザルト画像からパーツを切り出して bg_full / bg_small に貼り付ける。"""
+    img = expand_result_info_area(img)
 
     def _crop(prefix: str) -> Image.Image:
         sx = params[f'log_crop_{prefix}_sx']

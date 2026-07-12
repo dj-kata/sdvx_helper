@@ -75,6 +75,7 @@ class UIText:
         image_format_png = 'PNG'
         image_format_jpg = 'JPG'
         autosave_image = 'Auto-save result screen'
+        autosave_result_info_area_only = 'Save only the result information area'
         autosave_updated_score_only = 'Save only results with score updates'
         summary_updated_results_only = 'Receipt includes only updated results'
         summary_min_rows = 'Minimum receipt rows:'

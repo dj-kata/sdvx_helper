@@ -24,6 +24,7 @@ from src.classes import clear_lamp, detect_mode, difficulty, screen_orientation
 from src.discord_webhook import post_result_to_discord
 from src.logger import get_logger
 from src.result import OneResult
+from src.result_image import expand_result_info_area
 from src.screen_reader import ScreenReader
 from src.songinfo import SongDatabase
 
@@ -101,7 +102,7 @@ class _DiscordTestSendWorker(QThread):
         for path in sorted(candidates, key=lambda p: p.stat().st_mtime, reverse=True):
             try:
                 with Image.open(path) as img:
-                    reader.update_screen(img.copy())
+                    reader.update_screen(expand_result_info_area(img))
                     if reader.detect_screen() == detect_mode.result:
                         return path
                     logger.debug(f"Discordテスト送信候補をスキップ(非リザルト): {path}")
@@ -112,7 +113,7 @@ class _DiscordTestSendWorker(QThread):
     def _read_result_image(self, screen: Image.Image) -> tuple[OneResult, str]:
         song_db = SongDatabase()
         reader = self._make_reader(song_db)
-        reader.update_screen(screen)
+        reader.update_screen(expand_result_info_area(screen))
         data = reader.read_from_result() or {}
 
         title = data.get('title') or 'UNKNOWN'

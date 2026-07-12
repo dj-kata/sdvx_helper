@@ -48,6 +48,8 @@ class Config:
         """保存するリザルト画像の形式。'png' または 'jpg'"""
         self.autosave_image:  bool = True
         """リザルト画面を自動保存するか"""
+        self.autosave_result_info_area_only: bool = False
+        """True の場合、リザルト画像は情報部のみ切り出して保存する"""
         self.autosave_updated_score_only: bool = False
         """True の場合、自己ベスト更新があったリザルト画像のみ保存する"""
         self.summary_updated_results_only: bool = False

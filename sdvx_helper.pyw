@@ -46,6 +46,7 @@ from src.summary_generator import (
     generate_summary,
     generate_summary_from_items,
 )
+from src.result_image import crop_result_info_area, expand_result_info_area
 
 logger = get_logger('sdvx_helper')
 
@@ -273,7 +274,7 @@ class MainWindow(MainWindowUI):
             for path in candidates:
                 try:
                     with Image.open(path) as img:
-                        self.screen_reader.update_screen(img)
+                        self.screen_reader.update_screen(expand_result_info_area(img))
                         if self.screen_reader.detect_screen() != detect_mode.result:
                             skipped_non_result += 1
                             continue
@@ -1042,6 +1043,8 @@ class MainWindow(MainWindowUI):
             # 回転補正済み画像を優先、なければ生キャプチャ
             screen = screen or self._current_result_screen()
             if screen is not None:
+                if getattr(self.config, 'autosave_result_info_area_only', False):
+                    screen = crop_result_info_area(screen)
                 if image_format == 'jpg':
                     if screen.mode not in ('RGB', 'L'):
                         screen = screen.convert('RGB')

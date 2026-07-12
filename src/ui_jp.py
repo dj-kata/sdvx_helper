@@ -75,6 +75,7 @@ class UIText:
         image_format_png = 'PNG'
         image_format_jpg = 'JPG'
         autosave_image = 'リザルト画面を自動保存する'
+        autosave_result_info_area_only = 'リザルト画像の情報部のみを切り出して保存'
         autosave_updated_score_only = '更新があったスコアのみ保存'
         summary_updated_results_only = 'レシートにも更新されたリザルトのみ含む'
         summary_min_rows = 'レシート画像の最低曲数:'
