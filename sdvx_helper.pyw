@@ -316,7 +316,7 @@ class MainWindow(MainWindowUI):
 
     def _check_obs_configuration(self):
         """OBS設定の問題があればダイアログを表示"""
-        if not self.obs_manager.uses_obs_websocket():
+        if self.obs_manager.is_direct_capture() or not self.obs_manager.uses_obs_websocket():
             return
         status = self.obs_manager.get_detailed_status()
         warnings = []
