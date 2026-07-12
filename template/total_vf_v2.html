@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>VF TOP 50</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../out/websocket.css">
+    <style>
+        body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: "RocknRoll One", sans-serif;
+            font-size: 14px;
+            color: #fff;
+            text-shadow: 1px 1px 0 #000,
+                -1px 1px 0 #000,
+                1px -1px 0 #000,
+                -1px -1px 0 #000;
+        }
+
+        .frame_0 {
+            overflow: hidden;
+            height: 100%;
+            width: 33%;
+            padding-right: 1%;
+        }
+
+        .frame_1 {
+            overflow: hidden;
+            height: 100%;
+            width: 33%;
+            padding-right: 1%;
+            padding-left: 1%;
+        }
+
+        .frame_2 {
+            overflow: hidden;
+            height: 100%;
+            width: 33%;
+            padding-left: 1%;
+        }
+
+        div#all {
+            display: flex;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
+            background-color: rgba(0, 0, 0, 0);
+        }
+
+        table {
+            width: 100%;
+            border: none;
+        }
+
+        table td {
+            border: none;
+            vertical-align: middle;
+            white-space: nowrap;
+            height: 29px;
+        }
+
+        table tr:nth-child(odd) td:nth-child(1) {
+            font-family: "Black Ops One", cursive;
+            color: rgb(255, 255, 153);
+            padding-left: 7px;
+            padding-right: 14px;
+            width: 19px;
+            font-size: 19px;
+            text-align: center;
+        }
+
+        table td:nth-child(2) {
+            color: #ffffee;
+            margin-left: 4%;
+            padding-right: 14px;
+            width: 19px;
+        }
+
+        table tr:nth-child(odd) td:nth-child(3) {
+            font-size: 20px;
+            max-width: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        table tr:nth-child(even) td {
+            background-color: rgba(55, 55, 55, 0.85);
+            font-size: 18px;
+        }
+
+        table tr:nth-child(even) td:nth-child(2) {
+            text-align: right;
+        }
+
+        tr#updated td {
+            background-color: #007777;
+        }
+
+        table td:nth-child(4) {
+            color: #ccffcc;
+            padding-left: 14px;
+            width: 38px;
+            font-size: 19px;
+        }
+
+        table td:nth-child(5) {
+            width: 19px;
+            padding-left: 7px;
+            text-align: center;
+        }
+
+        img#jacket {
+            height: 58px;
+        }
+
+        img#lamp {
+            height: 19px;
+            position: relative;
+            top: 2px;
+            left: 7px;
+        }
+
+        .MAX {
+            animation-name: flashmax;
+            animation-duration: 0.4s;
+            animation-iteration-count: infinite;
+        }
+
+        @keyframes flashmax {
+            0% {
+                color: #ff2828;
+            }
+
+            20% {
+                color: #d5ff28;
+            }
+
+            40% {
+                color: #28ff7e;
+            }
+
+            60% {
+                color: #2872ff;
+            }
+
+            80% {
+                color: #d528ff;
+            }
+
+            100% {
+                color: #ff2828;
+            }
+        }
+
+        .lv16 {
+            color: #77ff77;
+        }
+
+        .lv17 {
+            color: #aabbff;
+        }
+
+        .lv18 {
+            color: #f8f871;
+        }
+
+        .lv19 {
+            color: #ffaacc;
+        }
+
+        .lv20 {
+            color: #ab77ff;
+        }
+
+        .exh,
+        .EXH,
+        .EXHAUST {
+            color: #ffaaaa;
+        }
+
+        .adv,
+        .ADV,
+        .ADVANCED {
+            color: #ffffaa;
+        }
+
+        .nov,
+        .NOV,
+        .NOVICE {
+            color: #aaaaff;
+        }
+
+        .APPEND,
+        .MXM,
+        .MAXIMUM,
+        .INF,
+        .GRV,
+        .HVN,
+        .VVD,
+        .XCD {
+            color: #ffccff;
+        }
+
+        .S {
+            color: #ffff00;
+        }
+
+        .AAAplus,
+        .AAA {
+            color: #ffff28;
+        }
+
+        .AAplus,
+        .AA {
+            color: #c3c3c3;
+        }
+
+        .Aplus,
+        .A {
+            color: #2ddf71;
+        }
+
+        .B,
+        .C,
+        .D,
+        .E,
+        .F {
+            color: #7777ff;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="all">
+        <div class="frame_0">
+            <table id="vf_0" rules="none">
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="frame_1">
+            <table id="vf_1" rules="none">
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="frame_2">
+            <table id="vf_2" rules="none">
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="./sdvx_ws_client.js"></script>
+    <script>
+        const NO_JACKET_SRC = "../resources/no_jacket.png";
+        const missingJackets = Object.create(null);
+
+        function esc(value) {
+            return String(value == null ? "" : value).replace(/[&<>"']/g, function(ch) {
+                return {"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[ch];
+            });
+        }
+
+        function lampImage(item) {
+            if (item.lamp_img) {
+                return '<img src="../resources/' + encodeURIComponent(item.lamp_img) + '" id="lamp" alt="">';
+            }
+            const lamp = String(item.lamp || "").toLowerCase();
+            const map = {
+                played: "log_lamp_failed.png",
+                failed: "log_lamp_failed.png",
+                clear: "log_lamp_clear.png",
+                exc: "log_lamp_hard.png",
+                hard: "log_lamp_hard.png",
+                maxxive: "log_lamp_exh.png",
+                exh: "log_lamp_exh.png",
+                uc: "log_lamp_uc.png",
+                puc: "log_lamp_puc.png"
+            };
+            return map[lamp] ? '<img src="../resources/' + map[lamp] + '" id="lamp" alt="">' : "";
+        }
+
+        function rowHtml(item) {
+            const score = Number(item.score) || 0;
+            const vf = Number(item.vf) || 0;
+            const lv = esc(item.lv);
+            const displayDiff = esc(item.cdiff || item.difficulty || "");
+            const chartId = encodeURIComponent(item.chart_id || "");
+            const jacket = chartId && !missingJackets[chartId] ? "../jackets/" + chartId + ".png" : NO_JACKET_SRC;
+            const updated = item.updated ? ' id="updated"' : "";
+
+            let out = "";
+            out += "<tr" + updated + ">";
+            out += '<td rowspan="2">' + esc(item.rank) + "</td>";
+            out += '<td rowspan="2"><img src="' + jacket + '" id="jacket" class="jacket-img" data-chart-id="' + esc(chartId) + '" alt=""></td>';
+            out += '<td colspan="4"><span class="' + displayDiff + '">' + esc(item.title) + "</span></td>";
+            out += "</tr>";
+            out += "<tr" + updated + ">";
+            out += '<td>Lv<span class="lv' + lv + '">' + lv + "</span></td>";
+            out += "<td>" + Math.floor(score / 10000).toLocaleString() + "</td>";
+            out += "<td>" + lampImage(item) + "</td>";
+            out += "<td>" + (vf / 10).toPrecision(3) + "</td>";
+            out += "</tr>";
+            return out;
+        }
+
+        function attachJacketFallbacks() {
+            document.querySelectorAll(".jacket-img").forEach(function(img) {
+                img.onerror = function() {
+                    const chartId = img.dataset.chartId || "";
+                    if (chartId) missingJackets[chartId] = true;
+                    img.onerror = null;
+                    img.src = NO_JACKET_SRC;
+                };
+            });
+        }
+
+        function updateVFList(data) {
+            const items = (data && data.items) || [];
+            const cols = ["", "", ""];
+            items.forEach(function(item, index) {
+                const html = rowHtml(item);
+                if (index < 17) cols[0] += html;
+                else if (index < 34) cols[1] += html;
+                else cols[2] += html;
+            });
+            document.querySelector("#vf_0 tbody").innerHTML = cols[0];
+            document.querySelector("#vf_1 tbody").innerHTML = cols[1];
+            document.querySelector("#vf_2 tbody").innerHTML = cols[2];
+            attachJacketFallbacks();
+        }
+
+        SDVXWebSocketClient.connect({
+            type: "vf",
+            target: "vf",
+            onData: updateVFList
+        });
+    </script>
+</body>
+
+</html>
