@@ -121,6 +121,10 @@ class MainWindowUI(QMainWindow):
         obs_action.triggered.connect(self.open_obs_dialog)
         file_menu.addAction(obs_action)
 
+        discord_action = QAction(self.ui.menu.discord_config, self)
+        discord_action.triggered.connect(self.open_discord_config_dialog)
+        file_menu.addAction(discord_action)
+
         file_menu.addSeparator()
 
         save_image_action = QAction(self.ui.menu.save_image, self)
@@ -277,6 +281,9 @@ class MainWindowUI(QMainWindow):
         raise NotImplementedError
 
     def open_obs_dialog(self):
+        raise NotImplementedError
+
+    def open_discord_config_dialog(self):
         raise NotImplementedError
 
     def show_about(self):

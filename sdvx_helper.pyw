@@ -35,6 +35,8 @@ from src.logger import get_logger
 from src.config_dialog import ConfigDialog
 from src.score_viewer import ScoreViewer
 from src.obs_dialog import OBSControlDialog
+from src.discord_dialog import DiscordConfigDialog
+from src.discord_webhook import post_result_to_discord, should_send_discord_result
 from src.main_window import MainWindowUI
 from src.rival_data import RivalManager
 from src.portal_manager import PortalManager
@@ -472,6 +474,13 @@ class MainWindow(MainWindowUI):
             self._apply_config_changes()
             self.statusBar().showMessage("OBS制御設定を更新しました", 3000)
 
+    def open_discord_config_dialog(self):
+        """Discord連携設定ダイアログを開く"""
+        dialog = DiscordConfigDialog(self.config, parent=self)
+        if dialog.exec():
+            self._apply_config_changes()
+            self.statusBar().showMessage("Discord連携設定を更新しました", 3000)
+
     def open_score_viewer(self):
         """スコアビューワを開く"""
         if self.score_viewer is not None and self.score_viewer.isVisible():
@@ -819,9 +828,18 @@ class MainWindow(MainWindowUI):
                 )
                 generate_summary(summary_results)
 
+            screen = self._current_result_screen()
+            self._send_discord_result(
+                result=result,
+                info=info,
+                pre_score=pre_score,
+                pre_exscore=pre_exscore,
+                is_result_updated=is_result_updated,
+                screen=screen,
+            )
+
             # 画像保存 + スクリーンショット版サマリー生成
             if self.config.autosave_image:
-                screen = self._current_result_screen()
                 if screen is not None and should_include_summary:
                     summary_item = capture_summary_item_from_screen(
                         screen,
@@ -843,6 +861,28 @@ class MainWindow(MainWindowUI):
 
             logger.info(f"リザルト登録: {result}")
             self.statusBar().showMessage(f"リザルト登録: {get_title_with_chart(title, diff)}", 10000)
+
+    def _send_discord_result(self, result, info, pre_score, pre_exscore,
+                             is_result_updated: bool, screen):
+        """条件を満たすリザルトをDiscordへバックグラウンド送信する。"""
+        if not should_send_discord_result(self.config, result, is_result_updated):
+            return
+
+        import threading
+
+        artist = getattr(info, 'artist', '') if info else ''
+
+        def _post():
+            post_result_to_discord(
+                self.config,
+                result,
+                artist=artist,
+                pre_score=pre_score,
+                pre_exscore=pre_exscore,
+                screen=screen,
+            )
+
+        threading.Thread(target=_post, daemon=True, name="DiscordWebhookThread").start()
 
     # ── 画像保存 ──────────────────────────────────────────────────────────────
 

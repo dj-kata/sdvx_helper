@@ -18,6 +18,7 @@ class UIText:
         # File menu
         base_config = 'Configure(&C)...'
         obs_config = 'OBS Settings(&O)...'
+        discord_config = 'Discord Integration(&D)...'
         save_image = '&Save Image'
         exit = 'E&xit'
 

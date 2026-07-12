@@ -53,6 +53,16 @@ class Config:
         self.summary_updated_results_only: bool = False
         """True の場合、summary_*.png には自己ベスト更新があったリザルトのみ含める"""
 
+        # ─── Discord連携 ──────────────────────────────────────────────────
+        self.discord_webhook_url: str = ''
+        """リザルト送信用 Discord Webhook URL"""
+        self.discord_updated_results_only: bool = False
+        """True の場合、自己ベスト更新があったリザルトのみ Discord へ送信する"""
+        self.discord_level_filter_enabled: bool = False
+        self.discord_levels: list[int] = list(range(1, 21))
+        self.discord_lamp_filter_enabled: bool = False
+        self.discord_lamps: list[str] = ['PUC', 'MAXXIVE', 'EXC-COMP', 'COMP', 'PLAYED']
+
         # ─── CSV 出力 ─────────────────────────────────────────────────────
         self.csv_export_path: str = ''
         """空文字なら out/ に書き出す"""
