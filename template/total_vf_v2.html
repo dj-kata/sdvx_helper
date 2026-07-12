@@ -293,14 +293,10 @@
             const lv = esc(item.lv);
             const displayDiff = esc(item.cdiff || item.difficulty || "");
             const chartId = encodeURIComponent(item.chart_id || "");
-            const jacketVersion = Number(item.jacket_version) || 0;
             if (item.jacket_exists && chartId) delete missingJackets[chartId];
             let jacket = item.jacket_img || "";
             if ((!jacket || jacket === NO_JACKET_SRC) && chartId && (item.jacket_exists || !missingJackets[chartId])) {
                 jacket = "../jackets/" + chartId + ".jpg";
-            }
-            if (jacket.indexOf("../jackets/") === 0 && jacketVersion) {
-                jacket += "?v=" + jacketVersion;
             }
             if (!jacket) jacket = NO_JACKET_SRC;
             const updated = item.updated ? ' id="updated"' : "";

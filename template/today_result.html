@@ -1,157 +1,207 @@
 <!doctype html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <title>SDVX Today's Results</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="./websocket.css">
-        <style>
-            * { box-sizing: border-box; }
 
-            body {
-                background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a0a1f 100%);
-                margin: 0;
-                padding: 5px 10px 10px 10px;
-                overflow-x: hidden;
-                font-family: 'RocknRoll One', sans-serif;
-                color: #fff;
-            }
+<head>
+    <meta charset="utf-8">
+    <title>SDVX Today's Results</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./websocket.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-            #all {
-                max-width: 1900px;
-                margin: 0 auto;
-            }
+        body {
+            background: linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a0a1f 100%);
+            margin: 0;
+            padding: 5px 10px 10px 10px;
+            overflow-x: hidden;
+            font-family: 'RocknRoll One', sans-serif;
+            color: #fff;
+        }
 
-            .results-container {
-                background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 15, 35, 0.9));
-                border-radius: 12px;
-                padding: 5px 15px 15px 15px;
-                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
-                border: 2px solid rgba(160, 80, 220, 0.3);
-            }
+        #all {
+            max-width: 1900px;
+            margin: 0 auto;
+        }
 
-            .results-table {
-                width: 100%;
-                border-collapse: collapse;
-                table-layout: fixed;
-            }
+        .results-container {
+            background: linear-gradient(135deg, rgba(30, 20, 50, 0.9), rgba(20, 15, 35, 0.9));
+            border-radius: 12px;
+            padding: 5px 15px 15px 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(160, 80, 220, 0.3);
+        }
 
-            .results-table tr {
-                border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-            }
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
 
-            .results-table tr.score-updated {
-                background-color: rgba(180, 80, 255, 0.08);
-            }
+        .results-table tr {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
 
-            .results-table td {
-                padding: 7px 6px;
-                white-space: nowrap;
-                text-shadow: 1px 1px 0 #000;
-            }
+        .results-table tr.score-updated {
+            background-color: rgba(180, 80, 255, 0.08);
+        }
 
-            /* ジャケット列 */
-            .col-jacket {
-                width: 60px;
-                padding-left: 0;
-                padding-right: 8px;
-            }
+        .results-table td {
+            padding: 7px 6px;
+            white-space: nowrap;
+            text-shadow: 1px 1px 0 #000;
+        }
 
-            .jacket-img {
-                display: block;
-                width: 52px;
-                height: 52px;
-                object-fit: cover;
-                border: 1px solid rgba(255, 255, 255, 0.25);
-                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
-            }
+        /* ジャケット列 */
+        .col-jacket {
+            width: 60px;
+            padding-left: 0;
+            padding-right: 8px;
+        }
 
-            /* LV列 */
-            .col-lv {
-                width: 54px;
-                text-align: right;
-                font-size: 34px;
-                color: #ffeb3b;
-                text-shadow: 2px 2px 0 #000;
-            }
+        .jacket-img {
+            display: block;
+            width: 52px;
+            height: 52px;
+            object-fit: cover;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+        }
 
-            /* ランプ列 */
-            .col-lamp {
-                width: 70px;
-                text-align: center;
-            }
+        /* LV列 */
+        .col-lv {
+            width: 54px;
+            text-align: right;
+            font-size: 34px;
+            color: #ffeb3b;
+            text-shadow: 2px 2px 0 #000;
+        }
 
-            .lamp-img {
-                height: 44px;
-                max-width: 66px;
-                object-fit: contain;
-                vertical-align: middle;
-            }
+        /* ランプ列 */
+        .col-lamp {
+            width: 70px;
+            text-align: center;
+        }
 
-            /* タイトル列 */
-            .col-title {
-                font-size: 32px;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                min-width: 0;
-                max-width: none;
-            }
+        .lamp-img {
+            height: 44px;
+            max-width: 66px;
+            object-fit: contain;
+            vertical-align: middle;
+        }
 
-            /* スコア列 */
-            .col-score {
-                width: 78px;
-                text-align: right;
-                font-size: 34px;
-                font-weight: bold;
-            }
+        /* タイトル列 */
+        .col-title {
+            font-size: 32px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+            max-width: none;
+        }
 
-            /* グレード列 */
-            .col-grade {
-                width: 70px;
-                text-align: center;
-                font-size: 30px;
-                font-weight: bold;
-            }
+        /* スコア列 */
+        .col-score {
+            width: 78px;
+            text-align: right;
+            font-size: 34px;
+            font-weight: bold;
+        }
 
-            /* EXスコア列 */
-            .col-ex {
-                width: 160px;
-                text-align: right;
-                font-size: 24px;
-                padding-left: 4px;
-                padding-right: 8px;
-                color: #aaaaff;
-                font-variant-numeric: tabular-nums;
-            }
+        /* グレード列 */
+        .col-grade {
+            width: 70px;
+            text-align: center;
+            font-size: 30px;
+            font-weight: bold;
+        }
 
-            /* 難易度カラー */
-            .diff-nov { color: #60b8ff; }
-            .diff-adv { color: #d4bb00; }
-            .diff-exh { color: #e84040; }
-            .diff-mxm { color: #e0e0e0; }
+        /* EXスコア列 */
+        .col-ex {
+            width: 160px;
+            text-align: right;
+            font-size: 24px;
+            padding-left: 4px;
+            padding-right: 8px;
+            color: #aaaaff;
+            font-variant-numeric: tabular-nums;
+        }
 
-            /* スコア更新 */
-            .score-updated  { color: #ffccff; }
-            .score-not-updated { color: #999; }
+        /* 難易度カラー */
+        .diff-nov {
+            color: #60b8ff;
+        }
 
-            /* グレードカラー */
-            .grade-s    { color: #ffdd00; text-shadow: 0 0 8px rgba(255,220,0,0.6); }
-            .grade-aaap { color: #ffffff; }
-            .grade-aaa  { color: #eeeeee; }
-            .grade-aap  { color: #ccffcc; }
-            .grade-aa   { color: #aaffaa; }
-            .grade-ap   { color: #88ff88; }
-            .grade-a    { color: #66ee66; }
-            .grade-b    { color: #8888ff; }
-            .grade-c    { color: #6666dd; }
-            .grade-d    { color: #4444bb; }
-        </style>
-    </head>
-    <body>
-        <script src="./sdvx_ws_client.js"></script>
-        <script>
+        .diff-adv {
+            color: #d4bb00;
+        }
+
+        .diff-exh {
+            color: #e84040;
+        }
+
+        .diff-mxm {
+            color: #e0e0e0;
+        }
+
+        /* スコア更新 */
+        .score-updated {
+            color: #ffccff;
+        }
+
+        .score-not-updated {
+            color: #999;
+        }
+
+        /* グレードカラー */
+        .grade-s {
+            color: #ffdd00;
+            text-shadow: 0 0 8px rgba(255, 220, 0, 0.6);
+        }
+
+        .grade-aaap {
+            color: #ffffff;
+        }
+
+        .grade-aaa {
+            color: #eeeeee;
+        }
+
+        .grade-aap {
+            color: #ccffcc;
+        }
+
+        .grade-aa {
+            color: #aaffaa;
+        }
+
+        .grade-ap {
+            color: #88ff88;
+        }
+
+        .grade-a {
+            color: #66ee66;
+        }
+
+        .grade-b {
+            color: #8888ff;
+        }
+
+        .grade-c {
+            color: #6666dd;
+        }
+
+        .grade-d {
+            color: #4444bb;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="./sdvx_ws_client.js"></script>
+    <script>
         var LAMP_FILES = ['', 'log_lamp_failed.png', 'log_lamp_clear.png', 'log_lamp_hard.png', 'log_lamp_exh.png', 'log_lamp_uc.png', 'log_lamp_puc.png'];
         var NO_JACKET_SRC = '../resources/no_jacket.png';
         var missingJackets = Object.create(null);
@@ -163,8 +213,8 @@
         }
 
         function esc(value) {
-            return decodeHtmlEntity(value).replace(/[&<>"']/g, function(ch) {
-                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+            return decodeHtmlEntity(value).replace(/[&<>"']/g, function (ch) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
             });
         }
 
@@ -181,15 +231,15 @@
         function getGradeClass(grade) {
             if (!grade) return '';
             var g = grade.toUpperCase();
-            if (g === 'S')    return 'grade-s';
+            if (g === 'S') return 'grade-s';
             if (g === 'AAA+') return 'grade-aaap';
-            if (g === 'AAA')  return 'grade-aaa';
-            if (g === 'AA+')  return 'grade-aap';
-            if (g === 'AA')   return 'grade-aa';
-            if (g === 'A+')   return 'grade-ap';
-            if (g === 'A')    return 'grade-a';
-            if (g === 'B')    return 'grade-b';
-            if (g === 'C')    return 'grade-c';
+            if (g === 'AAA') return 'grade-aaa';
+            if (g === 'AA+') return 'grade-aap';
+            if (g === 'AA') return 'grade-aa';
+            if (g === 'A+') return 'grade-ap';
+            if (g === 'A') return 'grade-a';
+            if (g === 'B') return 'grade-b';
+            if (g === 'C') return 'grade-c';
             return 'grade-d';
         }
 
@@ -199,30 +249,26 @@
             return file ? '<img class="lamp-img" src="../resources/' + file + '?v=1" alt="">' : '';
         }
 
+        function appendVersion(path, version) {
+            if (!path || !version) return path;
+            return path + (path.indexOf('?') >= 0 ? '&' : '?') + 'v=' + encodeURIComponent(version);
+        }
+
         function jacketHtml(item) {
             item = item || {};
-            var chartId = String(item.chart_id || '');
-            var encodedChartId = chartId ? encodeURIComponent(chartId) : '';
-            var jacketVersion = Number(item.jacket_version) || 0;
-            var path = item.jacket_img || '';
-            if ((!path || path === NO_JACKET_SRC) && encodedChartId) {
-                path = '../jackets/' + encodedChartId + '.jpg';
-            }
-            if (path.indexOf('../jackets/') === 0 && jacketVersion) {
-                path += '?v=' + jacketVersion;
-            }
-            if (!path) path = NO_JACKET_SRC;
 
-            return '<img class="jacket-img" src="' + esc(path) + '" data-chart-id="' + esc(encodedChartId) + '" alt="">';
+            // バックエンドが実在確認したパス（jpg/pngを含む）をそのまま使う。
+            var path = item.jacket_img || NO_JACKET_SRC;
+            path = appendVersion(path, item.jacket_version || 0);
+
+            return '<img class="jacket-img" src="' + esc(path) + '" alt="">';
         }
 
         function attachJacketFallbacks() {
-            document.querySelectorAll('.jacket-img').forEach(function(img) {
-                img.onerror = function() {
-                    var chartId = img.dataset.chartId || '';
-                    if (chartId) missingJackets[chartId] = true;
+            document.querySelectorAll('.jacket-img').forEach(function (img) {
+                img.onerror = function () {
                     img.onerror = null;
-                    img.src = NO_JACKET_SRC;
+                    img.src = appendVersion(NO_JACKET_SRC, 'fallback-1');
                 };
             });
         }
@@ -252,7 +298,7 @@
             var skipNoUpdate = params.has('skip_no_update') ? Number(params.get('skip_no_update')) : 0;
 
             var out = '';
-            data.items.forEach(function(item) {
+            data.items.forEach(function (item) {
                 var lamp = Number(item.lamp) || 0;
                 var score = Number(item.score) || 0;
                 var preScore = Number(item.pre_score) || 0;
@@ -280,21 +326,22 @@
             attachJacketFallbacks();
         }
 
-        window.addEventListener('DOMContentLoaded', function() {
+        window.addEventListener('DOMContentLoaded', function () {
             SDVXWebSocketClient.connect({
                 type: 'today_results',
                 target: 'today_results',
                 onData: updateTodayResults
             });
         });
-        </script>
+    </script>
 
-        <div id="all">
-            <div class="results-container">
-                <table class="results-table">
-                    <tbody id="results-tbody"></tbody>
-                </table>
-            </div>
+    <div id="all">
+        <div class="results-container">
+            <table class="results-table">
+                <tbody id="results-tbody"></tbody>
+            </table>
         </div>
-    </body>
+    </div>
+</body>
+
 </html>

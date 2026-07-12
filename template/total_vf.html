@@ -248,13 +248,9 @@
                 const displayDiff = item.cdiff || item.difficulty || '';
                 const lvClass = `lv${Number(item.lv) || 0}`;
                 const chartId = encodeURIComponent(item.chart_id || '');
-                const jacketVersion = Number(item.jacket_version) || 0;
                 let jacket = item.jacket_img || (chartId ? `../jackets/${chartId}.jpg` : '../resources/no_jacket.png');
                 if (jacket === '../resources/no_jacket.png' && chartId) {
                     jacket = `../jackets/${chartId}.jpg`;
-                }
-                if (jacket.indexOf('../jackets/') === 0 && jacketVersion) {
-                    jacket += `?v=${jacketVersion}`;
                 }
 
                 div.innerHTML = `
