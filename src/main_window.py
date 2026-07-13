@@ -212,6 +212,12 @@ class MainWindowUI(QMainWindow):
     def update_display(self):
         """表示更新（サブクラスから呼ばれる）"""
         try:
+            now = time.time()
+            if hasattr(self, "play_time_seconds") and hasattr(self, "_last_playtime_tick"):
+                if self.current_mode == detect_mode.play:
+                    self.play_time_seconds += max(0.0, now - self._last_playtime_tick)
+                self._last_playtime_tick = now
+
             # OBS接続状態
             status_msg, is_connected = self.obs_manager.get_status()
             self.obs_status_label.setText(status_msg)
@@ -243,6 +249,9 @@ class MainWindowUI(QMainWindow):
 
             # 最後に保存した曲
             self.last_song_label.setText(self.last_saved_song)
+
+            if hasattr(self, "broadcast_session_stats_data"):
+                self.broadcast_session_stats_data()
 
         except Exception:
             import traceback

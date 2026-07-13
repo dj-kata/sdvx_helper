@@ -16,6 +16,11 @@
             --panel-border: rgba(112, 214, 255, 0.72);
             --panel-bg: rgba(4, 8, 24, 0.92);
             --page-bg: #030510;
+            /*
+            left_extra.html のレベル統計を親側から指定する場合だけ有効化してください。
+            --stats-lv: 16, 17, 18, 19, 20;
+            --stats-transition-time: 8;
+            */
         }
 
         * {
@@ -210,6 +215,11 @@
 
         function appendSearchToIframeSrc() {
             const pageParams = new URLSearchParams(location.search);
+            const rootStyles = getComputedStyle(document.documentElement);
+            const forwardedCustomProperties = {
+                stats_lv: rootStyles.getPropertyValue("--stats-lv").trim(),
+                stats_transition_time: rootStyles.getPropertyValue("--stats-transition-time").trim()
+            };
 
             document.querySelectorAll("iframe").forEach((iframe) => {
                 const rawSrc = iframe.getAttribute("src");
@@ -217,6 +227,9 @@
 
                 const src = new URL(rawSrc, location.href);
                 pageParams.forEach((value, key) => src.searchParams.set(key, value));
+                Object.entries(forwardedCustomProperties).forEach(([key, value]) => {
+                    if (value && !src.searchParams.has(key)) src.searchParams.set(key, value);
+                });
                 src.searchParams.set("_cache", Date.now().toString());
                 iframe.src = src.pathname.split("/").pop() + src.search;
             });

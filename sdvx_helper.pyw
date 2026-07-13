@@ -133,6 +133,9 @@ class MainWindow(MainWindowUI):
         self.current_mode: detect_mode = detect_mode.init
         self._start_time: int = int(datetime.datetime.now().timestamp())
         self.play_count: int = 0
+        self.play_time_seconds: float = 0.0
+        self._last_playtime_tick: float = datetime.datetime.now().timestamp()
+        self.startup_total_vf: int = self.result_database.get_total_vf()
         self.last_saved_song: str = "---"
         self.score_viewer = None
 
@@ -152,6 +155,7 @@ class MainWindow(MainWindowUI):
         QTimer.singleShot(100, lambda: self.result_database.broadcast_today_results_data(
             self.start_time_with_offset
         ))
+        QTimer.singleShot(100, self.broadcast_session_stats_data)
         QTimer.singleShot(100, self._load_recent_result_images_for_summary)
 
         # UI初期化
@@ -191,6 +195,21 @@ class MainWindow(MainWindowUI):
     @property
     def start_time_with_offset(self) -> int:
         return self._start_time - self.config.autoload_offset * 3600
+
+    def get_session_stats_data(self) -> dict:
+        """left_extra.html 用の起動後ステータスを返す。"""
+        current_vf = self.result_database.get_total_vf()
+        return {
+            'plays': self.play_count,
+            'uptime_seconds': max(0, int(datetime.datetime.now().timestamp() - self.start_time)),
+            'playtime_seconds': max(0, int(self.play_time_seconds)),
+            'vf': current_vf,
+            'vf_start': self.startup_total_vf,
+            'vf_delta': current_vf - self.startup_total_vf,
+        }
+
+    def broadcast_session_stats_data(self):
+        self.result_database.broadcast_session_stats_data(self.get_session_stats_data())
 
     # ── ユーティリティ ────────────────────────────────────────────────────────
 

@@ -176,6 +176,10 @@ class ResultDatabase:
     def broadcast_nowplaying_data(self, data: dict):
         return data
 
+    @_ws_broadcast('update_session_stats_data')
+    def broadcast_session_stats_data(self, data: dict):
+        return data
+
     # ─── 登録 ─────────────────────────────────────────────────────────────────
 
     def add(self, result: OneResult, commit: bool = True) -> bool:

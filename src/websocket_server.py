@@ -37,6 +37,7 @@ class DataWebSocketServer:
         self.vf_data            = None
         self.stats_data         = None
         self.nowplaying_data    = None
+        self.session_stats_data = None
 
     # ── 接続管理 ─────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ class DataWebSocketServer:
             ('vf',            self.vf_data),
             ('stats',         self.stats_data),
             ('nowplaying',     self.nowplaying_data),
+            ('session_stats',  self.session_stats_data),
         ]
 
         for type_, data in latest_data:
@@ -141,6 +143,10 @@ class DataWebSocketServer:
         self.nowplaying_data = data
         await self._broadcast('nowplaying', data)
 
+    async def _broadcast_session_stats(self, data: dict):
+        self.session_stats_data = data
+        await self._broadcast('session_stats', data)
+
     # ── サーバー制御 ─────────────────────────────────────────────────────────
 
     def start(self, loop=None):
@@ -219,4 +225,11 @@ class DataWebSocketServer:
         if self.loop:
             asyncio.run_coroutine_threadsafe(
                 self._broadcast_nowplaying(data), self.loop
+            )
+
+    def update_session_stats_data(self, data: dict):
+        """起動後のプレイ数・時間・VFを更新して配信"""
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(
+                self._broadcast_session_stats(data), self.loop
             )

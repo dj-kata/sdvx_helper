@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+    <meta charset="utf-8">
+    <title>SDVX Left Extra</title>
+    <link rel="stylesheet" href="./websocket.css">
+    <style>
+        :root {
+            --websocket-port: 8767;
+            --label-color: #78d9ff;
+            --value-color: #f7fbff;
+            --muted-color: rgba(247, 251, 255, 0.62);
+            --stats-lv: 16, 17, 18, 19, 20;
+            --stats-transition-time: 4;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 1200px;
+            height: 500px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            font-family: "Meiryo", sans-serif;
+            color: var(--value-color);
+            text-shadow:
+                3px 3px 0 #000,
+                -1px 1px 0 #000,
+                1px -1px 0 #000,
+                -1px -1px 0 #000;
+        }
+
+        .left-extra {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-rows: auto auto auto minmax(0, 1fr);
+            row-gap: 16px;
+            padding: 42px 46px;
+            background:
+                linear-gradient(90deg, rgba(7, 19, 54, 0.84), rgba(7, 8, 22, 0.72) 52%, rgba(38, 10, 62, 0.78)),
+                rgba(0, 0, 0, 0.58);
+        }
+
+        .stat-line {
+            min-width: 0;
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 0 26px;
+            font-size: 48px;
+            line-height: 1.14;
+            font-weight: 800;
+            white-space: normal;
+        }
+
+        .stat-item {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .label {
+            color: var(--label-color);
+            letter-spacing: 0;
+        }
+
+        .value {
+            color: var(--value-color);
+            letter-spacing: 0;
+        }
+
+        .delta {
+            color: var(--muted-color);
+            font-size: 0.76em;
+            margin-left: 4px;
+        }
+
+        .comma {
+            color: var(--muted-color);
+            margin-left: -18px;
+        }
+
+        .reserve {
+            min-height: 0;
+        }
+
+        .level-stats {
+            align-self: end;
+            min-width: 0;
+            min-height: 0;
+            display: grid;
+            align-content: end;
+            row-gap: 8px;
+            padding-top: 10px;
+            font-size: 33px;
+            line-height: 1.05;
+            font-weight: 800;
+        }
+
+        .level-stats[hidden] {
+            display: none;
+        }
+
+        .stats-head,
+        .stats-counts {
+            min-width: 0;
+            display: flex;
+            align-items: baseline;
+            flex-wrap: wrap;
+            gap: 0 15px;
+        }
+
+        .lv-label {
+            color: #f7fbff;
+        }
+
+        .lv-label.lv14 {
+            color: #ffa6a6;
+        }
+
+        .lv-label.lv15 {
+            color: #ffc977;
+        }
+
+        .lv-label.lv16 {
+            color: #77ff77;
+        }
+
+        .lv-label.lv17 {
+            color: #aabbff;
+        }
+
+        .lv-label.lv18 {
+            color: #f8f871;
+        }
+
+        .lv-label.lv19 {
+            color: #ffaacc;
+        }
+
+        .lv-label.lv20 {
+            color: #ab77ff;
+        }
+
+        .stats-key {
+            color: var(--value-color);
+        }
+
+        .stats-num {
+            color: var(--value-color);
+        }
+
+        .puc-text,
+        .rank-s-text {
+            color: #ffff00;
+        }
+
+        .uc-text {
+            color: #ff7777;
+        }
+
+        .exh-text {
+            color: #dddddd;
+        }
+
+        .hard-text {
+            color: #cf77ff;
+        }
+
+        .clear-text {
+            color: #77ff77;
+        }
+
+        .rank-aaa-plus-text {
+            color: #77ffff;
+        }
+
+        .rank-aaa-text {
+            color: #9999ff;
+        }
+
+        .stats-bar {
+            width: 100%;
+            height: 19px;
+            display: flex;
+            overflow: hidden;
+            background: #555;
+            border: 3px solid #02040c;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+        }
+
+        .bar-puc {
+            background: #ffff00;
+        }
+
+        .bar-uc {
+            background: #ff7777;
+        }
+
+        .bar-exh {
+            background: #dddddd;
+        }
+
+        .bar-hard {
+            background: #c477ff;
+        }
+
+        .bar-clear {
+            background: #77ff77;
+        }
+
+        .bar-failed {
+            background: #bb2222;
+        }
+
+        .bar-noplay,
+        .bar-rank-under-aaa {
+            background: #777;
+        }
+
+        .bar-rank-s {
+            background: #ffff00;
+        }
+
+        .bar-rank-aaa-plus {
+            background: #77ffff;
+        }
+
+        .bar-rank-aaa {
+            background: #7777ff;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="left-extra">
+        <section class="stat-line" aria-label="play session">
+            <span class="stat-item"><span class="label">plays:</span><span class="value" id="plays">0</span></span>
+        </section>
+        <section class="stat-line" aria-label="session time">
+            <span class="stat-item"><span class="label">uptime:</span><span class="value"
+                    id="uptime">0:00:00</span></span>
+            <span class="comma">,</span>
+            <span class="stat-item"><span class="label">playtime:</span><span class="value"
+                    id="playtime">0:00:00</span></span>
+        </section>
+        <section class="stat-line" aria-label="volforce">
+            <span class="stat-item">
+                <span class="label">VF:</span>
+                <span class="value" id="vf">0.000</span>
+                <span class="delta" id="vf-delta">(+0.000)</span>
+            </span>
+        </section>
+        <section class="level-stats" id="level-stats" hidden>
+            <div class="stats-head">
+                <span class="lv-label" id="stats-lv-label">Lv--</span>
+                <span><span class="stats-key">ave:</span> <span class="stats-num" id="stats-average">0</span></span>
+            </div>
+            <div class="stats-counts">
+                <span><span class="puc-text">PUC:</span><span id="stats-puc">0</span>,</span>
+                <span><span class="uc-text">UC:</span><span id="stats-uc">0</span>,</span>
+                <span><span class="exh-text">M:</span><span id="stats-exh">0</span>,</span>
+                <span><span class="hard-text">E:</span><span id="stats-hard">0</span>,</span>
+                <span><span class="clear-text">C:</span><span id="stats-clear">0</span>,</span>
+            </div>
+            <div class="stats-bar" aria-hidden="true">
+                <span class="bar-puc" id="bar-puc"></span>
+                <span class="bar-uc" id="bar-uc"></span>
+                <span class="bar-exh" id="bar-exh"></span>
+                <span class="bar-hard" id="bar-hard"></span>
+                <span class="bar-clear" id="bar-clear"></span>
+                <span class="bar-failed" id="bar-failed"></span>
+                <span class="bar-noplay" id="bar-noplay"></span>
+            </div>
+            <div class="stats-counts">
+                <span><span class="rank-s-text">S:</span><span id="stats-rank-s">0</span>,</span>
+                <span><span class="rank-aaa-plus-text">AAA+:</span><span id="stats-rank-aaa-plus">0</span>,</span>
+                <span><span class="rank-aaa-text">AAA:</span><span id="stats-rank-aaa">0</span>,</span>
+            </div>
+            <div class="stats-bar" aria-hidden="true">
+                <span class="bar-rank-s" id="bar-rank-s"></span>
+                <span class="bar-rank-aaa-plus" id="bar-rank-aaa-plus"></span>
+                <span class="bar-rank-aaa" id="bar-rank-aaa"></span>
+                <span class="bar-rank-under-aaa" id="bar-rank-under-aaa"></span>
+            </div>
+        </section>
+    </main>
+
+    <script src="./sdvx_ws_client.js"></script>
+    <script>
+        function formatTime(totalSeconds) {
+            var seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+            var h = Math.floor(seconds / 3600);
+            var m = Math.floor((seconds % 3600) / 60);
+            var s = seconds % 60;
+            return h + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+        }
+
+        function formatVf(value) {
+            return ((Number(value) || 0) / 1000).toFixed(3);
+        }
+
+        function formatDelta(value) {
+            var vf = (Number(value) || 0) / 1000;
+            var sign = vf >= 0 ? "+" : "";
+            return "(" + sign + vf.toFixed(3) + ")";
+        }
+
+        function updateSessionStats(data) {
+            data = data || {};
+            document.getElementById("plays").textContent = Number(data.plays) || 0;
+            document.getElementById("uptime").textContent = formatTime(data.uptime_seconds);
+            document.getElementById("playtime").textContent = formatTime(data.playtime_seconds);
+            document.getElementById("vf").textContent = formatVf(data.vf);
+            document.getElementById("vf-delta").textContent = formatDelta(data.vf_delta);
+        }
+
+        function cssValue(name, fallback) {
+            var value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            return value || fallback;
+        }
+
+        function queryValue(name) {
+            return new URLSearchParams(location.search).get(name);
+        }
+
+        function parseLevels(value) {
+            return String(value || "")
+                .split(",")
+                .map(function (part) { return Number(part.trim()); })
+                .filter(function (lv) { return Number.isFinite(lv) && lv >= 1; });
+        }
+
+        function number(value, fallback) {
+            var parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : (fallback || 0);
+        }
+
+        function setWidth(id, value, total) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.style.width = total > 0 ? (100 * value / total) + "%" : "0%";
+        }
+
+        var statsLevels = parseLevels(queryValue("stats_lv") || cssValue("--stats-lv", "16,17,18,19,20"));
+        if (!statsLevels.length) statsLevels = [16, 17, 18, 19, 20];
+
+        var transitionSeconds = number(
+            queryValue("stats_transition_time") || cssValue("--stats-transition-time", "8"),
+            8
+        );
+        var statsData = null;
+        var statsIndex = 0;
+        var statsTimer = null;
+        var lastRenderedLevel = null;
+
+        function currentLevelStats() {
+            if (!statsData || !statsData.lvs) return null;
+            var lv = statsLevels[statsIndex % statsLevels.length];
+            return {
+                lv: lv,
+                data: statsData.lvs[lv] || statsData.lvs[String(lv)] || {}
+            };
+        }
+
+        function renderLevelStats() {
+            var current = currentLevelStats();
+            if (!current) return;
+
+            var s = current.data;
+            var lv = current.lv;
+            var puc = number(s.puc);
+            var uc = number(s.uc);
+            var exh = number(s.exc ?? s.exh);
+            var hard = number(s.maxxive ?? s.mxx ?? s.hard);
+            var clear = number(s.clear ?? s.clr);
+            var failed = number(s.failed ?? s.fld);
+            var total = number(s.total, puc + uc + exh + hard + clear + failed + number(s.noplay));
+            var played = number(s.played, puc + uc + exh + hard + clear + failed);
+            var noplay = Math.max(number(s.noplay, total - played), 0);
+            var totalLamp = puc + uc + exh + hard + clear + failed + noplay;
+
+            var rankS = number(s.s);
+            var rankAaaPlus = number(s.aaa_plus);
+            var rankAaa = number(s.aaa);
+            var totalScore = totalLamp || total || played;
+            var rankUnderAaa = Math.max(totalScore - rankS - rankAaaPlus - rankAaa, 0);
+
+            var label = document.getElementById("stats-lv-label");
+            label.textContent = "Lv" + lv;
+            label.className = "lv-label lv" + lv;
+            document.getElementById("stats-average").textContent = number(s.average).toLocaleString();
+            document.getElementById("stats-puc").textContent = puc;
+            document.getElementById("stats-uc").textContent = uc;
+            document.getElementById("stats-exh").textContent = exh;
+            document.getElementById("stats-hard").textContent = hard;
+            document.getElementById("stats-clear").textContent = clear;
+            document.getElementById("stats-rank-s").textContent = rankS;
+            document.getElementById("stats-rank-aaa-plus").textContent = rankAaaPlus;
+            document.getElementById("stats-rank-aaa").textContent = rankAaa;
+
+            setWidth("bar-puc", puc, totalLamp);
+            setWidth("bar-uc", uc, totalLamp);
+            setWidth("bar-exh", exh, totalLamp);
+            setWidth("bar-hard", hard, totalLamp);
+            setWidth("bar-clear", clear, totalLamp);
+            setWidth("bar-failed", failed, totalLamp);
+            setWidth("bar-noplay", noplay, totalLamp);
+            setWidth("bar-rank-s", rankS, totalScore);
+            setWidth("bar-rank-aaa-plus", rankAaaPlus, totalScore);
+            setWidth("bar-rank-aaa", rankAaa, totalScore);
+            setWidth("bar-rank-under-aaa", rankUnderAaa, totalScore);
+            document.getElementById("level-stats").hidden = false;
+        }
+
+        function startStatsRotation() {
+            if (statsTimer) return;
+            if (statsLevels.length <= 1 || transitionSeconds <= 0) return;
+            statsTimer = setInterval(function () {
+                statsIndex = (statsIndex + 1) % statsLevels.length;
+                renderLevelStats();
+            }, transitionSeconds * 1000);
+        }
+
+        function updateStats(data) {
+            var current = currentLevelStats();
+            lastRenderedLevel = current ? current.lv : lastRenderedLevel;
+            statsData = data || null;
+            if (lastRenderedLevel !== null) {
+                var sameLevelIndex = statsLevels.indexOf(lastRenderedLevel);
+                if (sameLevelIndex >= 0) statsIndex = sameLevelIndex;
+            }
+            renderLevelStats();
+            startStatsRotation();
+        }
+
+        SDVXWebSocketClient.connect({
+            type: "session_stats",
+            target: "session_stats",
+            onData: updateSessionStats
+        });
+
+        SDVXWebSocketClient.connect({
+            type: "stats",
+            target: "stats",
+            onData: updateStats
+        });
+    </script>
+</body>
+
+</html>
