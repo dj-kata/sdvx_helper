@@ -4,13 +4,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SDVX Helper Whole Layout 1</title>
+    <title>SDVX Helper Whole Layout 2</title>
     <style>
         :root {
             --canvas-width: 1920px;
             --canvas-height: 1080px;
-            --side-width: 656px;
-            --game-width: 608px;
+            --side-width: 576px;
+            --game-width: 768px;
             --outer-gap: 8px;
             --panel-gap: 8px;
             --panel-border: rgba(112, 214, 255, 0.72);
@@ -27,7 +27,6 @@
             width: 100%;
             height: 100%;
             margin: 0;
-            padding: 0;
             overflow: hidden;
             background: transparent;
         }
@@ -44,29 +43,29 @@
             height: var(--canvas-height);
             display: grid;
             grid-template-columns: var(--side-width) var(--game-width) var(--side-width);
+            overflow: hidden;
+            transform-origin: top left;
             background:
                 radial-gradient(circle at 0 0, rgba(0, 197, 255, 0.17), transparent 34%),
                 radial-gradient(circle at 100% 100%, rgba(255, 42, 211, 0.15), transparent 34%),
                 linear-gradient(135deg, #070b20 0%, var(--page-bg) 50%, #11051c 100%);
-            transform-origin: top left;
-            overflow: hidden;
         }
 
         .side-frame {
             min-width: 0;
             height: var(--canvas-height);
             display: grid;
-            grid-template-rows: 1fr 1fr;
             gap: var(--panel-gap);
             padding: var(--outer-gap);
         }
 
-        .right-frame {
-            grid-template-rows: 4fr 3fr 3fr;
+        .left-frame {
+            /* 1080 - 上下余白16 - 段間16 = 1048px */
+            grid-template-rows: 150px minmax(0, 1fr) 250px;
         }
 
-        .left-frame {
-            grid-template-rows: 150px minmax(0, 1fr);
+        .right-frame {
+            grid-template-rows: minmax(0, 4fr) minmax(0, 3fr) minmax(0, 3fr);
         }
 
         .game-frame {
@@ -149,6 +148,12 @@
             background: transparent;
         }
 
+        #panel-left-extra {
+            background:
+                linear-gradient(135deg, rgba(15, 35, 74, 0.72), rgba(35, 10, 55, 0.72)),
+                var(--panel-bg);
+        }
+
         #panel-comment {
             background:
                 linear-gradient(135deg, rgba(11, 25, 54, 0.72), rgba(45, 8, 48, 0.72)),
@@ -163,9 +168,15 @@
             <div class="panel" id="panel-nowplaying">
                 <iframe class="scaled-iframe" id="iframe-nowplaying" src="./nowplaying_v2.html" scrolling="no"></iframe>
             </div>
+
             <div class="panel" id="panel-today-result">
                 <iframe class="scaled-iframe" id="iframe-today-result" src="./today_result.html"
                     scrolling="no"></iframe>
+            </div>
+
+            <div class="panel" id="panel-left-extra">
+                <!-- 後で用意するHTMLのファイル名に合わせて src を変更してください。 -->
+                <iframe class="scaled-iframe" id="iframe-left-extra" src="./left_extra.html" scrolling="no"></iframe>
             </div>
         </section>
 
@@ -176,26 +187,34 @@
                 <iframe class="scaled-iframe" id="iframe-history-cursong" src="./history_cursong.html"
                     scrolling="no"></iframe>
             </div>
+
             <div class="panel" id="panel-rival">
                 <iframe class="scaled-iframe" id="iframe-rival" src="./rival.html" scrolling="no"></iframe>
             </div>
+
             <div class="panel" id="panel-comment"></div>
         </section>
     </main>
 
     <script>
         const iframeConfigs = [
+            // fixed-cover: 固定サイズの子HTMLをパネルいっぱいに表示（少量の端切れを許容）
             { iframe: "iframe-nowplaying", panel: "panel-nowplaying", width: 1200, height: 500, mode: "fixed-cover" },
+
+            // responsive-width: 横幅を基準に拡大縮小し、iframeの論理高さをパネルに合わせる
+            { iframe: "iframe-left-extra", panel: "panel-left-extra", width: 1200, mode: "responsive-width" },
             { iframe: "iframe-today-result", panel: "panel-today-result", width: 1200, mode: "responsive-width" },
-            { iframe: "iframe-history-cursong", panel: "panel-history-cursong", width: 2720, height: 1780, mode: "fit" },
+            { iframe: "iframe-history-cursong", panel: "panel-history-cursong", width: 2720, mode: "responsive-width" },
             { iframe: "iframe-rival", panel: "panel-rival", width: 3100, mode: "responsive-width" }
         ];
 
         function appendSearchToIframeSrc() {
             const pageParams = new URLSearchParams(location.search);
+
             document.querySelectorAll("iframe").forEach((iframe) => {
                 const rawSrc = iframe.getAttribute("src");
                 if (!rawSrc || rawSrc === "about:blank") return;
+
                 const src = new URL(rawSrc, location.href);
                 pageParams.forEach((value, key) => src.searchParams.set(key, value));
                 src.searchParams.set("_cache", Date.now().toString());
@@ -205,7 +224,11 @@
 
         function scaleStageForPreview() {
             const stage = document.getElementById("stage");
-            const scale = Math.min(window.innerWidth / 1920, window.innerHeight / 1080, 1);
+            const scale = Math.min(
+                window.innerWidth / 1920,
+                window.innerHeight / 1080,
+                1
+            );
             stage.style.transform = `scale(${scale})`;
         }
 
@@ -220,29 +243,25 @@
                 if (!width || !height) return;
 
                 if (config.mode === "fixed-cover") {
-                    const scale = Math.max(width / config.width, height / config.height);
+                    const scale = Math.max(
+                        width / config.width,
+                        height / config.height
+                    );
                     const offsetX = (width - config.width * scale) / 2;
                     const offsetY = (height - config.height * scale) / 2;
+
                     iframe.style.width = `${config.width}px`;
                     iframe.style.height = `${config.height}px`;
                     iframe.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
                     return;
                 }
 
-                if (config.mode === "responsive-width") {
-                    const scale = width / config.width;
-                    iframe.style.width = `${config.width}px`;
-                    iframe.style.height = `${height / scale}px`;
-                    iframe.style.transform = `scale(${scale})`;
-                    return;
-                }
+                const scale = width / config.width;
+                const logicalHeight = height / scale;
 
-                const scale = Math.min(width / config.width, height / config.height);
-                const offsetX = (width - config.width * scale) / 2;
-                const offsetY = (height - config.height * scale) / 2;
                 iframe.style.width = `${config.width}px`;
-                iframe.style.height = `${config.height}px`;
-                iframe.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+                iframe.style.height = `${logicalHeight}px`;
+                iframe.style.transform = `scale(${scale})`;
             }
 
             iframe.addEventListener("load", applyScale);
