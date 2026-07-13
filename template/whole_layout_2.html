@@ -16,11 +16,6 @@
             --panel-border: rgba(112, 214, 255, 0.72);
             --panel-bg: rgba(4, 8, 24, 0.92);
             --page-bg: #030510;
-            /*
-            left_extra.html のレベル統計を親側から指定する場合だけ有効化してください。
-            --stats-lv: 16, 17, 18, 19, 20;
-            --stats-transition-time: 8;
-            */
         }
 
         * {
@@ -213,26 +208,48 @@
             { iframe: "iframe-rival", panel: "panel-rival", width: 3100, mode: "responsive-width" }
         ];
 
-        function appendSearchToIframeSrc() {
-            const pageParams = new URLSearchParams(location.search);
+        function getForwardedCustomProperties() {
             const rootStyles = getComputedStyle(document.documentElement);
-            const forwardedCustomProperties = {
+            return {
                 stats_lv: rootStyles.getPropertyValue("--stats-lv").trim(),
                 stats_transition_time: rootStyles.getPropertyValue("--stats-transition-time").trim()
             };
+        }
 
-            document.querySelectorAll("iframe").forEach((iframe) => {
-                const rawSrc = iframe.getAttribute("src");
-                if (!rawSrc || rawSrc === "about:blank") return;
+        function applyIframeSrc(iframe, cacheBust = false) {
+            const pageParams = new URLSearchParams(location.search);
+            const forwardedCustomProperties = getForwardedCustomProperties();
+            const rawSrc = iframe.getAttribute("src");
+            if (!rawSrc || rawSrc === "about:blank") return;
 
-                const src = new URL(rawSrc, location.href);
-                pageParams.forEach((value, key) => src.searchParams.set(key, value));
-                Object.entries(forwardedCustomProperties).forEach(([key, value]) => {
-                    if (value && !src.searchParams.has(key)) src.searchParams.set(key, value);
-                });
-                src.searchParams.set("_cache", Date.now().toString());
-                iframe.src = src.pathname.split("/").pop() + src.search;
+            const src = new URL(rawSrc, location.href);
+            pageParams.forEach((value, key) => src.searchParams.set(key, value));
+            Object.entries(forwardedCustomProperties).forEach(([key, value]) => {
+                if (value) src.searchParams.set(key, value);
             });
+            if (cacheBust) src.searchParams.set("_cache", Date.now().toString());
+            iframe.src = src.pathname.split("/").pop() + src.search;
+        }
+
+        function appendSearchToIframeSrc() {
+            document.querySelectorAll("iframe").forEach((iframe) => applyIframeSrc(iframe, true));
+        }
+
+        function refreshLeftExtraCustomProperties() {
+            const iframe = document.getElementById("iframe-left-extra");
+            if (!iframe) return;
+
+            const src = new URL(iframe.getAttribute("src") || "left_extra.html", location.href);
+            const forwardedCustomProperties = getForwardedCustomProperties();
+            const nextStatsLv = forwardedCustomProperties.stats_lv || src.searchParams.get("stats_lv") || "";
+            const nextTransitionTime = forwardedCustomProperties.stats_transition_time || src.searchParams.get("stats_transition_time") || "";
+
+            if (
+                nextStatsLv !== (src.searchParams.get("stats_lv") || "") ||
+                nextTransitionTime !== (src.searchParams.get("stats_transition_time") || "")
+            ) {
+                applyIframeSrc(iframe, true);
+            }
         }
 
         function scaleStageForPreview() {
@@ -286,6 +303,14 @@
         appendSearchToIframeSrc();
         iframeConfigs.forEach(setupScaledIframe);
         scaleStageForPreview();
+        let customPropertyRefreshCount = 0;
+        const customPropertyRefreshTimer = window.setInterval(() => {
+            refreshLeftExtraCustomProperties();
+            customPropertyRefreshCount += 1;
+            if (customPropertyRefreshCount >= 20) {
+                window.clearInterval(customPropertyRefreshTimer);
+            }
+        }, 500);
         window.addEventListener("resize", scaleStageForPreview);
     </script>
 </body>

@@ -262,7 +262,7 @@
                 <span class="delta" id="vf-delta">(+0.000)</span>
             </span>
         </section>
-        <section class="level-stats" id="level-stats" hidden>
+        <section class="level-stats" id="level-stats">
             <div class="stats-head">
                 <span class="lv-label" id="stats-lv-label">Lv--</span>
                 <span><span class="stats-key">ave:</span> <span class="stats-num" id="stats-average">0</span></span>
@@ -335,6 +335,14 @@
             return new URLSearchParams(location.search).get(name);
         }
 
+        function queryFirstValue(names) {
+            var params = new URLSearchParams(location.search);
+            for (var i = 0; i < names.length; i++) {
+                if (params.has(names[i])) return params.get(names[i]);
+            }
+            return "";
+        }
+
         function parseLevels(value) {
             return String(value || "")
                 .split(",")
@@ -353,11 +361,11 @@
             el.style.width = total > 0 ? (100 * value / total) + "%" : "0%";
         }
 
-        var statsLevels = parseLevels(queryValue("stats_lv") || cssValue("--stats-lv", "16,17,18,19,20"));
+        var statsLevels = parseLevels(queryFirstValue(["stats_lv", "stats-lv"]) || cssValue("--stats-lv", "16,17,18,19,20"));
         if (!statsLevels.length) statsLevels = [16, 17, 18, 19, 20];
 
         var transitionSeconds = number(
-            queryValue("stats_transition_time") || cssValue("--stats-transition-time", "8"),
+            queryFirstValue(["stats_transition_time", "stats-transition-time"]) || cssValue("--stats-transition-time", "8"),
             8
         );
         var statsData = null;
@@ -366,17 +374,16 @@
         var lastRenderedLevel = null;
 
         function currentLevelStats() {
-            if (!statsData || !statsData.lvs) return null;
             var lv = statsLevels[statsIndex % statsLevels.length];
+            var lvs = (statsData && statsData.lvs) || {};
             return {
                 lv: lv,
-                data: statsData.lvs[lv] || statsData.lvs[String(lv)] || {}
+                data: lvs[lv] || lvs[String(lv)] || {}
             };
         }
 
         function renderLevelStats() {
             var current = currentLevelStats();
-            if (!current) return;
 
             var s = current.data;
             var lv = current.lv;
@@ -421,7 +428,6 @@
             setWidth("bar-rank-aaa-plus", rankAaaPlus, totalScore);
             setWidth("bar-rank-aaa", rankAaa, totalScore);
             setWidth("bar-rank-under-aaa", rankUnderAaa, totalScore);
-            document.getElementById("level-stats").hidden = false;
         }
 
         function startStatsRotation() {
@@ -444,6 +450,9 @@
             renderLevelStats();
             startStatsRotation();
         }
+
+        renderLevelStats();
+        startStatsRotation();
 
         SDVXWebSocketClient.connect({
             type: "session_stats",
