@@ -327,6 +327,7 @@ class RivalManager(QObject):
         self.rivals:            List[RivalData]         = []
         self._worker:           Optional[RivalFetchWorker] = None
         self.last_fetch_time:   Optional[str]           = None
+        self._configured_csv_names: Optional[set[str]]   = None
         self._active_csv_names: Optional[set[str]]       = None
         self._include_portal_cache: bool                 = True
 
@@ -347,14 +348,29 @@ class RivalManager(QObject):
         rival_configs: Optional[List[Dict[str, str]]] = None,
         include_portal: bool = True,
     ):
-        """現在の設定に残っている CSV ライバル名を記録する。"""
+        """現在の設定に残っている CSV ライバル名と有効ライバル名を記録する。"""
         if rival_configs is not None:
-            self._active_csv_names = {
-                cfg.get('name', '').strip()
-                for cfg in rival_configs
-                if cfg.get('name', '').strip()
-            }
+            configured_names = set()
+            active_names = set()
+            for cfg in rival_configs:
+                name = cfg.get('name', '').strip()
+                if not name:
+                    continue
+                configured_names.add(name)
+                if cfg.get('enabled', True) is not False:
+                    active_names.add(name)
+            self._configured_csv_names = configured_names
+            self._active_csv_names = active_names
         self._include_portal_cache = include_portal
+
+    def _active_rival_configs(
+        self,
+        rival_configs: List[Dict[str, str]],
+    ) -> List[Dict[str, str]]:
+        return [
+            cfg for cfg in rival_configs
+            if cfg.get('name', '').strip() and cfg.get('enabled', True) is not False
+        ]
 
     def _is_active_rival(self, rival: RivalData) -> bool:
         if rival.source == 'portal':
@@ -366,13 +382,13 @@ class RivalManager(QObject):
     def _delete_stale_cache_rows(self):
         """設定から消えた CSV ライバル、および無効時の Portal キャッシュを削除する。"""
         try:
-            if self._active_csv_names is not None:
-                if self._active_csv_names:
-                    placeholders = ','.join('?' for _ in self._active_csv_names)
+            if self._configured_csv_names is not None:
+                if self._configured_csv_names:
+                    placeholders = ','.join('?' for _ in self._configured_csv_names)
                     self.db.execute(
                         f"DELETE FROM rival_scores "
                         f"WHERE source != 'portal' AND rival_name NOT IN ({placeholders})",
-                        tuple(self._active_csv_names),
+                        tuple(self._configured_csv_names),
                     )
                 else:
                     self.db.execute("DELETE FROM rival_scores WHERE source != 'portal'")
@@ -444,15 +460,9 @@ class RivalManager(QObject):
     def _save_cache(self):
         """SQLite への保存 (逐次 upsert するため、fetch 完了時の一括保存のみ担当)"""
         try:
-            active_names = {rd.name for rd in self.rivals}
-            if active_names:
-                placeholders = ','.join('?' for _ in active_names)
-                self.db.execute(
-                    f"DELETE FROM rival_scores WHERE rival_name NOT IN ({placeholders})",
-                    tuple(active_names),
-                )
-            else:
-                self.db.execute("DELETE FROM rival_scores")
+            self._delete_stale_cache_rows()
+            if self._include_portal_cache:
+                self.db.execute("DELETE FROM rival_scores WHERE source = 'portal'")
             for rd in self.rivals:
                 if rd.error: continue
                 self.db.delete_rival(rd.name)
@@ -495,7 +505,8 @@ class RivalManager(QObject):
                              None の場合はポータル取得をスキップ。
         """
         self._set_active_rivals(rival_configs, portal_fetch_fn is not None)
-        if not rival_configs and portal_fetch_fn is None:
+        active_configs = self._active_rival_configs(rival_configs)
+        if not active_configs and portal_fetch_fn is None:
             self.rivals = []
             self.last_fetch_time = None
             self._save_cache()
@@ -506,7 +517,7 @@ class RivalManager(QObject):
             self._worker.cancel()
             self._worker.wait(2000)
 
-        self._worker = RivalFetchWorker(rival_configs, portal_fetch_fn=portal_fetch_fn)
+        self._worker = RivalFetchWorker(active_configs, portal_fetch_fn=portal_fetch_fn)
         # QThread.run() 内の emit は QThread のスレッドアフィニティ(=メインスレッド)と
         # 同じに見えるため AutoConnection では DirectConnection になり、UI 操作がバック
         # グラウンドスレッドで実行される。QueuedConnection を明示してメインスレッドに

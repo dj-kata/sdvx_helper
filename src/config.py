@@ -99,7 +99,7 @@ class Config:
 
         # ─── ライバル ─────────────────────────────────────────────────────
         self.rivals: list = []
-        """ライバルリスト: [{"name": "名前", "url": "URL"}, ...]"""
+        """ライバルリスト: [{"name": "名前", "url": "URL", "enabled": True}, ...]"""
 
         # ─── スコアビューワ ───────────────────────────────────────────────────
         self.score_viewer_geometry:    str | None = None
@@ -132,6 +132,7 @@ class Config:
                 self.summary_min_rows = 15
             if self.summary_exit_filename not in ('datetime', 'date'):
                 self.summary_exit_filename = 'datetime'
+            self._normalize_rival_config()
             logger.info(f"config.json ロード完了")
         except FileNotFoundError:
             logger.info("config.json が見つかりません。デフォルト設定を使用します。")
@@ -147,3 +148,20 @@ class Config:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception:
             logger.error(f"config.json 保存失敗:\n{traceback.format_exc()}")
+
+    def _normalize_rival_config(self):
+        """旧形式のライバル設定に enabled を補完する。"""
+        normalized = []
+        for rival in self.rivals if isinstance(self.rivals, list) else []:
+            if not isinstance(rival, dict):
+                continue
+            name = str(rival.get('name', '')).strip()
+            url = str(rival.get('url', '')).strip()
+            if not name or not url:
+                continue
+            normalized.append({
+                'name': name,
+                'url': url,
+                'enabled': rival.get('enabled', True) is not False,
+            })
+        self.rivals = normalized

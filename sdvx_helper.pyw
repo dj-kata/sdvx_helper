@@ -150,6 +150,10 @@ class MainWindow(MainWindowUI):
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
         self._text_summary_results = []        # テキスト版summary用の当日リザルト
 
+        self.rival_manager.rivals_loaded.connect(
+            self._on_rival_data_changed, Qt.QueuedConnection
+        )
+
         # 起動時プレイ数を集計
         self._count_today_plays()
         QTimer.singleShot(100, lambda: self.result_database.broadcast_today_results_data(
@@ -210,6 +214,14 @@ class MainWindow(MainWindowUI):
 
     def broadcast_session_stats_data(self):
         self.result_database.broadcast_session_stats_data(self.get_session_stats_data())
+
+    def _on_rival_data_changed(self):
+        """ライバル設定・取得結果の変更を現在曲HTMLへ反映する。"""
+        if self.current_title and self.current_diff is not None:
+            self.result_database.broadcast_cursong_data(
+                self.current_title,
+                self.current_diff,
+            )
 
     # ── ユーティリティ ────────────────────────────────────────────────────────
 

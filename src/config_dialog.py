@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                                QGroupBox, QFileDialog, QTabWidget, QWidget,
                                QLabel, QDialogButtonBox, QRadioButton,
                                QButtonGroup, QMessageBox, QComboBox,
-                               QProgressBar)
+                               QProgressBar, QListWidget, QListWidgetItem)
 from PySide6.QtGui import QIntValidator, QDesktopServices
 
 from src.config import Config
@@ -567,16 +567,17 @@ class ConfigDialog(QDialog):
 
         layout.addWidget(add_group)
 
-        # ── 削除・再取得 ──
+        # ── 有効/無効・削除・再取得 ──
         mgmt_group = QGroupBox("ライバル管理")
         mgmt_v = QVBoxLayout()
         mgmt_group.setLayout(mgmt_v)
 
+        self._rival_list = QListWidget()
+        self._rival_list.setMinimumHeight(120)
+        self._rival_list.itemChanged.connect(self._rival_item_changed)
+        mgmt_v.addWidget(self._rival_list)
+
         del_row = QHBoxLayout()
-        del_row.addWidget(QLabel("削除:"))
-        self._rival_del_combo = QComboBox()
-        self._rival_del_combo.setMinimumWidth(130)
-        del_row.addWidget(self._rival_del_combo)
         del_btn = QPushButton("削除")
         del_btn.clicked.connect(self._rival_delete)
         del_row.addWidget(del_btn)
@@ -773,16 +774,37 @@ class ConfigDialog(QDialog):
     # ── ライバル操作 ──────────────────────────────────────────────────────────
 
     def _rival_load_del_combo(self):
-        """削除コンボを config.rivals の名前一覧で更新"""
-        names = [r['name'] for r in self.config.rivals]
-        current = self._rival_del_combo.currentText()
-        self._rival_del_combo.blockSignals(True)
-        self._rival_del_combo.clear()
-        self._rival_del_combo.addItems(names)
-        idx = self._rival_del_combo.findText(current)
-        if idx >= 0:
-            self._rival_del_combo.setCurrentIndex(idx)
-        self._rival_del_combo.blockSignals(False)
+        """ライバル一覧を config.rivals から更新する。"""
+        current_item = self._rival_list.currentItem()
+        current = current_item.data(Qt.UserRole) if current_item else ''
+        self._rival_list.blockSignals(True)
+        self._rival_list.clear()
+        for rival in self.config.rivals:
+            name = rival.get('name', '')
+            item = QListWidgetItem(name)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(
+                Qt.Checked if rival.get('enabled', True) is not False else Qt.Unchecked
+            )
+            item.setData(Qt.UserRole, name)
+            item.setToolTip(rival.get('url', ''))
+            self._rival_list.addItem(item)
+            if name == current:
+                self._rival_list.setCurrentItem(item)
+        self._rival_list.blockSignals(False)
+
+    def _rival_selected_name(self) -> str:
+        item = self._rival_list.currentItem()
+        return item.data(Qt.UserRole) if item else ''
+
+    def _reload_rivals_from_config(self):
+        """設定変更を RivalManager に反映して表示対象を更新する。"""
+        if self.rival_manager is not None:
+            self.rival_manager.load_cache(
+                self.config.rivals,
+                include_portal=bool(self.config.portal_token),
+            )
+        self._update_rival_status()
 
     def _update_rival_status(self):
         """rival_manager の状態をステータスラベルに反映"""
@@ -794,21 +816,50 @@ class ConfigDialog(QDialog):
             r for r in self.rival_manager.rivals
             if getattr(r, 'source', 'csv') != 'portal'
         ]
+        disabled_count = sum(
+            1 for r in self.config.rivals
+            if r.get('enabled', True) is False
+        )
         portal_rivals = [
             r for r in self.rival_manager.rivals
             if getattr(r, 'source', 'csv') == 'portal'
         ]
         n  = len(csv_rivals)
         suffix = f" + Portal {len(portal_rivals)}人" if portal_rivals else ""
+        disabled_suffix = f" / 無効 {disabled_count}人" if disabled_count else ""
         if tm:
             ok = sum(1 for r in csv_rivals if not r.error)
-            self._rival_status_label.setText(f"取得: {tm}  ({ok}/{n}人{suffix})")
+            self._rival_status_label.setText(
+                f"取得: {tm}  ({ok}/{n}人{suffix}{disabled_suffix})"
+            )
         elif n:
-            self._rival_status_label.setText(f"キャッシュ ({n}人{suffix})")
+            self._rival_status_label.setText(
+                f"キャッシュ ({n}人{suffix}{disabled_suffix})"
+            )
         elif portal_rivals:
-            self._rival_status_label.setText(f"キャッシュ (Portal {len(portal_rivals)}人)")
+            self._rival_status_label.setText(
+                f"キャッシュ (Portal {len(portal_rivals)}人{disabled_suffix})"
+            )
+        elif disabled_count:
+            self._rival_status_label.setText(f"無効 {disabled_count}人")
         else:
             self._rival_status_label.setText("")
+
+    def _rival_item_changed(self, item: QListWidgetItem):
+        """一覧のチェック状態を enabled として保存する。"""
+        name = item.data(Qt.UserRole)
+        enabled = item.checkState() == Qt.Checked
+        updated = False
+        for rival in self.config.rivals:
+            if rival.get('name') == name:
+                if rival.get('enabled', True) is not enabled:
+                    rival['enabled'] = enabled
+                    updated = True
+                break
+        if not updated:
+            return
+        self.config.save_config()
+        self._reload_rivals_from_config()
 
     def _rival_add(self):
         """ライバルを追加してフェッチ開始"""
@@ -822,7 +873,7 @@ class ConfigDialog(QDialog):
             QMessageBox.warning(self, self.ui.message.warning_title,
                                 f"'{name}' は既に登録されています")
             return
-        self.config.rivals.append({'name': name, 'url': url})
+        self.config.rivals.append({'name': name, 'url': url, 'enabled': True})
         self.config.save_config()
         self._rival_name_edit.clear()
         self._rival_url_edit.clear()
@@ -835,7 +886,7 @@ class ConfigDialog(QDialog):
 
     def _rival_delete(self):
         """選択ライバルを削除"""
-        name = self._rival_del_combo.currentText()
+        name = self._rival_selected_name()
         if not name:
             return
         self.config.rivals = [r for r in self.config.rivals if r['name'] != name]
@@ -843,6 +894,7 @@ class ConfigDialog(QDialog):
         self._rival_load_del_combo()
         if self.rival_manager is not None:
             self.rival_manager.delete_cached_rival(name)
+        self._update_rival_status()
 
     def _rival_refetch(self):
         """全ライバルデータを再取得"""
