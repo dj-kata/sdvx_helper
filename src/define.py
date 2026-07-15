@@ -8,7 +8,7 @@ from PIL import Image
 from pathlib import Path
 
 from src.logger import get_logger
-from src.screen_layout import DETECT, INFO, PLAY, RESULT, SELECT, TIMING
+from src.screen_layout import DETECT, INFO, PLAY, RESULT, RESULT_EX, SELECT, TIMING
 
 logger = get_logger(__name__)
 
@@ -107,6 +107,15 @@ RECT_RESULT_EXSCORE = [r.box for r in RESULT.exscore]
 RECT_RESULT_BESTSCORE = [r.box for r in RESULT.bestscore]
 # 自己べEXスコア (5桁)
 RECT_RESULT_BESTEXSCORE = [r.box for r in RESULT.bestexscore]
+# --- EXスコアモード時の座標 ---
+# スコア (10M形式, 8桁)
+RECT_RESULT_SCORE_EXMODE = [r.box for r in RESULT_EX.score]
+# EXスコア (5桁)
+RECT_RESULT_EXSCORE_EXMODE = [r.box for r in RESULT_EX.exscore]
+# 自己べスコア (8桁、小字体サイズ)
+RECT_RESULT_BESTSCORE_EXMODE = [r.box for r in RESULT_EX.bestscore]
+# 自己べEXスコア (5桁)
+RECT_RESULT_BESTEXSCORE_EXMODE = [r.box for r in RESULT_EX.bestexscore]
 
 # ─── ランプ・ゲージ・難易度 判定用画像ハッシュ ────────────────────────────────
 HASH_LAMP = {

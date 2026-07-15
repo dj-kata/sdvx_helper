@@ -93,6 +93,16 @@ class ResultLayout:
 
 
 @dataclass(frozen=True)
+class ResultLayoutExScoreMode:
+    """リザルト画面(EXスコアモード)内での座標系。トリミングモードの有無に関わらず、1080x1920に対する座標を指定。"""
+
+    score: tuple[Rect, ...]
+    exscore: tuple[Rect, ...]
+    bestscore: tuple[Rect, ...]
+    bestexscore: tuple[Rect, ...]
+
+
+@dataclass(frozen=True)
 class SummaryLayout:
     max_rows: int
     row_size: int
@@ -237,6 +247,44 @@ RESULT = ResultLayout(
     ),
     # リザルト画面について通常スコアかEXスコアかを判別するのに利用
     score_mode_detect_marker=Rect(816, 1069, 107, 13),
+)
+
+# EXスコアモードのリザルト画面
+RESULT_EX = ResultLayoutExScoreMode(
+    score=(
+        Rect(844, 1138, 16, 19),
+        Rect(864, 1138, 16, 19),
+        Rect(884, 1138, 16, 19),
+        Rect(904, 1138, 16, 19),
+        Rect(924, 1138, 16, 19),
+        Rect(944, 1138, 16, 19),
+        Rect(964, 1138, 16, 19),
+        Rect(984, 1138, 16, 19),
+    ),
+    exscore=(
+        Rect(439, 1069, 52, 51),
+        Rect(496, 1069, 52, 51),
+        Rect(553, 1069, 52, 51),
+        Rect(610, 1069, 52, 51),
+        Rect(667, 1069, 52, 51),
+    ),
+    bestscore=(
+        Rect(837, 1088, 14, 14),
+        Rect(851, 1088, 14, 14),
+        Rect(865, 1088, 14, 14),
+        Rect(879, 1088, 14, 14),
+        Rect(893, 1088, 14, 14),
+        Rect(907, 1088, 14, 14),
+        Rect(921, 1088, 14, 14),
+        Rect(935, 1088, 14, 14),
+    ),
+    bestexscore=(
+        Rect(912, 1140, 14, 14),
+        Rect(926, 1140, 14, 14),
+        Rect(940, 1140, 14, 14),
+        Rect(954, 1140, 14, 14),
+        Rect(968, 1140, 14, 14),
+    ),
 )
 
 SUMMARY = SummaryLayout(

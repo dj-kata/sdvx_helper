@@ -67,6 +67,8 @@ from src.define import (
     RECT_RESULT_SCORE_LARGE,
     RECT_RESULT_SCORE_SMALL,
     RECT_RESULT_EXSCORE,
+    RECT_RESULT_SCORE_EXMODE,
+    RECT_RESULT_EXSCORE_EXMODE,
     HASH_LAMP,
     HASH_GAUGE,
     HASH_DIFFICULTY,
@@ -747,8 +749,17 @@ class ScreenReader:
         self, img: Image.Image, lamp: clear_lamp
     ) -> tuple[Optional[int], Optional[int]]:
         """EXスコアメインのリザルト画面から score / exscore を読む。"""
-        # TODO: EXスコアメイン表示用の座標・テンプレートで読み取る。
-        return None, None
+        # PUCはスコアが必ず10,000,000なので読み取り不要
+        if lamp == clear_lamp.puc:
+            score = 10_000_000
+        else:
+            score = self._read_digits_as_int(
+                img, RECT_RESULT_SCORE_EXMODE, HASH_RESULT_EXSCORE, threshold=16
+            )
+        exscore = self._read_digits_as_int(
+            img, RECT_RESULT_EXSCORE_EXMODE, HASH_RESULT_SCORE_LARGE, threshold=10
+        )
+        return score, exscore
 
     def read_from_result(self) -> Optional[dict]:
         """リザルト画面から情報を読み取る。
