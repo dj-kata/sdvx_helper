@@ -17,7 +17,18 @@ from PIL import Image
 
 import imagehash
 
-from src.define import HASH_RESULT_MODE_SCORE, RECT_RESULT_MODE
+from src.define import (
+    HASH_RESULT_EXSCORE,
+    HASH_RESULT_MODE_SCORE,
+    HASH_RESULT_SCORE_LARGE,
+    HASH_RESULT_SCORE_SMALL,
+    RECT_RESULT_EXSCORE,
+    RECT_RESULT_EXSCORE_EXMODE,
+    RECT_RESULT_MODE,
+    RECT_RESULT_SCORE_EXMODE,
+    RECT_RESULT_SCORE_LARGE,
+    RECT_RESULT_SCORE_SMALL,
+)
 from src.result_image import RESULT_INFO_CROP_SIZE, expand_result_info_area
 from src.screen_reader import ScreenReader
 from src.songinfo import SongDatabase
@@ -31,6 +42,27 @@ DEFAULT_PATTERNS = (
 
 def _enum_name(value: Any) -> str | None:
     return getattr(value, "name", None)
+
+
+def _nearest_digit_debug(img: Image.Image, rects: list, hash_dict: dict) -> dict[str, Any]:
+    digits = []
+    distances = []
+    for rect in rects:
+        h = imagehash.average_hash(img.crop(rect))
+        dists = {
+            k: int(abs(h - tmpl_hash))
+            for k, tmpl_hash in hash_dict.items()
+            if tmpl_hash is not None
+        }
+        if dists:
+            best_digit = min(dists, key=dists.get)
+            best_distance = dists[best_digit]
+        else:
+            best_digit = "?"
+            best_distance = None
+        digits.append(str(best_digit))
+        distances.append(best_distance)
+    return {"digits": "".join(digits), "distances": distances}
 
 
 def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
@@ -65,6 +97,35 @@ def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
                     item["result_mode_score_hash_distance"] = int(
                         abs(mode_hash - HASH_RESULT_MODE_SCORE)
                     )
+                if _enum_name(score_display_mode) == "exscore":
+                    score_debug = _nearest_digit_debug(
+                        img2, RECT_RESULT_SCORE_EXMODE, HASH_RESULT_EXSCORE
+                    )
+                    exscore_debug = _nearest_digit_debug(
+                        img2, RECT_RESULT_EXSCORE_EXMODE, HASH_RESULT_SCORE_LARGE
+                    )
+                    item["nearest_score"] = score_debug["digits"]
+                    item["nearest_score_distances"] = score_debug["distances"]
+                    item["nearest_exscore"] = exscore_debug["digits"]
+                    item["nearest_exscore_distances"] = exscore_debug["distances"]
+                else:
+                    score_large_debug = _nearest_digit_debug(
+                        img2, RECT_RESULT_SCORE_LARGE, HASH_RESULT_SCORE_LARGE
+                    )
+                    score_small_debug = _nearest_digit_debug(
+                        img2, RECT_RESULT_SCORE_SMALL, HASH_RESULT_SCORE_SMALL
+                    )
+                    exscore_debug = _nearest_digit_debug(
+                        img2, RECT_RESULT_EXSCORE, HASH_RESULT_EXSCORE
+                    )
+                    item["nearest_score"] = (
+                        score_large_debug["digits"] + score_small_debug["digits"]
+                    )
+                    item["nearest_score_distances"] = (
+                        score_large_debug["distances"] + score_small_debug["distances"]
+                    )
+                    item["nearest_exscore"] = exscore_debug["digits"]
+                    item["nearest_exscore_distances"] = exscore_debug["distances"]
                 try:
                     result = reader.read_from_result() or {}
                     item["title"] = result.get("title")
