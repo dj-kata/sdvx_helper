@@ -240,7 +240,7 @@ class MainWindow(MainWindowUI):
         """起動時にオフセット範囲内のresultリザルト数をカウント"""
         self.play_count = sum(
             1 for r in self.result_database.results
-            if r.detect_mode == detect_mode.result
+            if detect_mode.is_result(r.detect_mode)
             and r.timestamp >= self.start_time_with_offset
         )
 
@@ -293,7 +293,7 @@ class MainWindow(MainWindowUI):
                 try:
                     with Image.open(path) as img:
                         self.screen_reader.update_screen(expand_result_info_area(img))
-                        if self.screen_reader.detect_screen() != detect_mode.result:
+                        if not self.screen_reader.detect_screen().is_result_screen():
                             skipped_non_result += 1
                             continue
 
@@ -592,7 +592,7 @@ class MainWindow(MainWindowUI):
                 self._process_select()
             elif self.current_mode == detect_mode.detect:
                 self._process_detect()
-            elif self.current_mode == detect_mode.result:
+            elif self.current_mode.is_result_screen():
                 self._process_result()
 
         except Exception:
@@ -610,6 +610,8 @@ class MainWindow(MainWindowUI):
             )
 
         # OBSトリガー実行
+        old_trigger_mode = detect_mode.result if old.is_result_screen() else old
+        new_trigger_mode = detect_mode.result if new.is_result_screen() else new
         trigger_map = {
             (detect_mode.select, detect_mode.detect): ("select_end", "detect_start"),
             (detect_mode.select, detect_mode.init):   ("select_end", None),
@@ -626,7 +628,7 @@ class MainWindow(MainWindowUI):
             (detect_mode.result, detect_mode.init):   ("result_end", None),
             (detect_mode.init,   detect_mode.select): (None, "select_start"),
         }
-        triggers = trigger_map.get((old, new), (None, None))
+        triggers = trigger_map.get((old_trigger_mode, new_trigger_mode), (None, None))
         for t in triggers:
             if t:
                 self._execute_obs_triggers(t)
@@ -640,7 +642,7 @@ class MainWindow(MainWindowUI):
             logger.info(f"detect切り出し短期待機開始: delay={DETECT_CAPTURE_DELAY:.3f}s")
 
         # result状態に入った時刻を記録
-        if new == detect_mode.result:
+        if new.is_result_screen() and not old.is_result_screen():
             self.result_timestamp = int(datetime.datetime.now().timestamp())
             self.result_pre = None
 
@@ -836,7 +838,7 @@ class MainWindow(MainWindowUI):
             exscore=exscore,
             level=level,
             timestamp=self.result_timestamp,
-            detect_mode=detect_mode.result,
+            detect_mode=data.get('detect_mode') or detect_mode.result,
             bestscore=bestscore,
             bestexscore=bestex,
         )
@@ -1007,7 +1009,7 @@ class MainWindow(MainWindowUI):
 
         candidates = [
             r for r in self.result_database.search(title=title, diff=diff)
-            if r.detect_mode == detect_mode.result
+            if detect_mode.is_result(r.detect_mode)
             and r.score == score
             and r.lamp == lamp
             and abs(r.timestamp - image_mtime) <= 600

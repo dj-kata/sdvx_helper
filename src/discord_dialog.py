@@ -103,7 +103,7 @@ class _DiscordTestSendWorker(QThread):
             try:
                 with Image.open(path) as img:
                     reader.update_screen(expand_result_info_area(img))
-                    if reader.detect_screen() == detect_mode.result:
+                    if reader.detect_screen().is_result_screen():
                         return path
                     logger.debug(f"Discordテスト送信候補をスキップ(非リザルト): {path}")
             except Exception:
@@ -133,7 +133,7 @@ class _DiscordTestSendWorker(QThread):
             score=score,
             exscore=exscore,
             level=level,
-            detect_mode=detect_mode.result,
+            detect_mode=data.get('detect_mode') or detect_mode.result,
         )
         return result, artist
 

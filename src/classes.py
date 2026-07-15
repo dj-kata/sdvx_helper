@@ -39,11 +39,27 @@ class clear_lamp(Enum):
 
 class detect_mode(Enum):
     """検出モード用のEnum"""
-    init   = 0  # 初期状態
-    select = 1  # 選曲画面
-    detect = 2  # 曲決定後の楽曲情報画面
-    play   = 3  # プレー画面
-    result = 4  # リザルト画面
+    init           = 0  # 初期状態
+    select         = 1  # 選曲画面
+    detect         = 2  # 曲決定後の楽曲情報画面
+    play           = 3  # プレー画面
+    result         = 4  # リザルト画面（通常スコアメイン）
+    result_exscore = 5  # リザルト画面（EXスコアメイン）
+
+    @classmethod
+    def is_result(cls, mode) -> bool:
+        """値がリザルト画面系のモードなら True。None や未知値は False。"""
+        return mode in (cls.result, cls.result_exscore)
+
+    def is_result_screen(self) -> bool:
+        """リザルト画面系のモードなら True。"""
+        return self.is_result(self)
+
+
+class result_score_display_mode(Enum):
+    """リザルト画面のターゲットスコア表示モード。"""
+    score   = 0  # 通常スコアがメイン表示
+    exscore = 1  # EXスコアがメイン表示
 
 
 class screen_orientation(Enum):

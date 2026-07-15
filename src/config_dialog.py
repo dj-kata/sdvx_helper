@@ -219,7 +219,7 @@ class ImageImportWorker(QThread):
                         self.screen_reader.update_screen(expand_result_info_area(img))
                         mode = self.screen_reader.detect_screen()
                         
-                        if mode == detect_mode.result:
+                        if mode.is_result_screen():
                             data = self.screen_reader.read_from_result()
                             if not data:
                                 continue
@@ -243,7 +243,7 @@ class ImageImportWorker(QThread):
                                 score=score,
                                 exscore=exscore,
                                 timestamp=ts,
-                                detect_mode=detect_mode.result,
+                                detect_mode=data.get('detect_mode') or detect_mode.result,
                             )
                             if self.result_database.add(result, commit=False):
                                 registered += 1

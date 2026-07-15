@@ -677,16 +677,16 @@ class ResultDatabase:
         return calc_total_vf([b.vf for b in bests.values()])
 
     def get_today_results(self, start_time: int) -> List[OneResult]:
-        """start_time 以降の detect_mode.result リザルトを新しい順で返す。"""
+        """start_time 以降のリザルト画面由来リザルトを新しい順で返す。"""
         return [r for r in reversed(self.results)
-                if r.detect_mode == detect_mode.result and r.timestamp >= start_time]
+                if detect_mode.is_result(r.detect_mode) and r.timestamp >= start_time]
 
     # ─── WebSocket 用データ生成 ──────────────────────────────────────────────
 
     def get_cursong_data(self, title: str, diff: difficulty) -> dict:
         """現在の曲のプレー履歴をWebSocket送信用の辞書で返す。"""
         results = self.search(title=title, diff=diff)
-        target  = [r for r in results if r.detect_mode == detect_mode.result]
+        target  = [r for r in results if detect_mode.is_result(r.detect_mode)]
 
         best_score, best_ex, best_lamp = self.get_best(title=title, diff=diff)
         info = self.song_database.get_song_info(title)

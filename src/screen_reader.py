@@ -4,7 +4,7 @@
     reader = ScreenReader(song_db)
     reader.update_screen(pil_image)   # OBSフレームをセット
     mode = reader.detect_screen()     # 現在の画面状態を取得
-    if mode == detect_mode.result:
+    if mode.is_result_screen():
         data = reader.read_from_result()
 """
 from __future__ import annotations
@@ -17,7 +17,10 @@ import imagehash
 import numpy as np
 from PIL import Image
 
-from src.classes import difficulty, clear_lamp, detect_mode, screen_orientation
+from src.classes import (
+    difficulty, clear_lamp, detect_mode, screen_orientation,
+    result_score_display_mode,
+)
 from src.define import (
     RECT_ONSELECT, RECT_ONDETECT, RECT_ONPLAY1, RECT_ONPLAY2,
     RECT_ONRESULT_VAL0, RECT_ONRESULT_VAL1, RECT_ONRESULT_HEAD,
@@ -61,6 +64,9 @@ _DIGIT_68_TR_TH      = 185  # 6/8判別: 右上輝度がこれ以上なら '8'�
 
 # ─── ランプ判別パラメータ ────────────────────────────────────────────────────
 _SELECT_LAMP_SAT_TH = 0.25  # 選曲画面 exc/maxxive 判別: 彩度がこれ以上なら exc (紫), 未満なら maxxive (白)
+
+# EXスコアメイン表示では、通常表示のスコア小桁後半座標に黄色い BEST ラベルが重なる。
+_RESULT_EXSCORE_MODE_YELLOW_TH = 0.08
 
 
 class ScreenReader:
@@ -226,6 +232,9 @@ class ScreenReader:
         # リザルト優先（プレー→リザルト誤検知防止）
         if self.is_onresult():
             self._fail_count = 0
+            score_display_mode = self._detect_result_score_display_mode(self._img)
+            if score_display_mode == result_score_display_mode.exscore:
+                return detect_mode.result_exscore
             return detect_mode.result
         if self.is_onplay():
             self._fail_count = 0
@@ -517,6 +526,26 @@ class ScreenReader:
         h = imagehash.average_hash(img.crop(RECT_HAS_EXSCORE))
         return abs(HASH_HAS_EXSCORE - h) < 10
 
+    @staticmethod
+    def _yellow_pixel_ratio(img: Image.Image, rect: tuple) -> float:
+        """SDVX UIの黄色ラベルらしいピクセル比率を返す。"""
+        arr = np.array(img.crop(rect).convert('RGB'))
+        if arr.size == 0:
+            return 0.0
+        r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
+        yellow = (r > 130) & (g > 110) & (b < 90)
+        return float(yellow.mean())
+
+    def _detect_result_score_display_mode(self, img: Image.Image) -> result_score_display_mode:
+        """リザルト画面が通常スコアメインかEXスコアメインかを判定する。"""
+        tail_yellow = max(
+            self._yellow_pixel_ratio(img, RECT_RESULT_SCORE_SMALL[-2]),
+            self._yellow_pixel_ratio(img, RECT_RESULT_SCORE_SMALL[-1]),
+        )
+        if tail_yellow > _RESULT_EXSCORE_MODE_YELLOW_TH:
+            return result_score_display_mode.exscore
+        return result_score_display_mode.score
+
     # ─── 選曲画面読み取り ─────────────────────────────────────────────────────
 
     def read_from_select(self) -> Optional[dict]:
@@ -644,12 +673,14 @@ class ScreenReader:
         """リザルト画面から情報を読み取る。
 
         Returns:
-            dict: title, difficulty, score, exscore, lamp
+            dict: title, difficulty, score, exscore, lamp,
+                  score_display_mode, is_exscore_mode
         """
         if self._img is None:
             return None
         try:
             img = self._img
+            score_display_mode = self._detect_result_score_display_mode(img)
             diff = self._read_difficulty_from_result(img)
             jacket_img = img.crop(RECT_RESULT_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
@@ -673,6 +704,13 @@ class ScreenReader:
                 'exscore':    exscore,
                 'lamp':       lamp,
                 'jacket_img': jacket_img,
+                'score_display_mode': score_display_mode,
+                'is_exscore_mode': score_display_mode == result_score_display_mode.exscore,
+                'detect_mode': (
+                    detect_mode.result_exscore
+                    if score_display_mode == result_score_display_mode.exscore
+                    else detect_mode.result
+                ),
             }
         except Exception:
             logger.error(f"read_from_result 失敗:\n{traceback.format_exc()}")

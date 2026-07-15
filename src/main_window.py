@@ -233,6 +233,7 @@ class MainWindowUI(QMainWindow):
                 detect_mode.detect: self.ui.mode.detect,
                 detect_mode.play:   self.ui.mode.play,
                 detect_mode.result: self.ui.mode.result,
+                detect_mode.result_exscore: self.ui.mode.result,
             }
             self.mode_label.setText(mode_names.get(self.current_mode, "?"))
 
