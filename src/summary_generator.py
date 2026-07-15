@@ -26,6 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 from src.classes import clear_lamp, difficulty
 from src.logger import get_logger
 from src.result_image import expand_result_info_area
+from src.screen_layout import SUMMARY
 
 if TYPE_CHECKING:
     from src.result import OneResult
@@ -34,10 +35,10 @@ logger = get_logger(__name__)
 
 # ─── レイアウト定数 ──────────────────────────────────────────────────────────
 
-_LOG_MARGIN = 20
-_LOG_ROWSIZE = 40
-_FULL_WIDTH = 960
-_SMALL_WIDTH = 590
+_LOG_MARGIN = SUMMARY.margin
+_LOG_ROWSIZE = SUMMARY.row_size
+_FULL_WIDTH = SUMMARY.full_width
+_SMALL_WIDTH = SUMMARY.small_width
 
 # 難易度カラーバーの色 (RGB)
 _DIFF_COLORS = {
@@ -306,17 +307,11 @@ def capture_summary_item_from_screen(
 ) -> Optional[ResultSummaryItem]:
     """現在のリザルト画面から summary 用パーツを切り出して保持する。"""
     try:
-        from src.define import params as _params
-
         _ensure_cache()
         src = expand_result_info_area(img).convert("RGB")
 
         def _crop(prefix: str) -> Image.Image:
-            sx = _params[f"log_crop_{prefix}_sx"]
-            sy = _params[f"log_crop_{prefix}_sy"]
-            w = _params[f"log_crop_{prefix}_w"]
-            h = _params[f"log_crop_{prefix}_h"]
-            return src.crop((sx, sy, sx + w, sy + h)).copy()
+            return src.crop(SUMMARY.crop(prefix).box).copy()
 
         return ResultSummaryItem(
             timestamp=timestamp,
@@ -327,7 +322,7 @@ def capture_summary_item_from_screen(
             score=_crop("score").resize((86, 20)),
             rank=_crop("rank").resize((37, 25)),
             rate=_crop("rate").resize((80, 20)),
-            lamp=_detect_lamp_from_screenshot(src, _params),
+            lamp=_detect_lamp_from_screenshot(src),
         )
     except Exception:
         import traceback
@@ -357,8 +352,6 @@ def _generate_from_items_sync(
     min_rows: int = 15,
 ) -> bool:
     try:
-        from src.define import params as _params
-
         _ensure_cache()
         target = sorted(items, key=lambda item: item.timestamp, reverse=True)
 
@@ -368,7 +361,7 @@ def _generate_from_items_sync(
 
         for idx, item in enumerate(target):
             row_y = _LOG_MARGIN + _LOG_ROWSIZE * idx
-            _put_result_summary_item(item, bg_full, bg_small, row_y, _params)
+            _put_result_summary_item(item, bg_full, bg_small, row_y)
 
         os.makedirs(_OUT_DIR, exist_ok=True)
         bg_full.save(f"{_OUT_DIR}/summary_full.png")
@@ -439,17 +432,12 @@ def _put_result_from_screenshot(
     bg_full: Image.Image,
     bg_small: Image.Image,
     row_y: int,
-    params: dict,
 ) -> None:
     """1枚のリザルト画像からパーツを切り出して bg_full / bg_small に貼り付ける。"""
     img = expand_result_info_area(img)
 
     def _crop(prefix: str) -> Image.Image:
-        sx = params[f"log_crop_{prefix}_sx"]
-        sy = params[f"log_crop_{prefix}_sy"]
-        w = params[f"log_crop_{prefix}_w"]
-        h = params[f"log_crop_{prefix}_h"]
-        return img.crop((sx, sy, sx + w, sy + h))
+        return img.crop(SUMMARY.crop(prefix).box)
 
     # パーツ切り出し・リサイズ (v1 と同じサイズ)
     jacket = _crop("jacket").resize((36, 36))
@@ -461,46 +449,40 @@ def _put_result_from_screenshot(
     rate_img = _crop("rate").resize((80, 20))
 
     # ランプ検出
-    lamp = _detect_lamp_from_screenshot(img, params)
+    lamp = _detect_lamp_from_screenshot(img)
     lamp_img = (_lamp_cache or {}).get(lamp)  # type: ignore[attr-defined]
 
     # full 画像に貼り付け
-    _paste(
-        bg_full, jacket, params["log_pos_jacket_sx"], params["log_pos_jacket_sy"], row_y
-    )
+    _paste(bg_full, jacket, SUMMARY.pos_jacket.x, SUMMARY.pos_jacket.y, row_y)
     _paste(
         bg_full,
         diff_bar,
-        params["log_pos_difficulty_sx"],
-        params["log_pos_difficulty_sy"],
+        SUMMARY.pos_difficulty.x,
+        SUMMARY.pos_difficulty.y,
         row_y,
     )
     _paste(
         bg_full,
         title_img,
-        params["log_pos_title_sx"],
-        params["log_pos_title_sy"],
+        SUMMARY.pos_title.x,
+        SUMMARY.pos_title.y,
         row_y,
     )
     _paste(
         bg_full,
         score_img,
-        params["log_pos_score_sx"],
-        params["log_pos_score_sy"],
+        SUMMARY.pos_score.x,
+        SUMMARY.pos_score.y,
         row_y,
     )
-    _paste(
-        bg_full, rank_img, params["log_pos_rank_sx"], params["log_pos_rank_sy"], row_y
-    )
-    _paste(
-        bg_full, rate_img, params["log_pos_rate_sx"], params["log_pos_rate_sy"], row_y
-    )
+    _paste(bg_full, rank_img, SUMMARY.pos_rank.x, SUMMARY.pos_rank.y, row_y)
+    _paste(bg_full, rate_img, SUMMARY.pos_rate.x, SUMMARY.pos_rate.y, row_y)
     if lamp_img is not None:
         _paste(
             bg_full,
             lamp_img,
-            params["log_pos_lamp_sx"],
-            params["log_pos_lamp_sy"],
+            SUMMARY.pos_lamp.x,
+            SUMMARY.pos_lamp.y,
             row_y,
             mask=lamp_img,
         )
@@ -509,37 +491,37 @@ def _put_result_from_screenshot(
     _paste(
         bg_small,
         jacket,
-        params["log_pos_jacket_small_sx"],
-        params["log_pos_jacket_small_sy"],
+        SUMMARY.pos_jacket_small.x,
+        SUMMARY.pos_jacket_small.y,
         row_y,
     )
     _paste(
         bg_small,
         diff_bar,
-        params["log_pos_difficulty_small_sx"],
-        params["log_pos_difficulty_small_sy"],
+        SUMMARY.pos_difficulty_small.x,
+        SUMMARY.pos_difficulty_small.y,
         row_y,
     )
     _paste(
         bg_small,
         title_sml,
-        params["log_pos_title_small_sx"],
-        params["log_pos_title_small_sy"],
+        SUMMARY.pos_title_small.x,
+        SUMMARY.pos_title_small.y,
         row_y,
     )
     _paste(
         bg_small,
         score_img,
-        params["log_pos_score_small_sx"],
-        params["log_pos_score_small_sy"],
+        SUMMARY.pos_score_small.x,
+        SUMMARY.pos_score_small.y,
         row_y,
     )
     if lamp_img is not None:
         _paste(
             bg_small,
             lamp_img,
-            params["log_pos_lamp_small_sx"],
-            params["log_pos_lamp_small_sy"],
+            SUMMARY.pos_lamp_small.x,
+            SUMMARY.pos_lamp_small.y,
             row_y,
             mask=lamp_img,
         )
@@ -550,7 +532,6 @@ def _put_result_summary_item(
     bg_full: Image.Image,
     bg_small: Image.Image,
     row_y: int,
-    params: dict,
 ) -> None:
     """保持済みパーツを bg_full / bg_small に貼り付ける。"""
     lamp_img = (_lamp_cache or {}).get(item.lamp)  # type: ignore[attr-defined]
@@ -558,43 +539,39 @@ def _put_result_summary_item(
     _paste(
         bg_full,
         item.jacket,
-        params["log_pos_jacket_sx"],
-        params["log_pos_jacket_sy"],
+        SUMMARY.pos_jacket.x,
+        SUMMARY.pos_jacket.y,
         row_y,
     )
     _paste(
         bg_full,
         item.diff_bar,
-        params["log_pos_difficulty_sx"],
-        params["log_pos_difficulty_sy"],
+        SUMMARY.pos_difficulty.x,
+        SUMMARY.pos_difficulty.y,
         row_y,
     )
     _paste(
         bg_full,
         item.title,
-        params["log_pos_title_sx"],
-        params["log_pos_title_sy"],
+        SUMMARY.pos_title.x,
+        SUMMARY.pos_title.y,
         row_y,
     )
     _paste(
         bg_full,
         item.score,
-        params["log_pos_score_sx"],
-        params["log_pos_score_sy"],
+        SUMMARY.pos_score.x,
+        SUMMARY.pos_score.y,
         row_y,
     )
-    _paste(
-        bg_full, item.rank, params["log_pos_rank_sx"], params["log_pos_rank_sy"], row_y
-    )
-    _paste(
-        bg_full, item.rate, params["log_pos_rate_sx"], params["log_pos_rate_sy"], row_y
-    )
+    _paste(bg_full, item.rank, SUMMARY.pos_rank.x, SUMMARY.pos_rank.y, row_y)
+    _paste(bg_full, item.rate, SUMMARY.pos_rate.x, SUMMARY.pos_rate.y, row_y)
     if lamp_img is not None:
         _paste(
             bg_full,
             lamp_img,
-            params["log_pos_lamp_sx"],
-            params["log_pos_lamp_sy"],
+            SUMMARY.pos_lamp.x,
+            SUMMARY.pos_lamp.y,
             row_y,
             mask=lamp_img,
         )
@@ -602,37 +579,37 @@ def _put_result_summary_item(
     _paste(
         bg_small,
         item.jacket,
-        params["log_pos_jacket_small_sx"],
-        params["log_pos_jacket_small_sy"],
+        SUMMARY.pos_jacket_small.x,
+        SUMMARY.pos_jacket_small.y,
         row_y,
     )
     _paste(
         bg_small,
         item.diff_bar,
-        params["log_pos_difficulty_small_sx"],
-        params["log_pos_difficulty_small_sy"],
+        SUMMARY.pos_difficulty_small.x,
+        SUMMARY.pos_difficulty_small.y,
         row_y,
     )
     _paste(
         bg_small,
         item.title_small,
-        params["log_pos_title_small_sx"],
-        params["log_pos_title_small_sy"],
+        SUMMARY.pos_title_small.x,
+        SUMMARY.pos_title_small.y,
         row_y,
     )
     _paste(
         bg_small,
         item.score,
-        params["log_pos_score_small_sx"],
-        params["log_pos_score_small_sy"],
+        SUMMARY.pos_score_small.x,
+        SUMMARY.pos_score_small.y,
         row_y,
     )
     if lamp_img is not None:
         _paste(
             bg_small,
             lamp_img,
-            params["log_pos_lamp_small_sx"],
-            params["log_pos_lamp_small_sy"],
+            SUMMARY.pos_lamp_small.x,
+            SUMMARY.pos_lamp_small.y,
             row_y,
             mask=lamp_img,
         )
@@ -653,7 +630,7 @@ def _paste(
         bg.paste(part, (sx, sy + row_y))
 
 
-def _detect_lamp_from_screenshot(img: Image.Image, params: dict) -> clear_lamp:
+def _detect_lamp_from_screenshot(img: Image.Image) -> clear_lamp:
     """リザルト画像からランプを判定する。"""
     try:
         from src.define import HASH_LAMP, RECT_LAMP, RECT_GAUGE

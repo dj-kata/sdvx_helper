@@ -1,32 +1,16 @@
-"""座標・ハッシュなど固定データ。resources/params.json と PNG画像から生成する。
+"""座標・ハッシュなど固定データ。
 
 全座標は1080×1920の縦画像（回転後）に対応する。
 """
-import json
 import imagehash
-import traceback
 from PIL import Image
 from pathlib import Path
 
 from src.logger import get_logger
+from src.screen_layout import DETECT, INFO, PLAY, RESULT, SELECT, TIMING
 logger = get_logger(__name__)
 
 _RESOURCES = Path('resources')
-
-# ─── params.json 読み込み ────────────────────────────────────────────────────
-try:
-    with open(_RESOURCES / 'params.json', encoding='utf-8') as _f:
-        params: dict = json.load(_f)
-except Exception:
-    logger.error(f"params.json の読み込みに失敗しました:\n{traceback.format_exc()}")
-    params = {}
-
-
-def _rect(prefix: str) -> tuple:
-    """params.jsonから (left, top, right, bottom) のtupleを返す。img.crop()に直接渡せる。"""
-    sx = params[f'{prefix}_sx']
-    sy = params[f'{prefix}_sy']
-    return (sx, sy, sx + params[f'{prefix}_w'], sy + params[f'{prefix}_h'])
 
 
 def _hash(filename: str) -> imagehash.ImageHash | None:
@@ -44,13 +28,13 @@ def _hash_dict(prefix: str, indices) -> dict:
 
 
 # ─── 画面識別用の座標 ─────────────────────────────────────────────────────────
-RECT_ONSELECT      = _rect('onselect')
-RECT_ONDETECT      = _rect('ondetect')
-RECT_ONPLAY1       = _rect('onplay_val1')
-RECT_ONPLAY2       = _rect('onplay_val2')
-RECT_ONRESULT_VAL0 = _rect('onresult_val0')
-RECT_ONRESULT_VAL1 = _rect('onresult_val1')
-RECT_ONRESULT_HEAD = _rect('onresult_head')
+RECT_ONSELECT      = DETECT.onselect.box
+RECT_ONDETECT      = DETECT.ondetect.box
+RECT_ONPLAY1       = DETECT.onplay1.box
+RECT_ONPLAY2       = DETECT.onplay2.box
+RECT_ONRESULT_VAL0 = DETECT.onresult_val0.box
+RECT_ONRESULT_VAL1 = DETECT.onresult_val1.box
+RECT_ONRESULT_HEAD = DETECT.onresult_head.box
 
 # ─── 画面識別用の基準ハッシュ ────────────────────────────────────────────────
 HASH_ONSELECT      = _hash('onselect.png')
@@ -64,62 +48,62 @@ HASH_ONRESULT_HEAD = _hash('result_head.png')
 # detect画面: ハッシュ一致 AND RGB輝度閾値でフィルタ（既存sdvx_helperと同方式）
 ONDETECT_RGBSUM_THRESHOLD = 4000000
 
-# result_head は任意の追加判定（params.jsonで有効/無効切り替え）
-ONRESULT_ENABLE_HEAD: bool = bool(params.get('onresult_enable_head', 0))
+# result_head は任意の追加判定
+ONRESULT_ENABLE_HEAD: bool = DETECT.onresult_enable_head
 
 # detect後の待機時間（秒）
-DETECT_WAIT: float = params.get('detect_wait', 1.5)
+DETECT_WAIT: float = TIMING.detect_wait
 # 曲情報画面の切り出し待機時間（秒）。
 # SDVX側の遷移が高速なため、旧detect_waitほど待たず、白フェードを避ける程度に留める。
-DETECT_CAPTURE_DELAY: float = params.get('detect_capture_delay', 0.2)
+DETECT_CAPTURE_DELAY: float = TIMING.detect_capture_delay
 
 # ─── 選曲画面 座標 ────────────────────────────────────────────────────────────
-RECT_SELECT_JACKET = _rect('select_jacket')
-RECT_SELECT_NOV    = _rect('select_nov')
-RECT_SELECT_ADV    = _rect('select_adv')
-RECT_SELECT_EXH    = _rect('select_exh')
-RECT_SELECT_APPEND = _rect('select_APPEND')
-RECT_SELECT_LAMP   = _rect('select_lamp')
-RECT_SELECT_ARCADE = _rect('select_arcade')
-RECT_HAS_EXSCORE   = _rect('has_exscore')
+RECT_SELECT_JACKET = SELECT.jacket.box
+RECT_SELECT_NOV    = SELECT.novice.box
+RECT_SELECT_ADV    = SELECT.advanced.box
+RECT_SELECT_EXH    = SELECT.exhaust.box
+RECT_SELECT_APPEND = SELECT.append.box
+RECT_SELECT_LAMP   = SELECT.lamp.box
+RECT_SELECT_ARCADE = SELECT.arcade.box
+RECT_HAS_EXSCORE   = SELECT.has_exscore.box
 # スコア数字座標（大4桁 + 小4桁 = 8桁）
-RECT_SELECT_SCORE_LARGE = [_rect(f'select_score_large_{i}') for i in range(4)]
-RECT_SELECT_SCORE_SMALL = [_rect(f'select_score_small_{i}') for i in range(4, 8)]
-RECT_SELECT_EXSCORE     = [_rect(f'select_exscore_{i}') for i in range(5)]
+RECT_SELECT_SCORE_LARGE = [r.box for r in SELECT.score_large]
+RECT_SELECT_SCORE_SMALL = [r.box for r in SELECT.score_small]
+RECT_SELECT_EXSCORE     = [r.box for r in SELECT.exscore]
 
 # ─── detect画面（楽曲情報）座標 ──────────────────────────────────────────────
-RECT_INFO_JACKET = _rect('info_jacket')
-RECT_INFO_TITLE  = _rect('info_title')
-RECT_INFO_LV     = _rect('info_lv')
-RECT_INFO_DIFF   = _rect('info_diff')
-RECT_INFO_BPM    = _rect('info_bpm')
-RECT_INFO_EF     = _rect('info_ef')
-RECT_INFO_ILLUST = _rect('info_illust')
+RECT_INFO_JACKET = INFO.jacket.box
+RECT_INFO_TITLE  = INFO.title.box
+RECT_INFO_LV     = INFO.level.box
+RECT_INFO_DIFF   = INFO.difficulty.box
+RECT_INFO_BPM    = INFO.bpm.box
+RECT_INFO_EF     = INFO.effector.box
+RECT_INFO_ILLUST = INFO.illustrator.box
 
 # ─── プレー画面 座標 ──────────────────────────────────────────────────────────
-RECT_GAUGE      = _rect('gauge')
-RECT_LAMP       = _rect('lamp')
-RECT_VF         = _rect('vf')
-RECT_CLASS      = _rect('class')
-RECT_BLASTERMAX = _rect('blastermax')
+RECT_GAUGE      = PLAY.gauge.box
+RECT_LAMP       = PLAY.lamp.box
+RECT_VF         = PLAY.vf.box
+RECT_CLASS      = PLAY.player_class.box
+RECT_BLASTERMAX = PLAY.blastermax.box
 
-GAUGE_CLEAR_THRESHOLD: int = params.get('gauge_clear_threshold', 10)
-GAUGE_HARD_THRESHOLD:  int = params.get('gauge_hard_threshold', 15)
+GAUGE_CLEAR_THRESHOLD: int = PLAY.gauge_clear_threshold
+GAUGE_HARD_THRESHOLD:  int = PLAY.gauge_hard_threshold
 
 # ─── リザルト画面 座標 ────────────────────────────────────────────────────────
-RECT_RESULT_JACKET  = _rect('result_jacket')
-RECT_RESULT_DIFF    = _rect('log_crop_difficulty')  # sx=55,sy=870,w=138,h=30
+RECT_RESULT_JACKET  = RESULT.jacket.box
+RECT_RESULT_DIFF    = RESULT.difficulty.box
 
 # ─── リザルト画面 スコア座標 ──────────────────────────────────────────────────
 # スコア (10M形式, 8桁: 大字体4桁 + 小字体4桁)
-RECT_RESULT_SCORE_LARGE = [_rect(f'result_score_large_{i}') for i in range(4)]
-RECT_RESULT_SCORE_SMALL = [_rect(f'result_score_small_{i}') for i in range(4, 8)]
+RECT_RESULT_SCORE_LARGE = [r.box for r in RESULT.score_large]
+RECT_RESULT_SCORE_SMALL = [r.box for r in RESULT.score_small]
 # EXスコア (5桁)
-RECT_RESULT_EXSCORE     = [_rect(f'result_exscore_{i}') for i in range(5)]
+RECT_RESULT_EXSCORE     = [r.box for r in RESULT.exscore]
 # 自己べスコア (8桁、小字体サイズ)
-RECT_RESULT_BESTSCORE   = [_rect(f'result_bestscore_{i}') for i in range(8)]
+RECT_RESULT_BESTSCORE   = [r.box for r in RESULT.bestscore]
 # 自己べEXスコア (5桁)
-RECT_RESULT_BESTEXSCORE = [_rect(f'result_bestexscore_{i}') for i in range(5)]
+RECT_RESULT_BESTEXSCORE = [r.box for r in RESULT.bestexscore]
 
 # ─── ランプ・ゲージ・難易度 判定用画像ハッシュ ────────────────────────────────
 HASH_LAMP = {

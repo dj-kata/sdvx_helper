@@ -95,6 +95,7 @@ build_exe_options = {
         "src.result_stats_writer",
         "src.rival_data",
         "src.score_viewer",
+        "src.screen_layout",
         "src.screen_reader",
         "src.songinfo",
         "src.storage",

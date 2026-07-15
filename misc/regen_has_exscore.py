@@ -38,7 +38,7 @@ print(f'  赤枠: select_exscore周辺 ({ex0[1]-50} ~ {ex0[3]+50}px)')
 print(f'  青枠: 現在のhas_exscore座標 {RECT_HAS_EXSCORE}')
 print()
 print('guide_select.png を目視して、EXスコアラベルの座標を確認してください。')
-print('座標が分かったら params.json の has_exscore_sx/sy/w/h を修正してください。')
+print('座標が分かったら src/screen_layout.py の SELECT.has_exscore を修正してください。')
 print()
 
 # 現在の座標で切り出した結果も保存
