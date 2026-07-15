@@ -65,6 +65,15 @@ def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
                     item["result_mode_score_hash_distance"] = int(
                         abs(mode_hash - HASH_RESULT_MODE_SCORE)
                     )
+                try:
+                    result = reader.read_from_result() or {}
+                    item["title"] = result.get("title")
+                    item["difficulty"] = str(result.get("difficulty"))
+                    item["score"] = result.get("score")
+                    item["exscore"] = result.get("exscore")
+                    item["lamp"] = str(result.get("lamp"))
+                except Exception as exc:
+                    item["read_result_error"] = str(exc)
 
         return item
 

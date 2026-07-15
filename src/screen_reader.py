@@ -723,6 +723,33 @@ class ScreenReader:
 
     # ─── リザルト画面読み取り ────────────────────────────────────────────────
 
+    def _read_scores_from_result_score_mode(
+        self, img: Image.Image, lamp: clear_lamp
+    ) -> tuple[Optional[int], Optional[int]]:
+        """通常スコアメインのリザルト画面から score / exscore を読む。"""
+        # PUCはスコアが必ず10,000,000なので読み取り不要
+        if lamp == clear_lamp.puc:
+            score = 10_000_000
+        else:
+            score = self._read_score_8digit(
+                img,
+                RECT_RESULT_SCORE_LARGE,
+                HASH_RESULT_SCORE_LARGE,
+                RECT_RESULT_SCORE_SMALL,
+                HASH_RESULT_SCORE_SMALL,
+            )
+        exscore = self._read_digits_as_int(
+            img, RECT_RESULT_EXSCORE, HASH_RESULT_EXSCORE, threshold=16
+        )
+        return score, exscore
+
+    def _read_scores_from_result_exscore_mode(
+        self, img: Image.Image, lamp: clear_lamp
+    ) -> tuple[Optional[int], Optional[int]]:
+        """EXスコアメインのリザルト画面から score / exscore を読む。"""
+        # TODO: EXスコアメイン表示用の座標・テンプレートで読み取る。
+        return None, None
+
     def read_from_result(self) -> Optional[dict]:
         """リザルト画面から情報を読み取る。
 
@@ -739,20 +766,10 @@ class ScreenReader:
             jacket_img = img.crop(RECT_RESULT_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
             lamp = self._read_lamp_from_result(img)
-            # PUCはスコアが必ず10,000,000なので読み取り不要
-            if lamp == clear_lamp.puc:
-                score = 10_000_000
+            if score_display_mode == result_score_display_mode.exscore:
+                score, exscore = self._read_scores_from_result_exscore_mode(img, lamp)
             else:
-                score = self._read_score_8digit(
-                    img,
-                    RECT_RESULT_SCORE_LARGE,
-                    HASH_RESULT_SCORE_LARGE,
-                    RECT_RESULT_SCORE_SMALL,
-                    HASH_RESULT_SCORE_SMALL,
-                )
-            exscore = self._read_digits_as_int(
-                img, RECT_RESULT_EXSCORE, HASH_RESULT_EXSCORE, threshold=16
-            )
+                score, exscore = self._read_scores_from_result_score_mode(img, lamp)
             return {
                 "title": title,
                 "difficulty": diff,
