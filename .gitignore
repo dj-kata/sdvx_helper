@@ -11,6 +11,7 @@ tmp/*
 jackets/*
 *.zip
 *.png
+!resources/result_mode_score.png
 log/*
 params_secret.py
 src/portal_secret.py

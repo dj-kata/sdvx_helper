@@ -2,6 +2,7 @@
 
 All rectangles use the normalized portrait coordinate space: 1080 x 1920.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -77,6 +78,8 @@ class PlayLayout:
 
 @dataclass(frozen=True)
 class ResultLayout:
+    """リザルト画面内での座標系。トリミングモードの有無に関わらず、1080x1920に対する座標を指定。"""
+
     jacket: Rect
     difficulty: Rect
     lamp: Rect
@@ -86,6 +89,7 @@ class ResultLayout:
     exscore: tuple[Rect, ...]
     bestscore: tuple[Rect, ...]
     bestexscore: tuple[Rect, ...]
+    score_mode_detect_marker: Rect
 
 
 @dataclass(frozen=True)
@@ -231,6 +235,8 @@ RESULT = ResultLayout(
         Rect(954, 1140, 14, 14),
         Rect(968, 1140, 14, 14),
     ),
+    # リザルト画面について通常スコアかEXスコアかを判別するのに利用
+    score_mode_detect_marker=Rect(816, 1069, 107, 13),
 )
 
 SUMMARY = SummaryLayout(
@@ -261,7 +267,13 @@ SUMMARY = SummaryLayout(
     pos_lamp=Point(830, 22),
     pos_lamp_small=Point(540, 22),
     parts=("jacket", "difficulty", "title", "score", "rank", "rate", "lamp"),
-    small_parts=("jacket_small", "difficulty_small", "title_small", "score_small", "lamp_small"),
+    small_parts=(
+        "jacket_small",
+        "difficulty_small",
+        "title_small",
+        "score_small",
+        "lamp_small",
+    ),
 )
 
 TIMING = TimingLayout(

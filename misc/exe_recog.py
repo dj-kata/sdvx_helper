@@ -1,51 +1,115 @@
-import sys
-import pickle
-import os
-from PIL import Image
-import numpy as np
-import imagehash
+"""Debug result-screen mode recognition.
+
+Reads result screenshots and dumps the detected screen mode as JSON Lines.
+Default targets are the normal-score and EX-score debug result folders.
+"""
+
+from __future__ import annotations
+
+import argparse
 import glob
+import json
+import sys
+from pathlib import Path
+from typing import Any
 
+from PIL import Image
+
+import imagehash
+
+from src.define import HASH_RESULT_MODE_SCORE, RECT_RESULT_MODE
+from src.result_image import RESULT_INFO_CROP_SIZE, expand_result_info_area
 from src.screen_reader import ScreenReader
-from src.logger import get_logger
-from src.result import *
-from src.result_database import ResultDatabase
-from src.classes import *
-from src.config import Config
-from src.funcs import *
-from src.screen_reader import *
+from src.songinfo import SongDatabase
 
-logger = get_logger("exe_recog")
+
+DEFAULT_PATTERNS = (
+    "debug/cut/*",
+    "debug/exscore/*",
+)
+
+
+def _enum_name(value: Any) -> str | None:
+    return getattr(value, "name", None)
+
+
+def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
+    with Image.open(path) as img:
+        input_size = img.size
+        screen = (
+            expand_result_info_area(img) if img.size == RESULT_INFO_CROP_SIZE else img
+        )
+        reader.update_screen(screen)
+        mode = reader.detect_screen()
+
+        item: dict[str, Any] = {
+            "file": path,
+            "input_size": list(input_size),
+            "expanded_result_info_area": input_size == RESULT_INFO_CROP_SIZE,
+            "detect_mode": _enum_name(mode),
+            "is_result_screen": mode.is_result_screen(),
+        }
+
+        if reader.corrected_screen is not None:
+            item["corrected_size"] = list(reader.corrected_screen.size)
+
+        if mode.is_result_screen():
+            img2 = reader.corrected_screen
+            if img2 is not None:
+                score_display_mode = reader._detect_result_score_display_mode(img2)
+                item["score_display_mode"] = _enum_name(score_display_mode)
+                item["is_exscore_mode"] = mode == type(mode).result_exscore
+                mode_hash = imagehash.average_hash(img2.crop(RECT_RESULT_MODE))
+                item["result_mode_hash"] = str(mode_hash)
+                if HASH_RESULT_MODE_SCORE is not None:
+                    item["result_mode_score_hash_distance"] = int(
+                        abs(mode_hash - HASH_RESULT_MODE_SCORE)
+                    )
+
+        return item
+
+
+def _iter_files(patterns: list[str]) -> list[str]:
+    files: list[str] = []
+    for pattern in patterns:
+        matched = sorted(glob.glob(pattern))
+        if matched:
+            files.extend(matched)
+        elif Path(pattern).exists():
+            files.append(pattern)
+    return files
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "paths",
+        nargs="*",
+        default=list(DEFAULT_PATTERNS),
+        help="Image files or glob patterns to inspect.",
+    )
+    parser.add_argument(
+        "--pretty",
+        action="store_true",
+        help="Dump one pretty-printed JSON array instead of JSON Lines.",
+    )
+    args = parser.parse_args(argv)
+
+    files = _iter_files(args.paths)
+    if not files:
+        print("No target images found.", file=sys.stderr)
+        return 1
+
+    reader = ScreenReader(SongDatabase())
+    rows = [_detect_file(reader, path) for path in files]
+
+    if args.pretty:
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+    else:
+        for row in rows:
+            print(json.dumps(row, ensure_ascii=False, sort_keys=True))
+    return 0
+
 
 if __name__ == "__main__":
-    sdb = SongDatabase()
-    sr = ScreenReader(sdb)
-
-    def read_result(f):  # debug/result\ex1874.png
-        img = Image.open(f)
-        sr.update_screen(img)
-        sr.is_onresult()
-        result = sr.read_from_result()
-        print(
-            f"{f} - {result['title']}({result['difficulty']}), sc:{result['score']}, ex:{result['exscore']}, lamp:{result['lamp']}"
-        )
-
-    def read_select(f):  # debug/result\ex1874.png
-        img = Image.open(f)
-        sr.update_screen(img)
-        result = sr.read_from_select()
-        print(
-            f"{f} - {result['title']}({result['difficulty']}), sc:{result['score']}, ex:{result['exscore']}, lamp:{result['lamp']}"
-        )
-
-    for f in glob.glob("debug/cut/*"):
-        read_result(f)
-    for f in glob.glob("debug/exscore/*"):
-        read_result(f)
-    # for f in glob.glob('debug/select/*png'):
-    # read_select(f)
-    import time
-
-    time.sleep(4)
-    # for f in glob.glob('debug/select/exh_996*png'):
-    #     read_select(f)
+    raise SystemExit(main())
