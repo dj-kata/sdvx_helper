@@ -14,6 +14,8 @@ dependencies = [
     "obsws-python>=1.8.0",
     "opencv-python>=4.13.0.90",
     "pillow>=12.1.0",
-    "pyside6>=6.10.1",
+    # PySide6 6.10.1 win_amd64 currently leaves Qt6Core.dll depending on an
+    # external icuuc.dll in this environment, which breaks QtCore/QtGui import.
+    "pyside6>=6.9,<6.10",
     "websockets>=16.0",
 ]
