@@ -10,12 +10,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Point:
+    """summary 画像などの貼り付け位置を表す2次元座標。"""
+
     x: int
     y: int
 
 
 @dataclass(frozen=True)
 class Rect:
+    """1080x1920 の正規化済み縦画面上にある切り出し矩形。"""
+
     x: int
     y: int
     w: int
@@ -29,6 +33,8 @@ class Rect:
 
 @dataclass(frozen=True)
 class ScreenDetectLayout:
+    """現在の画面種別を判定するためのハッシュ比較用領域。"""
+
     onselect: Rect
     ondetect: Rect
     onplay1: Rect
@@ -41,6 +47,8 @@ class ScreenDetectLayout:
 
 @dataclass(frozen=True)
 class SelectLayout:
+    """選曲画面からジャケット、難易度、ランプ、スコア類を読むための領域。"""
+
     jacket: Rect
     novice: Rect
     advanced: Rect
@@ -56,6 +64,8 @@ class SelectLayout:
 
 @dataclass(frozen=True)
 class InfoLayout:
+    """楽曲情報画面から曲名、難易度、BPM、制作者情報などを切り出す領域。"""
+
     jacket: Rect
     title: Rect
     level: Rect
@@ -67,6 +77,8 @@ class InfoLayout:
 
 @dataclass(frozen=True)
 class PlayLayout:
+    """プレー中/リザルト共通で参照するランプ、ゲージ、VF表示などの領域。"""
+
     lamp: Rect
     gauge: Rect
     vf: Rect
@@ -78,7 +90,11 @@ class PlayLayout:
 
 @dataclass(frozen=True)
 class ResultLayout:
-    """リザルト画面内での座標系。トリミングモードの有無に関わらず、1080x1920に対する座標を指定。"""
+    """通常スコアメインのリザルト画面から読み取る各パーツの領域。
+
+    トリミングモードの有無に関わらず、1080x1920 の正規化済み縦画面に対する
+    座標を指定する。
+    """
 
     jacket: Rect
     difficulty: Rect
@@ -94,7 +110,11 @@ class ResultLayout:
 
 @dataclass(frozen=True)
 class ResultLayoutExScoreMode:
-    """リザルト画面(EXスコアモード)内での座標系。トリミングモードの有無に関わらず、1080x1920に対する座標を指定。"""
+    """EXスコアメインのリザルト画面から score / exscore などを読む領域。
+
+    通常スコアメインとは数字の位置とフォントが異なるため、ResultLayout とは
+    別に定義する。
+    """
 
     score: tuple[Rect, ...]
     exscore: tuple[Rect, ...]
@@ -104,6 +124,13 @@ class ResultLayoutExScoreMode:
 
 @dataclass(frozen=True)
 class SummaryLayout:
+    """out/summary_*.png を生成するための切り出し領域と貼り付け先座標。
+
+    crop_* はリザルト画像から取り出す矩形、pos_* は summary 行内で貼り付ける
+    左上座標を表す。score / rate は通常スコアメインと EXスコアメインで
+    別座標を持つ。
+    """
+
     max_rows: int
     row_size: int
     margin: int
@@ -136,6 +163,11 @@ class SummaryLayout:
     small_parts: tuple[str, ...]
 
     def crop(self, name: str, *, is_exscore_mode: bool = False) -> Rect:
+        """指定した summary パーツ名に対応する切り出し矩形を返す。
+
+        is_exscore_mode=True の場合、score / rate は EXスコアメイン表示用の
+        crop_score_exscore_mode / crop_rate_exscore_mode を返す。
+        """
         if is_exscore_mode and name in ("rate", "score"):
             return getattr(self, f"crop_{name}_exscore_mode")
         return getattr(self, f"crop_{name}")
@@ -143,6 +175,8 @@ class SummaryLayout:
 
 @dataclass(frozen=True)
 class TimingLayout:
+    """画面遷移後の認識待機時間や追加キャプチャ待ち時間。"""
+
     detect_wait: float
     detect_capture_delay: float
 
