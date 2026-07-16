@@ -231,8 +231,8 @@ class ScreenReader:
         h = imagehash.average_hash(region)
         if abs(HASH_ONDETECT - h) >= threshold:
             return False
-        rgb_sum = int(np.array(region).sum())
-        return rgb_sum > ONDETECT_RGBSUM_THRESHOLD
+        rgb_sum = int(np.array(region.convert("RGB")).sum())
+        return rgb_sum < ONDETECT_RGBSUM_THRESHOLD
 
     @staticmethod
     def _check_onplay(img: Image.Image, threshold: int = 10) -> bool:

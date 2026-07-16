@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>SDVX Now Playing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./websocket.css">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 780px;
+            height: 950px;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: transparent;
+        }
+
+        body {
+            color: #fff;
+            font-family: "Potta One", "Meiryo", sans-serif;
+            text-shadow:
+                5px 5px 0 #000,
+                -2px 2px 0 #000,
+                2px -2px 0 #000,
+                -2px -2px 0 #000;
+        }
+
+        .panel {
+            position: relative;
+            width: 756px;
+            height: 890px;
+            margin: 52px 18px 0;
+            padding: 16px 14px 20px;
+            background: rgba(80, 82, 80, 0.86);
+            border: 7px solid #03114f;
+        }
+
+        .label {
+            position: absolute;
+            top: -48px;
+            left: 4px;
+            width: 260px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 34px;
+            line-height: 1;
+            background: #1810b0;
+            border: 1px solid #07124e;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .jacket-wrap {
+            width: 714px;
+            height: 714px;
+            margin: 0;
+            background: rgba(0, 0, 0, 0.22);
+            border: 2px solid rgba(64, 220, 255, 0.62);
+        }
+
+        #jacket {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .song {
+            width: 100%;
+            margin-top: 24px;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .title {
+            min-height: 70px;
+            padding: 0 18px;
+            color: #fff;
+            font-size: 48px;
+            line-height: 1.18;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .meta {
+            min-height: 48px;
+            margin-top: 10px;
+            color: #d5ffff;
+            font-size: 34px;
+            line-height: 1.18;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .empty {
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="panel">
+        <div class="label">now playing</div>
+        <div class="jacket-wrap">
+            <img src="" id="jacket" class="empty" alt="">
+        </div>
+        <div class="song">
+            <div class="title" id="title">---</div>
+            <div class="meta" id="meta">---</div>
+        </div>
+    </div>
+
+    <script src="./sdvx_ws_client.js"></script>
+    <script>
+        function setImage(id, src) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (src) {
+                if (el.dataset.currentSrc === src) return;
+                el.dataset.requestSrc = src;
+                const loader = new Image();
+                loader.onload = function() {
+                    if (el.dataset.requestSrc !== src) return;
+                    el.src = src;
+                    el.dataset.currentSrc = src;
+                    el.classList.remove("empty");
+                };
+                loader.onerror = function() {
+                    if (!el.dataset.currentSrc) el.classList.add("empty");
+                };
+                loader.src = src;
+            } else {
+                el.removeAttribute("src");
+                delete el.dataset.currentSrc;
+                delete el.dataset.requestSrc;
+                el.classList.add("empty");
+            }
+        }
+
+        function update(data) {
+            if (!data) return;
+            const images = data.images || {};
+            setImage("jacket", images.jacket);
+            document.getElementById("title").textContent = decodeText(data.title) || "---";
+            document.getElementById("meta").textContent = [
+                decodeText(data.difficulty),
+                data.level ? "Lv." + decodeText(data.level) : ""
+            ].filter(Boolean).join(" / ") || "---";
+        }
+
+        function decodeText(value) {
+            if (value === null || value === undefined || value === "") return "";
+            const decoder = decodeText.decoder || document.createElement("textarea");
+            decodeText.decoder = decoder;
+            decoder.innerHTML = String(value);
+            return decoder.value;
+        }
+
+        SDVXWebSocketClient.connect({
+            type: "nowplaying",
+            target: "nowplaying",
+            onData: update
+        });
+    </script>
+</body>
+</html>

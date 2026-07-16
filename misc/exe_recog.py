@@ -1,7 +1,7 @@
 """Debug result-screen mode recognition.
 
-Reads result screenshots and dumps the detected screen mode as JSON Lines.
-Default targets are the normal-score and EX-score debug result folders.
+Reads debug screenshots and dumps the detected screen mode as JSON Lines.
+Default targets are the detect, normal-score, and EX-score debug folders.
 """
 
 from __future__ import annotations
@@ -18,6 +18,10 @@ from PIL import Image
 
 import imagehash
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.define import (
     HASH_RESULT_EXSCORE,
     HASH_RESULT_MODE_SCORE,
@@ -30,6 +34,7 @@ from src.define import (
     RECT_RESULT_SCORE_LARGE,
     RECT_RESULT_SCORE_SMALL,
 )
+from src.classes import detect_mode
 from src.result_image import RESULT_INFO_CROP_SIZE, expand_result_info_area
 from src.screen_reader import ScreenReader
 from src.songinfo import SongDatabase
@@ -39,17 +44,32 @@ from src.summary_generator import (
 )
 
 
+# デフォルトで読み込まれる入力画像を指定
 DEFAULT_PATTERNS = (
+    "debug/detect/*",
     "debug/cut/*",
     "debug/exscore/*",
 )
+
+SELECT_IMAGE_TARGETS = {
+    "jacket_img": "select_jacket.png",
+    "whole_img": "select_whole.png",
+    "title_img": "select_title.png",
+    "lv_img": "select_level.png",
+    "diff_img": "select_difficulty.png",
+    "bpm_img": "select_bpm.png",
+    "ef_img": "select_effector.png",
+    "illust_img": "select_illustrator.png",
+}
 
 
 def _enum_name(value: Any) -> str | None:
     return getattr(value, "name", None)
 
 
-def _nearest_digit_debug(img: Image.Image, rects: list, hash_dict: dict) -> dict[str, Any]:
+def _nearest_digit_debug(
+    img: Image.Image, rects: list, hash_dict: dict
+) -> dict[str, Any]:
     digits = []
     distances = []
     for rect in rects:
@@ -68,6 +88,19 @@ def _nearest_digit_debug(img: Image.Image, rects: list, hash_dict: dict) -> dict
         digits.append(str(best_digit))
         distances.append(best_distance)
     return {"digits": "".join(digits), "distances": distances}
+
+
+def _save_select_images(data: dict[str, Any], out_dir: Path = Path("out")) -> list[str]:
+    out_dir.mkdir(exist_ok=True)
+    saved: list[str] = []
+    for key, filename in SELECT_IMAGE_TARGETS.items():
+        image = data.get(key)
+        if image is None:
+            continue
+        path = out_dir / filename
+        image.save(path)
+        saved.append(str(path))
+    return saved
 
 
 def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
@@ -89,6 +122,10 @@ def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
 
         if reader.corrected_screen is not None:
             item["corrected_size"] = list(reader.corrected_screen.size)
+
+        if mode == detect_mode.detect:
+            image_data = reader.read_detect_images() or {}
+            item["updated_select_images"] = _save_select_images(image_data)
 
         if mode.is_result_screen():
             img2 = reader.corrected_screen
@@ -180,7 +217,9 @@ def _generate_summary_from_loaded_results(
         print("Failed to generate summary images.", file=sys.stderr)
         return 1
 
-    print(f"Generated summary images from {len(items)} result image(s).", file=sys.stderr)
+    print(
+        f"Generated summary images from {len(items)} result image(s).", file=sys.stderr
+    )
     return 0
 
 

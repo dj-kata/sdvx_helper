@@ -47,7 +47,7 @@ HASH_ONRESULT1 = _hash("onresult.png")
 HASH_ONRESULT2 = _hash("onresult2.png")
 HASH_ONRESULT_HEAD = _hash("result_head.png")
 
-# detect画面: ハッシュ一致 AND RGB輝度閾値でフィルタ（既存sdvx_helperと同方式）
+# detect画面: ハッシュ一致 AND RGB輝度が閾値未満でフィルタ（既存sdvx_helperと同方式）
 ONDETECT_RGBSUM_THRESHOLD = 4000000
 
 # result_head は任意の追加判定
