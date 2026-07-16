@@ -6,12 +6,16 @@
 
 Pythonについては、Windows版uvを使うようにして。
 wuv=/mnt/c/Users/katao/.local/bin/uv.exe
+.venvはWindows版uv専用とし、Codexは作成・更新・削除しないこと。
+CodexがWSL/Linux側で検証用の環境を必要とする場合は.venv-agentを使用してよい。
+ただしGUI起動、ビルド、実機動作確認はWindows版uvで行うこと。
 
 v1の機能は全て網羅したい。
 - 画面を自動取得し、コナステ版SDVXのプレーログを自動で取得する
   - プレーログを保存し、自己ベストやVOLFORCEなどを管理
   - リザルト画像を自動で保存する
 - template内の各HTMLに情報を表示する
+  - template以外のディレクトリのhtmlは本番用ではないので無視すること
   - v1ではajaxを使って通信していたが、websocketベースに変更したい。OBS以外のブラウザでも開けるように
   - 単曲の自己ベスト・プレーログ(history_cursong)
   - その日のプレーログ(today_result)
