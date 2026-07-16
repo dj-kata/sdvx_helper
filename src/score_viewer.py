@@ -46,22 +46,22 @@ logger = get_logger(__name__)
 
 # ランプセル自体の背景色（明るめの彩度高い色）
 _LAMP_BG: dict[clear_lamp, QColor] = {
-    clear_lamp.puc:     QColor(255, 210,   0),   # 金
-    clear_lamp.uc:      QColor( 40, 190,  60),   # 緑
-    clear_lamp.maxxive: QColor(210, 150,   0),   # 暗めの金
+    clear_lamp.puc:     QColor(255, 230,  40),   # 黄
+    clear_lamp.uc:      QColor(220,  60,  60),   # 赤
+    clear_lamp.maxxive: QColor(215, 190, 255),   # 薄紫
     clear_lamp.exc:     QColor(220,  80,   0),   # オレンジ
-    clear_lamp.clear:   QColor( 50, 120, 220),   # 青
+    clear_lamp.clear:   QColor( 70, 180,  85),   # 緑
     clear_lamp.played:  QColor(130, 130, 130),   # グレー
     clear_lamp.noplay:  QColor(190, 190, 190),   # 薄グレー
 }
 
 # 行の背景色（ランプ色の薄い版）
 _LAMP_ROW_BG: dict[clear_lamp, QColor] = {
-    clear_lamp.puc:     QColor(255, 252, 218),
-    clear_lamp.uc:      QColor(225, 255, 228),
-    clear_lamp.maxxive: QColor(255, 248, 215),
+    clear_lamp.puc:     QColor(255, 250, 190),
+    clear_lamp.uc:      QColor(255, 225, 225),
+    clear_lamp.maxxive: QColor(242, 232, 255),
     clear_lamp.exc:     QColor(255, 240, 225),
-    clear_lamp.clear:   QColor(225, 238, 255),
+    clear_lamp.clear:   QColor(225, 248, 228),
     clear_lamp.played:  QColor(242, 242, 242),
     clear_lamp.noplay:  QColor(252, 252, 252),
 }
