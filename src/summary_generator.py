@@ -73,6 +73,29 @@ def _height_for_rows(row_count: int, min_rows: int) -> int:
     return _LOG_MARGIN * 2 + rows * _LOG_ROWSIZE
 
 
+def _image_summary_top_trim() -> int:
+    """切り出し画像版 summary の見た目の上下余白を揃えるための上詰め量。"""
+    row_top = min(
+        SUMMARY.pos_jacket.y,
+        SUMMARY.pos_difficulty.y,
+        SUMMARY.pos_title.y,
+        SUMMARY.pos_score.y,
+        SUMMARY.pos_rank.y,
+        SUMMARY.pos_rate.y,
+        SUMMARY.pos_lamp.y,
+    )
+    row_bottom = max(
+        SUMMARY.pos_jacket.y + 36,
+        SUMMARY.pos_difficulty.y + 15,
+        SUMMARY.pos_title.y + 30,
+        SUMMARY.pos_score.y + 20,
+        SUMMARY.pos_rank.y + 25,
+        SUMMARY.pos_rate.y + 20,
+        SUMMARY.pos_lamp.y + 25,
+    )
+    return max(0, row_top + row_bottom - _LOG_ROWSIZE)
+
+
 # テキスト版レイアウト座標
 _DIFF_BAR_X = 10
 _DIFF_BAR_W = 8
@@ -376,12 +399,13 @@ def _generate_from_items_sync(
         _ensure_cache()
         target = sorted(items, key=lambda item: item.timestamp, reverse=True)
 
-        h = _height_for_rows(len(target), min_rows)
+        top_trim = _image_summary_top_trim()
+        h = max(1, _height_for_rows(len(target), min_rows) - top_trim)
         bg_full = Image.new("RGBA", (_FULL_WIDTH, h), (0, 0, 0, bg_alpha))
         bg_small = Image.new("RGBA", (_SMALL_WIDTH, h), (0, 0, 0, bg_alpha))
 
         for idx, item in enumerate(target):
-            row_y = _LOG_MARGIN + _LOG_ROWSIZE * idx
+            row_y = _LOG_MARGIN - top_trim + _LOG_ROWSIZE * idx
             _put_result_summary_item(item, bg_full, bg_small, row_y)
 
         os.makedirs(_OUT_DIR, exist_ok=True)
