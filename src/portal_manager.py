@@ -313,6 +313,7 @@ class PortalManager:
         result_database: ResultDatabase,
         start_time: Optional[int] = None,
         upload_all: bool = False,
+        results: Optional[list] = None,
         player_name: str = 'NONAME',
         volforce: str = '0.000',
     ) -> Optional[object]:
@@ -323,6 +324,7 @@ class PortalManager:
             start_time:  この時刻以降の今日のリザルトのみ送信
                          (None かつ upload_all=False の場合は何もしない)
             upload_all:  True の場合は全自己ベストを送信
+            results:     明示的に指定したリザルトのみ送信（自動送信用）
             player_name: プレイヤー名（CSVヘッダー用）
             volforce:    Volforce文字列（CSVヘッダー用）
 
@@ -341,6 +343,15 @@ class PortalManager:
                 (b.title, b.difficulty, b.best_score, b.best_exscore, b.best_lamp)
                 for b in bests.values()
                 if b.best_score > 0
+            ]
+        elif results is not None:
+            if not results:
+                logger.info('Portal送信対象の更新リザルトなし、送信スキップ')
+                return None
+            candidates = [
+                (r.title, r.difficulty, r.score, r.exscore, r.lamp)
+                for r in results
+                if r.score is not None and r.lamp is not None
             ]
         else:
             if start_time is None:

@@ -149,6 +149,7 @@ class MainWindow(MainWindowUI):
         self.result_pre = None                 # 前回のリザルト読み取り結果
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
         self._text_summary_results = []        # テキスト版summary用の当日リザルト
+        self._portal_pending_results = []      # 今回の起動中に自己ベスト更新したPortal送信対象
 
         self.rival_manager.rivals_loaded.connect(
             self._on_rival_data_changed, Qt.QueuedConnection
@@ -869,6 +870,8 @@ class MainWindow(MainWindowUI):
         if self.result_database.add(result):
             self.result_database.save()
             self.play_count += 1
+            if is_result_updated:
+                self._portal_pending_results.append(result)
             self.last_saved_song = get_title_with_chart(title, diff)
             if self.score_viewer is not None and self.score_viewer.isVisible():
                 self.score_viewer._refresh_song_row(title, diff)
@@ -1146,16 +1149,15 @@ class MainWindow(MainWindowUI):
 
         self._save_summary_image_on_exit()
 
-        # Portal: 今日のプレーログをバックグラウンドで送信（最大15秒待機）
-        # 起動直後などでプレー回数が 0 の場合はスキップして高速終了
-        if self.config.portal_token and (self.play_count > 0 or self.result_database.get_today_results(self.start_time_with_offset)):
+        # Portal: 今回の起動中に自己ベスト更新したリザルトだけ送信（最大15秒待機）
+        if self.config.portal_token and self._portal_pending_results:
             import threading
             total_vf = self.result_database.get_total_vf()
             def _upload():
                 try:
                     self.portal_manager.upload_scores(
                         self.result_database,
-                        start_time=self.start_time_with_offset,
+                        results=list(self._portal_pending_results),
                         player_name=self.config.player_name or 'NONAME',
                         volforce=f'{total_vf / 1000:.3f}',
                     )
