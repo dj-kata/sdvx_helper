@@ -23,7 +23,8 @@ import imagehash
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from src.classes import clear_lamp, difficulty
+from src.classes import clear_lamp, difficulty, result_score_display_mode
+from src.define import HASH_RESULT_MODE_SCORE, RECT_RESULT_MODE
 from src.logger import get_logger
 from src.result_image import expand_result_info_area
 from src.screen_layout import SUMMARY
@@ -153,6 +154,25 @@ def _load_lamp_cache() -> Dict[clear_lamp, Optional[Image.Image]]:
         except Exception:
             cache[lk] = None
     return cache
+
+
+def _detect_result_score_display_mode(img: Image.Image) -> result_score_display_mode:
+    """summary 用にリザルト画面のスコア表示モードを判定する。"""
+    if HASH_RESULT_MODE_SCORE is None:
+        return result_score_display_mode.score
+    h = imagehash.average_hash(img.crop(RECT_RESULT_MODE))
+    if abs(HASH_RESULT_MODE_SCORE - h) < 10:
+        return result_score_display_mode.score
+    return result_score_display_mode.exscore
+
+
+def _summary_crop(
+    img: Image.Image,
+    prefix: str,
+    score_display_mode: result_score_display_mode,
+) -> Image.Image:
+    is_exscore_mode = score_display_mode == result_score_display_mode.exscore
+    return img.crop(SUMMARY.crop(prefix, is_exscore_mode=is_exscore_mode).box)
 
 
 # ─── テキスト描画版 ──────────────────────────────────────────────────────────
@@ -309,9 +329,10 @@ def capture_summary_item_from_screen(
     try:
         _ensure_cache()
         src = expand_result_info_area(img).convert("RGB")
+        score_display_mode = _detect_result_score_display_mode(src)
 
         def _crop(prefix: str) -> Image.Image:
-            return src.crop(SUMMARY.crop(prefix).box).copy()
+            return _summary_crop(src, prefix, score_display_mode).copy()
 
         return ResultSummaryItem(
             timestamp=timestamp,
@@ -435,9 +456,10 @@ def _put_result_from_screenshot(
 ) -> None:
     """1枚のリザルト画像からパーツを切り出して bg_full / bg_small に貼り付ける。"""
     img = expand_result_info_area(img)
+    score_display_mode = _detect_result_score_display_mode(img)
 
     def _crop(prefix: str) -> Image.Image:
-        return img.crop(SUMMARY.crop(prefix).box)
+        return _summary_crop(img, prefix, score_display_mode)
 
     # パーツ切り出し・リサイズ (v1 と同じサイズ)
     jacket = _crop("jacket").resize((36, 36))

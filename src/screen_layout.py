@@ -114,6 +114,8 @@ class SummaryLayout:
     crop_difficulty: Rect
     crop_rate: Rect
     crop_score: Rect
+    crop_rate_exscore_mode: Rect
+    crop_score_exscore_mode: Rect
     crop_jacket: Rect
     crop_rank: Rect
     crop_info: Rect
@@ -133,7 +135,9 @@ class SummaryLayout:
     parts: tuple[str, ...]
     small_parts: tuple[str, ...]
 
-    def crop(self, name: str) -> Rect:
+    def crop(self, name: str, *, is_exscore_mode: bool = False) -> Rect:
+        if is_exscore_mode and name in ("rate", "score"):
+            return getattr(self, f"crop_{name}_exscore_mode")
         return getattr(self, f"crop_{name}")
 
 
@@ -296,8 +300,12 @@ SUMMARY = SummaryLayout(
     crop_title=Rect(389, 996, 527, 30),
     crop_title_small=Rect(389, 996, 287, 30),
     crop_difficulty=Rect(55, 870, 138, 30),
+    # 通常スコアメイン表示時の summary 用切り出し座標。
     crop_rate=Rect(690, 1142, 97, 25),
     crop_score=Rect(431, 1067, 230, 55),
+    # EXスコアメイン表示時の summary 用切り出し座標。
+    crop_rate_exscore_mode=Rect(608, 1134, 109, 35),
+    crop_score_exscore_mode=Rect(842, 1137, 77, 21),
     crop_jacket=Rect(57, 916, 263, 263),
     crop_rank=Rect(958, 1034, 88, 78),
     crop_info=Rect(379, 1001, 527, 65),

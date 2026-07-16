@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import glob
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,10 @@ from src.define import (
 from src.result_image import RESULT_INFO_CROP_SIZE, expand_result_info_area
 from src.screen_reader import ScreenReader
 from src.songinfo import SongDatabase
+from src.summary_generator import (
+    _generate_from_items_sync,
+    capture_summary_item_from_screen,
+)
 
 
 DEFAULT_PATTERNS = (
@@ -139,6 +144,46 @@ def _detect_file(reader: ScreenReader, path: str) -> dict[str, Any]:
         return item
 
 
+def _capture_summary_item_from_file(reader: ScreenReader, path: str):
+    with Image.open(path) as img:
+        screen = (
+            expand_result_info_area(img) if img.size == RESULT_INFO_CROP_SIZE else img
+        )
+        reader.update_screen(screen)
+        mode = reader.detect_screen()
+        if not mode.is_result_screen():
+            return None
+        target = reader.corrected_screen or screen
+        return capture_summary_item_from_screen(target, int(os.path.getmtime(path)))
+
+
+def _generate_summary_from_loaded_results(
+    reader: ScreenReader,
+    files: list[str],
+    bg_alpha: int,
+    min_rows: int,
+) -> int:
+    items = []
+    for path in files:
+        try:
+            item = _capture_summary_item_from_file(reader, path)
+            if item is not None:
+                items.append(item)
+        except Exception as exc:
+            print(f"summary capture failed: {path}: {exc}", file=sys.stderr)
+
+    if not items:
+        print("No result images available for summary.", file=sys.stderr)
+        return 1
+
+    if not _generate_from_items_sync(items, bg_alpha, min_rows):
+        print("Failed to generate summary images.", file=sys.stderr)
+        return 1
+
+    print(f"Generated summary images from {len(items)} result image(s).", file=sys.stderr)
+    return 0
+
+
 def _iter_files(patterns: list[str]) -> list[str]:
     files: list[str] = []
     for pattern in patterns:
@@ -163,6 +208,23 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Dump one pretty-printed JSON array instead of JSON Lines.",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Generate out/summary_full.png and out/summary_small.png from detected result images.",
+    )
+    parser.add_argument(
+        "--summary-bg-alpha",
+        type=int,
+        default=200,
+        help="Background alpha for --summary output.",
+    )
+    parser.add_argument(
+        "--summary-min-rows",
+        type=int,
+        default=15,
+        help="Minimum row count for --summary output.",
+    )
     args = parser.parse_args(argv)
 
     files = _iter_files(args.paths)
@@ -172,13 +234,21 @@ def main(argv: list[str] | None = None) -> int:
 
     reader = ScreenReader(SongDatabase())
     rows = [_detect_file(reader, path) for path in files]
+    summary_status = 0
+    if args.summary:
+        summary_status = _generate_summary_from_loaded_results(
+            reader,
+            files,
+            args.summary_bg_alpha,
+            args.summary_min_rows,
+        )
 
     if args.pretty:
         print(json.dumps(rows, ensure_ascii=False, indent=2))
     else:
         for row in rows:
             print(json.dumps(row, ensure_ascii=False, sort_keys=True))
-    return 0
+    return summary_status
 
 
 if __name__ == "__main__":
