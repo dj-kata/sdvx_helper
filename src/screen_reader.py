@@ -773,7 +773,7 @@ class ScreenReader:
                 RECT_RESULT_SCORE_EXMODE,
                 HASH_RESULT_EXSCORE,
                 threshold=16,
-                enable_68_correction=False,
+                enable_68_correction=True,
             )
         exscore = self._read_digits_as_int(
             img,
