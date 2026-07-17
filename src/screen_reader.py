@@ -387,7 +387,12 @@ class ScreenReader:
         return best
 
     def _read_digits_as_int(
-        self, img: Image.Image, rects: list, hash_dict: dict, threshold: int = 10
+        self,
+        img: Image.Image,
+        rects: list,
+        hash_dict: dict,
+        threshold: int = 10,
+        enable_68_correction: bool = True,
     ) -> Optional[int]:
         """複数桁を読み取り整数に変換する。1桁でも '?' なら None を返す。
         0/8・8/9 の混同は輝度サンプルで補正する。
@@ -401,7 +406,13 @@ class ScreenReader:
                 for k, tmpl in hash_dict.items()
                 if tmpl is not None
             }
-            digits += self._resolve_digit(dists, img, r, threshold)
+            digits += self._resolve_digit(
+                dists,
+                img,
+                r,
+                threshold,
+                enable_68_correction=enable_68_correction,
+            )
         if "?" in digits:
             return None
         try:
@@ -741,7 +752,11 @@ class ScreenReader:
                 HASH_RESULT_SCORE_SMALL,
             )
         exscore = self._read_digits_as_int(
-            img, RECT_RESULT_EXSCORE, HASH_RESULT_EXSCORE, threshold=16
+            img,
+            RECT_RESULT_EXSCORE,
+            HASH_RESULT_EXSCORE,
+            threshold=16,
+            enable_68_correction=False,
         )
         return score, exscore
 
@@ -754,10 +769,18 @@ class ScreenReader:
             score = 10_000_000
         else:
             score = self._read_digits_as_int(
-                img, RECT_RESULT_SCORE_EXMODE, HASH_RESULT_EXSCORE, threshold=16
+                img,
+                RECT_RESULT_SCORE_EXMODE,
+                HASH_RESULT_EXSCORE,
+                threshold=16,
+                enable_68_correction=False,
             )
         exscore = self._read_digits_as_int(
-            img, RECT_RESULT_EXSCORE_EXMODE, HASH_RESULT_SCORE_LARGE, threshold=10
+            img,
+            RECT_RESULT_EXSCORE_EXMODE,
+            HASH_RESULT_SCORE_LARGE,
+            threshold=10,
+            enable_68_correction=False,
         )
         return score, exscore
 
