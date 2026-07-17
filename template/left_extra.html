@@ -170,12 +170,12 @@
             color: #ff7777;
         }
 
-        .exh-text {
-            color: #dddddd;
+        .maxxive-text {
+            color: #cf77ff;
         }
 
-        .hard-text {
-            color: #cf77ff;
+        .exc-text {
+            color: #ff9a3d;
         }
 
         .clear-text {
@@ -208,12 +208,12 @@
             background: #ff7777;
         }
 
-        .bar-exh {
-            background: #dddddd;
+        .bar-maxxive {
+            background: #cf77ff;
         }
 
-        .bar-hard {
-            background: #c477ff;
+        .bar-exc {
+            background: #ff9a3d;
         }
 
         .bar-clear {
@@ -270,15 +270,15 @@
             <div class="stats-counts">
                 <span><span class="puc-text">PUC:</span><span id="stats-puc">0</span>,</span>
                 <span><span class="uc-text">UC:</span><span id="stats-uc">0</span>,</span>
-                <span><span class="exh-text">M:</span><span id="stats-exh">0</span>,</span>
-                <span><span class="hard-text">E:</span><span id="stats-hard">0</span>,</span>
+                <span><span class="maxxive-text">M:</span><span id="stats-maxxive">0</span>,</span>
+                <span><span class="exc-text">E:</span><span id="stats-exc">0</span>,</span>
                 <span><span class="clear-text">C:</span><span id="stats-clear">0</span>,</span>
             </div>
             <div class="stats-bar" aria-hidden="true">
                 <span class="bar-puc" id="bar-puc"></span>
                 <span class="bar-uc" id="bar-uc"></span>
-                <span class="bar-exh" id="bar-exh"></span>
-                <span class="bar-hard" id="bar-hard"></span>
+                <span class="bar-maxxive" id="bar-maxxive"></span>
+                <span class="bar-exc" id="bar-exc"></span>
                 <span class="bar-clear" id="bar-clear"></span>
                 <span class="bar-failed" id="bar-failed"></span>
                 <span class="bar-noplay" id="bar-noplay"></span>
@@ -389,14 +389,14 @@
             var lv = current.lv;
             var puc = number(s.puc);
             var uc = number(s.uc);
-            var exh = number(s.exc ?? s.exh);
-            var hard = number(s.maxxive ?? s.mxx ?? s.hard);
+            var maxxive = number(s.maxxive ?? s.mxx ?? s.hard);
+            var exc = number(s.exc ?? s.exh);
             var clear = number(s.clear ?? s.clr);
             var failed = number(s.failed ?? s.fld);
-            var total = number(s.total, puc + uc + exh + hard + clear + failed + number(s.noplay));
-            var played = number(s.played, puc + uc + exh + hard + clear + failed);
+            var total = number(s.total, puc + uc + maxxive + exc + clear + failed + number(s.noplay));
+            var played = number(s.played, puc + uc + maxxive + exc + clear + failed);
             var noplay = Math.max(number(s.noplay, total - played), 0);
-            var totalLamp = puc + uc + exh + hard + clear + failed + noplay;
+            var totalLamp = puc + uc + maxxive + exc + clear + failed + noplay;
 
             var rankS = number(s.s);
             var rankAaaPlus = number(s.aaa_plus);
@@ -410,8 +410,8 @@
             document.getElementById("stats-average").textContent = number(s.average).toLocaleString();
             document.getElementById("stats-puc").textContent = puc;
             document.getElementById("stats-uc").textContent = uc;
-            document.getElementById("stats-exh").textContent = exh;
-            document.getElementById("stats-hard").textContent = hard;
+            document.getElementById("stats-maxxive").textContent = maxxive;
+            document.getElementById("stats-exc").textContent = exc;
             document.getElementById("stats-clear").textContent = clear;
             document.getElementById("stats-rank-s").textContent = rankS;
             document.getElementById("stats-rank-aaa-plus").textContent = rankAaaPlus;
@@ -419,8 +419,8 @@
 
             setWidth("bar-puc", puc, totalLamp);
             setWidth("bar-uc", uc, totalLamp);
-            setWidth("bar-exh", exh, totalLamp);
-            setWidth("bar-hard", hard, totalLamp);
+            setWidth("bar-maxxive", maxxive, totalLamp);
+            setWidth("bar-exc", exc, totalLamp);
             setWidth("bar-clear", clear, totalLamp);
             setWidth("bar-failed", failed, totalLamp);
             setWidth("bar-noplay", noplay, totalLamp);
