@@ -280,14 +280,14 @@
             width: 0;
         }
 
-        .exh {
-            background-color: #dddddd;
+        .maxxive {
+            background-color: #cf77ff;
             border: 2px fff;
             width: 0;
         }
 
-        .hard {
-            background-color: #c477ff;
+        .exc {
+            background-color: #ff9a3d;
             border: 2px fff;
             width: 0;
         }
@@ -440,14 +440,14 @@
                     Lv<lv></lv> &nbsp;&nbsp;&nbsp;&nbsp;ave:&nbsp;<average></average><br>
                     <font color="#ffffcc">PUC:</font><puc></puc>,&nbsp;
                     <font color="#ff7777">UC:</font><uc></uc>,&nbsp;
-                    <font color="#dddddd">M:</font><exh></exh>,&nbsp;
-                    <font color="#cf77ff">E:</font><hard></hard>,&nbsp;
+                    <font color="#cf77ff">M:</font><maxxive></maxxive>,&nbsp;
+                    <font color="#ff9a3d">E:</font><exc></exc>,&nbsp;
                     <font color="#77ff77">C:</font><clear></clear>,&nbsp;
                     <div class="lamp lv${lv}lamp">
                         <div class="puc"></div>
                         <div class="uc"></div>
-                        <div class="exh"></div>
-                        <div class="hard"></div>
+                        <div class="maxxive"></div>
+                        <div class="exc"></div>
                         <div class="clear"></div>
                         <div class="failed"></div>
                         <div class="noplay"></div>
@@ -488,14 +488,14 @@
 
                 const puc = number(s.puc);
                 const uc = number(s.uc);
-                const exh = number(s.exc ?? s.exh);
-                const hard = number(s.maxxive ?? s.mxx ?? s.hard);
+                const maxxive = number(s.maxxive ?? s.mxx ?? s.hard);
+                const exc = number(s.exc ?? s.exh);
                 const clear = number(s.clear ?? s.clr);
                 const failed = number(s.failed ?? s.fld);
-                const total = number(s.total, puc + uc + exh + hard + clear + failed + number(s.noplay));
-                const played = number(s.played, puc + uc + exh + hard + clear + failed);
+                const total = number(s.total, puc + uc + maxxive + exc + clear + failed + number(s.noplay));
+                const played = number(s.played, puc + uc + maxxive + exc + clear + failed);
                 const noplay = Math.max(number(s.noplay, total - played), 0);
-                const totalLamp = puc + uc + exh + hard + clear + failed + noplay;
+                const totalLamp = puc + uc + maxxive + exc + clear + failed + noplay;
 
                 const rankS = number(s.s);
                 const rankAaaPlus = number(s.aaa_plus);
@@ -507,8 +507,8 @@
                 setText(row, "average", number(s.average).toLocaleString());
                 setText(row, "puc", puc);
                 setText(row, "uc", uc);
-                setText(row, "exh", exh);
-                setText(row, "hard", hard);
+                setText(row, "maxxive", maxxive);
+                setText(row, "exc", exc);
                 setText(row, "clear", clear);
                 setText(row, "rank_s", rankS);
                 setText(row, "rank_aaa_plus", rankAaaPlus);
@@ -518,8 +518,8 @@
                 setWidth(lamp, ".noplay", noplay, totalLamp);
                 setWidth(lamp, ".failed", failed, totalLamp);
                 setWidth(lamp, ".clear", clear, totalLamp);
-                setWidth(lamp, ".hard", hard, totalLamp);
-                setWidth(lamp, ".exh", exh, totalLamp);
+                setWidth(lamp, ".exc", exc, totalLamp);
+                setWidth(lamp, ".maxxive", maxxive, totalLamp);
                 setWidth(lamp, ".uc", uc, totalLamp);
                 setWidth(lamp, ".puc", puc, totalLamp);
 
