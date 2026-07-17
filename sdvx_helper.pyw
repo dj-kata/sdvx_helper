@@ -264,6 +264,7 @@ class MainWindow(MainWindowUI):
                     ]
                 generate_summary(
                     summary_results,
+                    bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
                     min_rows=getattr(self.config, 'summary_min_rows', 15),
                 )
                 logger.info(f"起動時summary再生成: テキスト版 {len(summary_results)}件")
@@ -321,6 +322,7 @@ class MainWindow(MainWindowUI):
             )
             generate_summary_from_items(
                 self._result_summary_items,
+                bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
                 min_rows=getattr(self.config, 'summary_min_rows', 15),
             )
             logger.info(
@@ -894,6 +896,7 @@ class MainWindow(MainWindowUI):
                 )
                 generate_summary(
                     summary_results,
+                    bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
                     min_rows=getattr(self.config, 'summary_min_rows', 15),
                 )
 
@@ -918,6 +921,7 @@ class MainWindow(MainWindowUI):
                         self._result_summary_items.append(summary_item)
                         generate_summary_from_items(
                             self._result_summary_items,
+                            bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
                             min_rows=getattr(self.config, 'summary_min_rows', 15),
                         )
 

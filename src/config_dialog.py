@@ -434,6 +434,13 @@ class ConfigDialog(QDialog):
             self.summary_min_rows_spin,
         )
 
+        self.summary_bg_alpha_spin = QSpinBox()
+        self.summary_bg_alpha_spin.setRange(0, 255)
+        path_layout.addRow(
+            self.ui.image_save.summary_bg_alpha,
+            self.summary_bg_alpha_spin,
+        )
+
         self.save_summary_on_exit_check = QCheckBox(
             self.ui.image_save.save_summary_on_exit
         )
@@ -1070,6 +1077,11 @@ class ConfigDialog(QDialog):
         except Exception:
             summary_min_rows = 15
         self.summary_min_rows_spin.setValue(max(0, min(1000, summary_min_rows)))
+        try:
+            summary_bg_alpha = int(getattr(self.config, 'summary_bg_alpha', 200))
+        except Exception:
+            summary_bg_alpha = 200
+        self.summary_bg_alpha_spin.setValue(max(0, min(255, summary_bg_alpha)))
         save_summary_on_exit = getattr(self.config, 'save_summary_on_exit', False)
         self.save_summary_on_exit_check.setChecked(save_summary_on_exit)
         if getattr(self.config, 'summary_exit_filename', 'datetime') == 'date':
@@ -1125,6 +1137,7 @@ class ConfigDialog(QDialog):
             self.summary_updated_results_only_check.isChecked()
         )
         self.config.summary_min_rows = self.summary_min_rows_spin.value()
+        self.config.summary_bg_alpha = self.summary_bg_alpha_spin.value()
         self.config.save_summary_on_exit = (
             self.save_summary_on_exit_check.isChecked()
         )

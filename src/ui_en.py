@@ -79,6 +79,7 @@ class UIText:
         autosave_updated_score_only = 'Save only results with score updates'
         summary_updated_results_only = 'Receipt includes only updated results'
         summary_min_rows = 'Minimum receipt rows:'
+        summary_bg_alpha = 'Receipt background alpha:'
         save_summary_on_exit = 'Save receipt image when app exits'
         summary_exit_filename = 'Receipt filename:'
         summary_exit_filename_datetime = 'Date + time'

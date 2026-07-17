@@ -56,6 +56,8 @@ class Config:
         """True の場合、summary_*.png には自己ベスト更新があったリザルトのみ含める"""
         self.summary_min_rows: int = 15
         """summary_*.png の最低表示曲数。0～1000"""
+        self.summary_bg_alpha: int = 200
+        """summary_*.png の背景透明度。0=完全透明、255=不透明"""
         self.save_summary_on_exit: bool = False
         """True の場合、アプリ終了時に summary_full.png を画像保存先へ保存する"""
         self.summary_exit_filename: str = 'datetime'
@@ -130,6 +132,10 @@ class Config:
                 self.summary_min_rows = max(0, min(1000, int(self.summary_min_rows)))
             except Exception:
                 self.summary_min_rows = 15
+            try:
+                self.summary_bg_alpha = max(0, min(255, int(self.summary_bg_alpha)))
+            except Exception:
+                self.summary_bg_alpha = 200
             if self.summary_exit_filename not in ('datetime', 'date'):
                 self.summary_exit_filename = 'datetime'
             self._normalize_rival_config()
