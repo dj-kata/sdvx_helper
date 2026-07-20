@@ -5,7 +5,7 @@
 - OBSを起動していない状態でも起動できるなど、v1の問題点を色々修正する予定である
 
 Pythonについては、Windows版uvを使うようにして。
-wuv=/mnt/c/Users/katao/.local/bin/uv.exe
+Windows版uvのパスは `.env` の `WUV` から読むこと。
 .venvはWindows版uv専用とし、Codexは作成・更新・削除しないこと。
 CodexがWSL/Linux側で検証用の環境を必要とする場合は.venv-agentを使用してよい。
 ただしGUI起動、ビルド、実機動作確認はWindows版uvで行うこと。

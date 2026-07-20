@@ -1,4 +1,11 @@
-wuv=/mnt/c/Users/katao/.local/bin/uv.exe
+-include .env
+
+WUV ?= $(wuv)
+
+ifeq ($(strip $(WUV)),)
+$(error WUV is not set. Copy .env.sample to .env and set WUV=/mnt/c/Users/<user>/.local/bin/uv.exe)
+endif
+
 main_file_name=sdvx_helper
 project_name=sdvx_helper
 target=$(project_name)/.built  # timestampファイルにすることで連続でmakeできないように対策
@@ -20,7 +27,7 @@ $(target_zip): $(target)
 
 $(target): $(srcs) $(html_files) version.txt
 	@rm -rf $(project_name)
-	@$(wuv) run setup.py build
+	@$(WUV) run setup.py build
 	@echo "不要なファイルを削除中..."
 
 # 	# Tcl/Tk関連
@@ -50,4 +57,4 @@ clean:
 	@rm -rf __pycache__
 
 test:
-	@$(wuv) run python $(main_file_name).pyw
+	@$(WUV) run python $(main_file_name).pyw

@@ -1,4 +1,11 @@
-wuv=/mnt/c/Users/katao/.local/bin/uv.exe
+-include ../.env
+
+WUV ?= $(wuv)
+
+ifeq ($(strip $(WUV)),)
+$(error WUV is not set. Copy ../.env.sample to ../.env and set WUV=/mnt/c/Users/<user>/.local/bin/uv.exe)
+endif
+
 outdir=update
 target=$(outdir)/update.exe
 srcs=$(subst update.py,,$(wildcard *.py)) $(wildcard *.pyw)
@@ -7,9 +14,9 @@ html_files=$(wildcard html/*.*)
 all: $(target)
 
 $(target): $(srcs)
-	@$(wuv) run pyarmor -d gen --output=$(outdir) --pack onefile otoge_input_viewer.pyw
+	@$(WUV) run pyarmor -d gen --output=$(outdir) --pack onefile otoge_input_viewer.pyw
 $(outdir)/update.exe: update.py
-	@$(wuv) run pyarmor -d gen --output=$(outdir) --pack onefile $<
+	@$(WUV) run pyarmor -d gen --output=$(outdir) --pack onefile $<
 
 dist: 
 	@cp -a html to_bin/
@@ -23,4 +30,4 @@ clean:
 	@rm -rf pyarmor*log
 
 test:
-	@$(wuv) run update.py
+	@$(WUV) run update.py
