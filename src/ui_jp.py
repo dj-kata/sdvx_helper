@@ -21,6 +21,7 @@ class UIText:
         discord_config = 'Discord連携設定(&D)...'
         save_image = '画像保存(&S)'
         exit = '終了(&X)'
+        check_update = 'アップデートの確認(&U)...'
 
         # ツールメニュー
         score_viewer = 'スコアビューワ(&V)'

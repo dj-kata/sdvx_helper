@@ -109,6 +109,8 @@ class Config:
         """チェック済み難易度の文字列リスト。空=全選択。"""
         self.score_viewer_lv_checks:   list = []
         """チェック済みレベルの整数リスト。空=全選択。"""
+        self.score_viewer_show_unlisted_charts: bool = False
+        """マスタ未収録/PC版対象外譜面をスコアビューワに表示するか。"""
         self.score_viewer_sort_column: int = 9
         """スコアテーブルのソート列インデックス（9 = VF）"""
         self.score_viewer_sort_order:  int = 1

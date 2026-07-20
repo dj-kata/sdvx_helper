@@ -21,6 +21,7 @@ class UIText:
         discord_config = 'Discord Integration(&D)...'
         save_image = '&Save Image'
         exit = 'E&xit'
+        check_update = 'Check for &Updates...'
 
         # Tool menu
         score_viewer = 'Score &Viewer'

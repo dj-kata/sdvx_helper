@@ -59,6 +59,12 @@ class ResultDatabase:
         self.db = SQLiteDatabase(_DB_PATH)
         self.results: List[OneResult] = []  # メモリ上のキャッシュ
         self._bests_cache: Dict[Tuple[str, difficulty], OneBestData] = {}
+        self._display_bests_cache: dict = {}
+        self._bests_cache_signature = None
+        self._display_bests_cache_signature = None
+        self._append_diff_map_cache_signature = None
+        self._append_diff_map_cache: dict[tuple[str, int], str] = {}
+        self._results_revision = 0
         self._results_by_chart: Dict[str, List[OneResult]] = {}
 
         self.config = config
@@ -253,6 +259,7 @@ class ResultDatabase:
         # メモリキャッシュ更新
         self.results.append(result)
         self._add_to_result_index(result)
+        self._invalidate_best_caches()
 
         # ベストキャッシュ更新
         if self._is_master_chart_result(result):
@@ -275,6 +282,7 @@ class ResultDatabase:
             if result in self.results:
                 self.results.remove(result)
             self._remove_from_result_index(result)
+            self._invalidate_best_caches()
 
             # ベストキャッシュ再点検
             self._refresh_best_cache(result.title, result.difficulty)
@@ -299,6 +307,12 @@ class ResultDatabase:
         for r in target:
             best_data.update(r)
         self._bests_cache[key] = best_data
+
+    def _invalidate_best_caches(self):
+        """リザルト変更時にベスト集計キャッシュを無効化する。"""
+        self._results_revision += 1
+        self._bests_cache_signature = None
+        self._display_bests_cache_signature = None
 
     def commit(self):
         """SQLite の変更を確定する。"""
@@ -337,6 +351,8 @@ class ResultDatabase:
             
             # ベストキャッシュの初期構築
             self._bests_cache = self.get_all_best_results(use_cache=False)
+            self._bests_cache_signature = self._best_cache_signature(False)
+            self._display_bests_cache_signature = None
             logger.info(f"DBロード完了: {len(self.results)} 件 (ベストキャッシュ: {len(self._bests_cache)} 譜面)")
         except Exception as e:
             logger.error(f"DBロード失敗: {e}\n{traceback.format_exc()}")
@@ -404,30 +420,17 @@ class ResultDatabase:
         cdiff = self._get_append_cdiff(result.title, result.level)
         if cdiff:
             if cdiff in _NON_PC_APPEND_DIFFS:
-                logger.debug(
-                    "PC版対象外append譜面をベスト/VF集計から除外: "
-                    f"title={result.title!r} diff={result.difficulty} "
-                    f"level={result.level} cdiff={cdiff}"
-                )
                 return False
             return True
         if master_level and (result.level is None or result.level == master_level):
             return True
-        logger.debug(
-            "master未収録譜面をベスト/VF集計から除外: "
-            f"title={result.title!r} diff={result.difficulty} "
-            f"level={result.level} master_level={master_level}"
-        )
         return False
 
     def _get_append_cdiff(self, title: str, level: int | None) -> str | None:
         """portalマスタから4th枠の実難易度名を返す。"""
         if not title or not level or self.portal_manager is None:
             return None
-        try:
-            diff_map = self.portal_manager.get_4th_diff_map()
-        except Exception:
-            return None
+        diff_map = self._get_append_diff_map()
         cdiff = diff_map.get((title, level))
         if cdiff is not None:
             return cdiff
@@ -437,6 +440,21 @@ class ResultDatabase:
                 return value
         return None
 
+    def _get_append_diff_map(self) -> dict[tuple[str, int], str]:
+        """portalの4th難易度マップをマスタ更新単位でキャッシュして返す。"""
+        signature = self._portal_signature()
+        if self._append_diff_map_cache_signature == signature:
+            return self._append_diff_map_cache
+        if self.portal_manager is None:
+            self._append_diff_map_cache = {}
+        else:
+            try:
+                self._append_diff_map_cache = self.portal_manager.get_4th_diff_map()
+            except Exception:
+                self._append_diff_map_cache = {}
+        self._append_diff_map_cache_signature = signature
+        return self._append_diff_map_cache
+
     def _portal_signature(self):
         """portalマスタ反映に応じてベストキャッシュを作り直すための軽量指紋。"""
         if self.portal_manager is None:
@@ -445,6 +463,9 @@ class ResultDatabase:
         if not master_db:
             return None
         return id(master_db), len(master_db)
+
+    def _best_cache_signature(self, include_unlisted: bool) -> tuple:
+        return (self._results_revision, self._portal_signature(), include_unlisted)
 
     def save(self):
         """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""
@@ -685,15 +706,13 @@ class ResultDatabase:
         Returns:
             Dict[(title, difficulty), OneBestData]
         """
-        portal_signature = self._portal_signature()
-        if use_cache and not include_unlisted:
-            if self._bests_cache_portal_signature != portal_signature:
-                self._bests_cache = self.get_all_best_results(
-                    use_cache=False,
-                    include_unlisted=False,
-                )
-                self._bests_cache_portal_signature = portal_signature
-            return self._bests_cache
+        cache_signature = self._best_cache_signature(include_unlisted)
+        if use_cache:
+            if include_unlisted:
+                if self._display_bests_cache_signature == cache_signature:
+                    return self._display_bests_cache
+            elif self._bests_cache_signature == cache_signature:
+                return self._bests_cache
 
         bests: Dict[Tuple[str, difficulty], OneBestData] = {}
 
@@ -728,6 +747,13 @@ class ResultDatabase:
                 bests[key].display_difficulty = cdiff
             bests[key].update(result)
 
+        if use_cache:
+            if include_unlisted:
+                self._display_bests_cache = bests
+                self._display_bests_cache_signature = cache_signature
+            else:
+                self._bests_cache = bests
+                self._bests_cache_signature = cache_signature
         return bests
 
     def get_vf_ranking(self, top_n: int = VF_TOP_N) -> List[OneBestData]:

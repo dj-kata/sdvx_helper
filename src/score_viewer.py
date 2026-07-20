@@ -428,6 +428,11 @@ class ScoreViewer(QMainWindow):
 
         layout.addWidget(lv_group)
 
+        self._show_unlisted_cb = QCheckBox("マスタ未収録譜面を表示")
+        self._show_unlisted_cb.setChecked(False)
+        self._show_unlisted_cb.stateChanged.connect(self._apply_filter)
+        layout.addWidget(self._show_unlisted_cb)
+
         # 検索ボックス
         search_row = QHBoxLayout()
         search_row.addWidget(QLabel("検索:"))
@@ -721,7 +726,7 @@ class ScoreViewer(QMainWindow):
                 (
                     key[0],
                     key[1].value if len(key) > 1 and key[1] else None,
-                    key[2] if len(key) > 2 else None,
+                    key[2] if len(key) > 2 else -1,
                     best.level,
                     best.best_score,
                     best.best_exscore,
@@ -861,6 +866,7 @@ class ScoreViewer(QMainWindow):
             it.setBackground(QBrush(row_bg))
             it.setForeground(QBrush(QColor(30, 30, 30)))
             if is_unlisted:
+                it.setData(Qt.UserRole + 1, True)
                 it.setToolTip("PC版マスタ未収録、または記録レベルがマスタと一致しない譜面です。プレーログから削除できます。")
             return it
 
@@ -1099,6 +1105,7 @@ class ScoreViewer(QMainWindow):
             enabled_lvs   = {lv for lv, cb in self._lv_checks.items() if cb.isChecked()}
             all_lv        = len(enabled_lvs) == len(self._lv_checks)
             search        = self._search_edit.text().lower()
+            show_unlisted = self._show_unlisted_cb.isChecked()
 
             # ライバルフィルター: 自分が勝っている行を非表示にする
             rival_scores: dict = {}
@@ -1116,6 +1123,7 @@ class ScoreViewer(QMainWindow):
                 title_item = self._score_table.item(row, self._COL_TITLE)
                 if not (diff_item and lv_item and title_item):
                     continue
+                is_unlisted = bool(title_item.data(Qt.UserRole + 1))
                 diff_str  = diff_item.text()
                 # INF/GRV/HVN/VVD/XCD など4th枠の実名表示にも対応
                 diff_enum = convert_difficulty(diff_str)
@@ -1123,6 +1131,7 @@ class ScoreViewer(QMainWindow):
                 # lv==0 はレベル不明。全レベル選択時のみ表示する
                 lv_hidden    = (lv == 0 and not all_lv) or (lv != 0 and lv not in enabled_lvs)
                 search_hidden = bool(search) and search not in title_item.text().lower()
+                unlisted_hidden = is_unlisted and not show_unlisted
                 # ライバルフィルター: 勝っている曲（自スコア > ライバルスコア）を非表示
                 if rival_scores:
                     s_item   = self._score_table.item(row, self._COL_SCORE)
@@ -1133,7 +1142,7 @@ class ScoreViewer(QMainWindow):
                     r_score  = entry.score if entry else 0
                     rival_hidden = my_score > r_score
                     # diff/lv/search フィルターを通過した行のみ勝敗カウント
-                    if not (diff_enum not in enabled_diffs or lv_hidden or search_hidden):
+                    if not (diff_enum not in enabled_diffs or lv_hidden or search_hidden or unlisted_hidden):
                         if my_score > r_score:
                             win_count += 1
                         elif my_score < r_score:
@@ -1142,7 +1151,7 @@ class ScoreViewer(QMainWindow):
                             draw_count += 1
                 else:
                     rival_hidden = False
-                hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or rival_hidden)
+                hide = bool(diff_enum not in enabled_diffs or lv_hidden or search_hidden or unlisted_hidden or rival_hidden)
                 self._score_table.setRowHidden(row, hide)
                 if not hide:
                     visible += 1
@@ -1697,6 +1706,7 @@ class ScoreViewer(QMainWindow):
         self.config.score_viewer_lv_checks = [
             lv for lv, cb in self._lv_checks.items() if cb.isChecked()
         ]
+        self.config.score_viewer_show_unlisted_charts = self._show_unlisted_cb.isChecked()
         self.config.score_viewer_sort_column = self._sort_col
         self.config.score_viewer_sort_order  = self._sort_order.value
 
@@ -1719,6 +1729,12 @@ class ScoreViewer(QMainWindow):
             self._lv_all_cb.blockSignals(True)
             self._lv_all_cb.setChecked(all_checked)
             self._lv_all_cb.blockSignals(False)
+
+        self._show_unlisted_cb.blockSignals(True)
+        self._show_unlisted_cb.setChecked(
+            bool(getattr(self.config, 'score_viewer_show_unlisted_charts', False))
+        )
+        self._show_unlisted_cb.blockSignals(False)
 
         # ソート状態を復元
         self._sort_col   = self.config.score_viewer_sort_column
