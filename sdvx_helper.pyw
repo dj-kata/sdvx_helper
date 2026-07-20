@@ -835,7 +835,6 @@ class MainWindow(MainWindowUI):
         cursong_key = (title, diff)
         if cursong_key != self._last_select_cursong_key:
             self.result_database.broadcast_cursong_data(title, diff)
-            self._save_nowplaying_images(data, warn_missing=False)
             self._broadcast_nowplaying(data, title, diff, info, level)
             self._last_select_cursong_key = cursong_key
 
@@ -883,6 +882,7 @@ class MainWindow(MainWindowUI):
 
         logger.info(f"detect: {get_title_with_chart(title, diff)} {lv_str}")
         self.statusBar().showMessage(f"detect: {get_title_with_chart(title, diff)} {lv_str}", 5000)
+        self._broadcast_nowplaying(data, title, diff, info, level)
 
     def _image_data_url(self, image) -> str:
         """PIL ImageをHTMLでそのまま表示できるdata URLに変換する。"""
