@@ -626,6 +626,7 @@ class ScreenReader:
             diff = self._read_difficulty_from_select(img)
             jacket_img = img.crop(RECT_SELECT_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
+            diff = self._normalize_detected_difficulty(title, diff)
             lamp = self._read_lamp_from_select(img)
             # 選曲画面は large/small ともに同一テンプレートを使用
             score = self._read_digits_as_int(
@@ -701,6 +702,7 @@ class ScreenReader:
             diff = self._read_difficulty_from_detect(img)
             jacket_img = data.get("jacket_img") or img.crop(RECT_INFO_JACKET)
             title = self._song_db.identify_jacket(jacket_img, diff)
+            diff = self._normalize_detected_difficulty(title, diff)
             logger.info(f"read_from_detect: difficulty={diff}, title={title!r}")
             data.update(
                 {
@@ -713,6 +715,30 @@ class ScreenReader:
         except Exception:
             logger.error(f"read_from_detect 失敗:\n{traceback.format_exc()}")
             return None
+
+    def _normalize_detected_difficulty(
+        self, title: str | None, diff: difficulty
+    ) -> difficulty:
+        """誤ってmaximum扱いした未収録4th枠を、実在する最上位譜面へ戻す。"""
+        if not title or diff != difficulty.maximum:
+            return diff
+
+        info = self._song_db.get_song_info(title)
+        if info is None or info.get_level(difficulty.maximum):
+            return diff
+
+        for fallback in (
+            difficulty.exhaust,
+            difficulty.advanced,
+            difficulty.novice,
+        ):
+            if info.get_level(fallback):
+                logger.info(
+                    "難易度補正: maximum譜面なしのため "
+                    f"{title!r} {diff} -> {fallback}"
+                )
+                return fallback
+        return diff
 
     # ─── プレー画面読み取り ───────────────────────────────────────────────────
 
