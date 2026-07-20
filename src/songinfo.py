@@ -10,29 +10,89 @@ diffキー: 'nov' / 'adv' / 'exh' / 'APPEND'  (MXM/INF両方ともAPPEND)
 """
 from __future__ import annotations
 import bz2
+import io
+import os
 import pickle
 import imagehash
 import traceback
 from pathlib import Path
 from typing import Dict, Optional
 
+try:
+    import requests
+    _REQUESTS_AVAILABLE = True
+except ImportError:
+    _REQUESTS_AVAILABLE = False
+
 from src.classes import difficulty
 from src.logger import get_logger
 logger = get_logger(__name__)
 
 _MUSICLIST_V2_PATH = Path('resources') / 'musiclistv2.sdvxh'
+_MUSICLIST_V2_URL = os.environ.get(
+    'SDVXH_MUSICLIST_V2_URL',
+    'https://raw.githubusercontent.com/dj-kata/sdvx_helper/main/resources/musiclistv2.sdvxh',
+)
+_MUSICLIST_V2_TIMEOUT = (3.05, 10)
 
 # ジャケット照合でこの距離以上なら「未登録曲」とみなす
 JACKET_MATCH_THRESHOLD = 10
 
 
-def update_musiclist_from_remote() -> bool:
-    """v2では旧musiclist.pklの自動更新を行わない。
+def _load_musiclist_payload(payload: bytes) -> dict:
+    """bz2圧縮pickleの楽曲DBを読み込み、最低限の構造を検証する。"""
+    with bz2.BZ2File(io.BytesIO(payload), 'rb') as f:
+        data = pickle.load(f)
 
-    musiclistv2.sdvxh は misc/manage_db.py で portal マスタ表記に揃えて生成する。
+    if not isinstance(data, dict):
+        raise ValueError('musiclistv2.sdvxh のルートが dict ではありません')
+    titles = data.get('titles')
+    if not isinstance(titles, dict) or not titles:
+        raise ValueError('musiclistv2.sdvxh に titles がありません')
+    if not isinstance(data.get('jacket'), dict):
+        raise ValueError('musiclistv2.sdvxh に jacket がありません')
+
+    for title, row in titles.items():
+        if not isinstance(title, str) or not isinstance(row, (list, tuple)) or len(row) < 7:
+            raise ValueError(f'musiclistv2.sdvxh の titles 形式が不正です: {title!r}')
+    return data
+
+
+def update_musiclist_from_remote() -> bool:
+    """GitHub 上の resources/musiclistv2.sdvxh を取得し、更新があれば置き換える。
+
+    壊れたDBで既存ファイルを上書きしないよう、ダウンロード内容は展開と構造確認を
+    通過した場合だけ原子的に置き換える。
     """
-    logger.debug('musiclistv2.sdvxh に一本化したため、旧musiclist.pkl更新はスキップします')
-    return False
+    if not _REQUESTS_AVAILABLE:
+        logger.warning('requests ライブラリが未インストールのため musiclistv2.sdvxh 更新をスキップします')
+        return False
+
+    try:
+        logger.info(f'musiclistv2.sdvxh 更新確認: {_MUSICLIST_V2_URL}')
+        response = requests.get(_MUSICLIST_V2_URL, timeout=_MUSICLIST_V2_TIMEOUT)
+        response.raise_for_status()
+        payload = response.content
+        _load_musiclist_payload(payload)
+
+        try:
+            current_payload = _MUSICLIST_V2_PATH.read_bytes()
+        except FileNotFoundError:
+            current_payload = b''
+
+        if payload == current_payload:
+            logger.info('musiclistv2.sdvxh は最新です')
+            return False
+
+        _MUSICLIST_V2_PATH.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = _MUSICLIST_V2_PATH.with_suffix(_MUSICLIST_V2_PATH.suffix + '.tmp')
+        tmp_path.write_bytes(payload)
+        tmp_path.replace(_MUSICLIST_V2_PATH)
+        logger.info(f'musiclistv2.sdvxh 更新完了: {len(payload)} bytes')
+        return True
+    except Exception:
+        logger.warning(f'musiclistv2.sdvxh 更新失敗:\n{traceback.format_exc()}')
+        return False
 
 
 class OneSongInfo:
