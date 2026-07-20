@@ -263,7 +263,7 @@ class ImageImportWorker(QThread):
 
 class _PortalUploadAllWorker(QThread):
     """全プレーログをPortalにアップロードするワーカー"""
-    finished = Signal(bool, str)  # (success, detail)
+    result_ready = Signal(bool, str)  # (success, detail)
 
     def __init__(self, portal_manager, result_database,
                  player_name: str, volforce: str):
@@ -279,7 +279,7 @@ class _PortalUploadAllWorker(QThread):
             if not self.portal_manager.master_db:
                 ok = self.portal_manager.get_musiclist()
                 if not ok:
-                    self.finished.emit(False, 'musiclist fetch failed')
+                    self.result_ready.emit(False, 'musiclist fetch failed')
                     return
 
             res = self.portal_manager.upload_scores(
@@ -289,13 +289,13 @@ class _PortalUploadAllWorker(QThread):
                 volforce=self.volforce,
             )
             if res is None:
-                self.finished.emit(False, 'no data or token not set')
+                self.result_ready.emit(False, 'no data or token not set')
             elif res.status_code == 200:
-                self.finished.emit(True, '')
+                self.result_ready.emit(True, '')
             else:
-                self.finished.emit(False, f'HTTP {res.status_code}')
+                self.result_ready.emit(False, f'HTTP {res.status_code}')
         except Exception as e:
-            self.finished.emit(False, str(e))
+            self.result_ready.emit(False, str(e))
 
 
 class ConfigDialog(QDialog):
@@ -990,18 +990,30 @@ class ConfigDialog(QDialog):
             player_name=player_name,
             volforce='0.000',
         )
-        self._portal_upload_worker.finished.connect(self._on_portal_upload_finished)
+        self._portal_upload_worker.result_ready.connect(
+            self._on_portal_upload_finished,
+            Qt.QueuedConnection,
+        )
+        self._portal_upload_worker.finished.connect(
+            self._cleanup_portal_upload_worker,
+            Qt.QueuedConnection,
+        )
         self._portal_upload_worker.start()
 
     def _on_portal_upload_finished(self, success: bool, detail: str):
         self._portal_upload_btn.setEnabled(True)
-        self._portal_upload_worker = None
         if success:
             self._portal_status_label.setText(self.ui.portal.upload_status_ok)
         else:
             self._portal_status_label.setText(
                 self.ui.portal.upload_status_error.format(detail=detail)
             )
+
+    def _cleanup_portal_upload_worker(self):
+        worker = self._portal_upload_worker
+        if worker is not None:
+            worker.deleteLater()
+            self._portal_upload_worker = None
 
     def _on_result_images_import(self):
         path = self.result_image_path_edit.text().strip()
