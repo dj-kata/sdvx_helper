@@ -265,6 +265,7 @@ class ScoreViewer(QMainWindow):
         self._current_rival: str | None = None
         self._selected_title: str | None = None
         self._selected_diff = None
+        self._selected_level: int | None = None
         self._selected_score: int | None = None
         # title → 4th難易度名 (MXM/INF/GRV/HVN/VVD/XCD)
         self._4th_diff_map: dict[str, str] = {}
@@ -669,7 +670,7 @@ class ScoreViewer(QMainWindow):
             next_all_titles = sorted(
                 self.result_database.song_database._songs.keys()
             )
-            next_bests = self.result_database.get_all_best_results()
+            next_bests = self.result_database.get_all_best_results(include_unlisted=True)
             rival_names = self.result_database.get_rival_names()
             total_vf = self.result_database.get_total_vf()
             signature = self._make_refresh_signature(
@@ -718,8 +719,9 @@ class ScoreViewer(QMainWindow):
         best_sig = tuple(
             sorted(
                 (
-                    title,
-                    diff.value if diff else None,
+                    key[0],
+                    key[1].value if len(key) > 1 and key[1] else None,
+                    key[2] if len(key) > 2 else None,
                     best.level,
                     best.best_score,
                     best.best_exscore,
@@ -727,8 +729,9 @@ class ScoreViewer(QMainWindow):
                     best.last_timestamp,
                     best.play_count,
                     best.vf,
+                    bool(getattr(best, 'is_unlisted_chart', False)),
                 )
-                for (title, diff), best in bests.items()
+                for key, best in bests.items()
             )
         )
         diff_sig = tuple(sorted(diff_map.items()))
@@ -769,7 +772,12 @@ class ScoreViewer(QMainWindow):
         self._score_table.sortByColumn(self._sort_col, self._sort_order)
         self._apply_filter()
 
-    def _find_song_row(self, title: str, diff: difficulty) -> Optional[int]:
+    def _find_song_row(
+        self,
+        title: str,
+        diff: difficulty,
+        level: int | None = None,
+    ) -> Optional[int]:
         """現在のテーブルから曲名と難易度が一致する行インデックスを探す。"""
         # タイトル列で検索して候補を絞る
         items = self._score_table.findItems(title, Qt.MatchExactly)
@@ -778,22 +786,39 @@ class ScoreViewer(QMainWindow):
                 continue
             row = it.row()
             d_item = self._score_table.item(row, self._COL_DIFF)
-            if d_item and convert_difficulty(d_item.text()) == diff:
+            lv_item = self._score_table.item(row, self._COL_LV)
+            row_level = lv_item.data(Qt.UserRole) if lv_item else None
+            if (
+                d_item
+                and convert_difficulty(d_item.text()) == diff
+                and (level is None or row_level == level)
+            ):
                 return row
         return None
 
-    def _refresh_song_row(self, title: str, diff: difficulty):
+    def _refresh_song_row(
+        self,
+        title: str,
+        diff: difficulty,
+        level: int | None = None,
+    ):
         """特定の譜面の行だけを更新する。"""
-        row = self._find_song_row(title, diff)
+        row = self._find_song_row(title, diff, level)
         
         # ResultDatabase から最新のベスト情報を取得
-        best = self.result_database.get_all_best_results().get((title, diff))
+        bests = self.result_database.get_all_best_results(include_unlisted=True)
+        best = bests.get((title, diff, level)) if level is not None else None
+        if best is None:
+            best = bests.get((title, diff))
         
         # 内部キャッシュを更新
         if best:
-            self._bests[(title, diff)] = best
+            cache_key = (title, diff, level) if getattr(best, 'is_unlisted_chart', False) else (title, diff)
+            self._bests[cache_key] = best
         else:
             self._bests.pop((title, diff), None)
+            if level is not None:
+                self._bests.pop((title, diff, level), None)
 
         if row is None:
             # 既に表示されているはずなのになければ、全体リフレッシュが必要（新規追加等）
@@ -823,7 +848,8 @@ class ScoreViewer(QMainWindow):
         lamp    = best.best_lamp
         diff    = best.difficulty
         lamp_bg  = _LAMP_BG.get(lamp, QColor(185, 185, 185))
-        row_bg   = _LAMP_ROW_BG.get(lamp, QColor(252, 252, 252))
+        is_unlisted = bool(getattr(best, 'is_unlisted_chart', False))
+        row_bg   = QColor(255, 232, 232) if is_unlisted else _LAMP_ROW_BG.get(lamp, QColor(252, 252, 252))
         diff_fg  = _DIFF_FG.get(diff, QColor(50, 50, 50))
 
         def _mk(text, sort_val=None, align=Qt.AlignCenter) -> _SortItem:
@@ -834,6 +860,8 @@ class ScoreViewer(QMainWindow):
             it.setFlags(it.flags() & ~Qt.ItemIsEditable)
             it.setBackground(QBrush(row_bg))
             it.setForeground(QBrush(QColor(30, 30, 30)))
+            if is_unlisted:
+                it.setToolTip("PC版マスタ未収録、または記録レベルがマスタと一致しない譜面です。プレーログから削除できます。")
             return it
 
         def _tier_sort(v: str):
@@ -860,8 +888,11 @@ class ScoreViewer(QMainWindow):
         self._score_table.setItem(row, self._COL_PLAYS, _mk(best.play_count, best.play_count))
 
         # 難易度テキスト（4th枠はportalマスタの実際の名前を使用 MXM/INF/GRV/HVN/VVD/XCD）
-        diff_label = (self._4th_diff_map.get((best.title, lv), str(diff))
-                      if diff == difficulty.maximum else str(diff))
+        diff_label = (
+            getattr(best, 'display_difficulty', None)
+            or (self._4th_diff_map.get((best.title, lv), str(diff))
+                if diff == difficulty.maximum else str(diff))
+        )
         diff_item = _mk(diff_label)
         diff_item.setForeground(QBrush(diff_fg))
         self._score_table.setItem(row, self._COL_DIFF, diff_item)
@@ -1133,28 +1164,38 @@ class ScoreViewer(QMainWindow):
         t_item   = self._score_table.item(row, self._COL_TITLE)
         d_item   = self._score_table.item(row, self._COL_DIFF)
         s_item   = self._score_table.item(row, self._COL_SCORE)
+        lv_item  = self._score_table.item(row, self._COL_LV)
         if not t_item or not d_item:
             return
         title     = t_item.text()
         diff_str  = d_item.text()
         diff_enum = convert_difficulty(diff_str)  # INF/GRV/HVN/VVD/XCD → difficulty.maximum
         my_score  = s_item.data(Qt.UserRole) if s_item else None
+        level     = lv_item.data(Qt.UserRole) if lv_item else None
 
         self._selected_title = title
         self._selected_diff  = diff_enum
+        self._selected_level = level
         self._selected_score = my_score
         self._hist_label.setText(f"プレー履歴: {title}  [{diff_str}]")
-        self._show_history(title, diff_enum)
+        self._show_history(title, diff_enum, level)
         self._show_portal_uploads(title, diff_enum)
         self._update_rival_panel(title, diff_enum)
         if diff_enum is not None:
             self.result_database.broadcast_cursong_data(title, diff_enum)
 
-    def _show_history(self, title: str, diff: Optional[difficulty]):
+    def _show_history(
+        self,
+        title: str,
+        diff: Optional[difficulty],
+        level: int | None = None,
+    ):
         """プレーログテーブルを更新"""
         results = self.result_database.search(title=title, diff=diff)
         target  = [r for r in results
                    if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        if level is not None:
+            target = [r for r in target if (r.level or 0) == level]
 
         self._history_map.clear()
         self._hist_table.setSortingEnabled(False)
@@ -1620,23 +1661,31 @@ class ScoreViewer(QMainWindow):
                 # 削除後のベスト情報を取得
                 title_to_restore    = self._selected_title
                 diff_to_restore     = self._selected_diff
-                self._refresh_song_row(result.title, result.difficulty)
+                level_to_restore    = self._selected_level
+                self._refresh_song_row(result.title, result.difficulty, result.level)
                 if title_to_restore is not None:
-                    self._reselect_song(title_to_restore, diff_to_restore)
+                    self._reselect_song(title_to_restore, diff_to_restore, level_to_restore)
 
-    def _reselect_song(self, title: str, diff_enum):
+    def _reselect_song(self, title: str, diff_enum, level: int | None = None):
         """refresh_data 後にスコアテーブルで同じ曲を再選択し履歴を再表示する"""
         for row in range(self._score_table.rowCount()):
             if self._score_table.isRowHidden(row):
                 continue
             t = self._score_table.item(row, self._COL_TITLE)
             d = self._score_table.item(row, self._COL_DIFF)
-            if t and d and t.text() == title and convert_difficulty(d.text()) == diff_enum:
+            lv_item = self._score_table.item(row, self._COL_LV)
+            row_level = lv_item.data(Qt.UserRole) if lv_item else None
+            if (
+                t and d
+                and t.text() == title
+                and convert_difficulty(d.text()) == diff_enum
+                and (level is None or row_level == level)
+            ):
                 self._score_table.selectRow(row)
                 # selectRow が itemSelectionChanged を発火するので履歴更新は自動的に行われる
                 return
         # フィルタで非表示になった等で見つからない場合でも履歴だけ再表示
-        self._show_history(title, diff_enum)
+        self._show_history(title, diff_enum, level)
 
     # ── フィルター状態の保存・復元 ────────────────────────────────────────────
 

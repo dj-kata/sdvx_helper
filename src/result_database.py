@@ -31,6 +31,7 @@ _PLAYLOG_PATH = Path('playlog.sdvxh')
 _RIVAL_PATH   = Path('rival.sdvxh')
 _JACKET_EXT = '.jpg'
 _JACKET_FALLBACK_EXTS = (_JACKET_EXT, '.png')
+_NON_PC_APPEND_DIFFS = {'ULT'}
 
 
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
@@ -65,6 +66,7 @@ class ResultDatabase:
         self.ws_loop = None
         
         self.portal_manager = None  # メインウィンドウからセットされる
+        self._bests_cache_portal_signature = None
         self.ws_thread = None
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
@@ -397,13 +399,52 @@ class ResultDatabase:
         """VF/ベスト集計へ入れてよいmaya2/portalマスタ収録譜面かを判定する。"""
         if result.title is None or result.difficulty is None:
             return False
-        if self.song_database.has_chart(result.title, result.difficulty):
+        info = self.song_database.get_song_info(result.title)
+        master_level = info.get_level(result.difficulty) if info else None
+        cdiff = self._get_append_cdiff(result.title, result.level)
+        if cdiff:
+            if cdiff in _NON_PC_APPEND_DIFFS:
+                logger.debug(
+                    "PC版対象外append譜面をベスト/VF集計から除外: "
+                    f"title={result.title!r} diff={result.difficulty} "
+                    f"level={result.level} cdiff={cdiff}"
+                )
+                return False
+            return True
+        if master_level and (result.level is None or result.level == master_level):
             return True
         logger.debug(
             "master未収録譜面をベスト/VF集計から除外: "
-            f"title={result.title!r} diff={result.difficulty}"
+            f"title={result.title!r} diff={result.difficulty} "
+            f"level={result.level} master_level={master_level}"
         )
         return False
+
+    def _get_append_cdiff(self, title: str, level: int | None) -> str | None:
+        """portalマスタから4th枠の実難易度名を返す。"""
+        if not title or not level or self.portal_manager is None:
+            return None
+        try:
+            diff_map = self.portal_manager.get_4th_diff_map()
+        except Exception:
+            return None
+        cdiff = diff_map.get((title, level))
+        if cdiff is not None:
+            return cdiff
+        normalized_title = title.strip().lower()
+        for (map_title, map_level), value in diff_map.items():
+            if map_level == level and map_title.strip().lower() == normalized_title:
+                return value
+        return None
+
+    def _portal_signature(self):
+        """portalマスタ反映に応じてベストキャッシュを作り直すための軽量指紋。"""
+        if self.portal_manager is None:
+            return None
+        master_db = getattr(self.portal_manager, 'master_db', None)
+        if not master_db:
+            return None
+        return id(master_db), len(master_db)
 
     def save(self):
         """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""
@@ -614,13 +655,14 @@ class ResultDatabase:
         # chart_id しかない場合はキャッシュキーが作れないため検索にフォールバック
         if title and diff:
             key = (title, diff)
-            best = self._bests_cache.get(key)
+            best = self.get_all_best_results().get(key)
             if best:
                 return best.best_score, best.best_exscore, best.best_lamp
 
         results = self.search(title=title, diff=diff, chart_id=chart_id)
         target = [r for r in results
                   if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        target = [r for r in target if self._is_master_chart_result(r)]
         if not target:
             return None, None, clear_lamp.noplay
 
@@ -630,15 +672,27 @@ class ResultDatabase:
         best_lamp   = max((r.lamp for r in target), default=clear_lamp.noplay)
         return best_score, best_ex, best_lamp
 
-    def get_all_best_results(self, use_cache: bool = True) -> Dict[Tuple[str, difficulty], OneBestData]:
+    def get_all_best_results(
+        self,
+        use_cache: bool = True,
+        include_unlisted: bool = False,
+    ) -> Dict[Tuple[str, difficulty], OneBestData]:
         """全譜面の自己ベストを OneBestData として集計する。
 
         Args:
             use_cache: Trueなら事前に構築されたキャッシュを返す。
+            include_unlisted: Trueならマスタ未収録/レベル不一致譜面も含める。
         Returns:
             Dict[(title, difficulty), OneBestData]
         """
-        if use_cache:
+        portal_signature = self._portal_signature()
+        if use_cache and not include_unlisted:
+            if self._bests_cache_portal_signature != portal_signature:
+                self._bests_cache = self.get_all_best_results(
+                    use_cache=False,
+                    include_unlisted=False,
+                )
+                self._bests_cache_portal_signature = portal_signature
             return self._bests_cache
 
         bests: Dict[Tuple[str, difficulty], OneBestData] = {}
@@ -648,19 +702,30 @@ class ResultDatabase:
                 continue
             if result.title is None or result.difficulty is None:
                 continue
-            if not self._is_master_chart_result(result):
+            is_master_chart = self._is_master_chart_result(result)
+            if not is_master_chart and not include_unlisted:
                 continue
 
-            key = (result.title, result.difficulty)
+            key = (
+                (result.title, result.difficulty)
+                if is_master_chart
+                else (result.title, result.difficulty, result.level)
+            )
             if key not in bests:
                 bests[key] = OneBestData()
 
                 # level を musiclist から補完（result に level がない場合）
-                if result.level is None:
+                if result.level is None and is_master_chart:
                     info = self.song_database.get_song_info(result.title)
                     if info:
                         result.level = info.get_level(result.difficulty)
 
+            bests[key].is_unlisted_chart = (
+                bests[key].is_unlisted_chart or not is_master_chart
+            )
+            cdiff = self._get_append_cdiff(result.title, result.level)
+            if cdiff:
+                bests[key].display_difficulty = cdiff
             bests[key].update(result)
 
         return bests

@@ -136,6 +136,7 @@ _DIFFICULTY_MAP = {
     'HVN':      difficulty.maximum,
     'VVD':      difficulty.maximum,
     'XCD':      difficulty.maximum,
+    'ULT':      difficulty.maximum,
 }
 
 

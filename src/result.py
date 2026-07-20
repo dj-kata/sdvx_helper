@@ -120,6 +120,8 @@ class OneBestData:
         self.best_lamp:    clear_lamp       = clear_lamp.noplay
         self.last_timestamp: int            = 0
         self.play_count:   int              = 0
+        self.is_unlisted_chart: bool         = False
+        self.display_difficulty: str | None  = None
 
     # ─── 計算プロパティ ────────────────────────────────────────────────────
 
