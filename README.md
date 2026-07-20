@@ -69,22 +69,22 @@ sdvx_helper.exeをクリックすると実行できます。
 
 |ファイル名|説明|
 |-|-|
-|sdvx_helper.exe|sdvx_helper本体のバイナリ|
-|version.txt|バージョン情報|
-|sdvx_helper.db|本ツールで取得したプレーログ|
-|config.json|コンフィグ情報|
-|resources/|画像認識などに必要なファイル一式|
-|out/|曲名情報やプレーログなどの出力先フォルダ|
-|log/|各ログファイルの出力先フォルダ|
-|template/whole_layout_1.html|配信画面風HTML, ログが大きめ|
-|template/whole_layout_2.html|配信画面風HTML, 少し画面が大きい、統計情報ビュー入り|
-|template/nowplaying.html|曲情報表示用HTML(画像版)|
-|template/nowplaying_v2.html|曲情報表示用HTML(文字表示版)|
-|template/history_cursong.html|単曲ビュー表示用HTML|
-|template/today_result.html|本日のプレー履歴表示用HTML|
-|template/rival.html|ライバル欄表示用HTML|
-|template/sdvx_stats.html|統計情報表示用HTML|
-|各*.dll, lib/*|GUI実行のために必要なライブラリ類|
+|`sdvx_helper.exe`|sdvx_helper本体のバイナリ|
+|`version.txt`|バージョン情報|
+|`sdvx_helper.db`|本ツールで取得したプレーログ|
+|`config.json`|コンフィグ情報|
+|`resources/`|画像認識などに必要なファイル一式|
+|`out/`|曲名情報やプレーログなどの出力先フォルダ|
+|`log/`|各ログファイルの出力先フォルダ|
+|`template/whole_layout_1.html`|配信画面風HTML, ログが大きめ|
+|`template/whole_layout_2.html`|配信画面風HTML, 少し画面が大きい、統計情報ビュー入り|
+|`template/nowplaying.html`|曲情報表示用HTML(画像版)|
+|`template/nowplaying_v2.html`|曲情報表示用HTML(文字表示版)|
+|`template/history_cursong.html`|単曲ビュー表示用HTML|
+|`template/today_result.html`|本日のプレー履歴表示用HTML|
+|`template/rival.html`|ライバル欄表示用HTML|
+|`template/sdvx_stats.html`|統計情報表示用HTML|
+|`*.dll`, `lib/*`, `share/*`|GUI実行のために必要なライブラリ類|
 
 Windowsアプリ実行のためのライブラリ類も多数含まれていますが、削除しないようにしてください。
 
