@@ -1110,6 +1110,8 @@ class MainWindow(MainWindowUI):
 
     def _current_result_screen(self):
         """回転補正済みの現在画面を返す。"""
+        if self.obs_manager.screen is not None:
+            self.screen_reader.update_screen(self.obs_manager.screen)
         return self.screen_reader.corrected_screen or self.obs_manager.screen
 
     @staticmethod
@@ -1211,10 +1213,20 @@ class MainWindow(MainWindowUI):
             os.makedirs(self.config.image_save_path, exist_ok=True)
             full_path = Path(self.config.image_save_path) / filename
 
+            if screen is None and self.obs_manager.is_capture_ready():
+                self.obs_manager.screenshot()
+
             # 回転補正済み画像を優先、なければ生キャプチャ
             screen = screen or self._current_result_screen()
             if screen is not None:
-                if getattr(self.config, 'autosave_result_info_area_only', False):
+                save_mode = self.screen_reader.detect_screen()
+                if save_mode != detect_mode.init:
+                    self.current_mode = save_mode
+                crop_info_area = (
+                    getattr(self.config, 'autosave_result_info_area_only', False)
+                    and save_mode.is_result_screen()
+                )
+                if crop_info_area:
                     screen = crop_result_info_area(screen)
                 if image_format == 'jpg':
                     if screen.mode not in ('RGB', 'L'):
