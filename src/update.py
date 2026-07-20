@@ -254,7 +254,7 @@ del "%~f0"
         """
         shutil.unpack_archive(zip_path, 'tmp')
 
-    def check_and_update(self):
+    def check_and_update(self, show_no_update_message=False):
         """
         メインプログラムから呼び出す関数
         アップデートが必要な場合のみGUIを表示して更新実行
@@ -324,11 +324,24 @@ del "%~f0"
                     return False
             else:
                 logger.info('no update')
+                if show_no_update_message:
+                    if latest_version:
+                        messagebox.showinfo(
+                            "アップデート確認",
+                            f"現在のバージョン（{self.current_version}）は最新です。"
+                        )
+                    else:
+                        messagebox.showerror(
+                            "アップデート確認",
+                            "アップデート情報を取得できませんでした。"
+                        )
             return False
             
         except Exception as e:
             logger.debug(traceback.format_exc())
             print(f"アップデート確認エラー: {e}")
+            if show_no_update_message:
+                messagebox.showerror("アップデート確認", f"アップデート確認エラー: {e}")
             return False
     
     def restart_program(self):

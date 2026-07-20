@@ -139,6 +139,12 @@ class MainWindowUI(QMainWindow):
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
 
+        file_menu.addSeparator()
+
+        check_update_action = QAction(self.ui.menu.check_update, self)
+        check_update_action.triggered.connect(self.check_update)
+        file_menu.addAction(check_update_action)
+
         # ツールメニュー
         tool_menu = menubar.addMenu(self.ui.menu.tool)
         score_viewer_action = QAction(self.ui.menu.score_viewer, self)
@@ -304,3 +310,38 @@ class MainWindowUI(QMainWindow):
 
     def open_score_viewer(self):
         raise NotImplementedError
+
+    def check_update(self):
+        """GitHub releaseを手動確認する。"""
+        try:
+            from src.update import GitHubUpdater
+
+            try:
+                with open('version.txt', 'r') as f:
+                    current_version = f.readline().strip()
+            except Exception:
+                current_version = "0.0.0"
+
+            if current_version.startswith('v.'):
+                current_version = current_version[2:]
+            else:
+                current_version = current_version.lstrip('v')
+
+            updater = GitHubUpdater(
+                github_author='dj-kata',
+                github_repo='sdvx_helper',
+                zipfile_basename='sdvx_helper',
+                current_version=current_version,
+                main_exe_name='sdvx_helper.exe',
+                updator_exe_name='sdvx_helper.exe',
+            )
+            updater.check_and_update(show_no_update_message=True)
+        except SystemExit:
+            raise
+        except Exception as e:
+            logger.error(f"手動アップデート確認エラー: {e}")
+            QMessageBox.critical(
+                self,
+                self.ui.message.error_title,
+                f"アップデート確認エラー: {e}",
+            )
