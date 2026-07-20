@@ -7,11 +7,10 @@ import bz2
 import datetime
 import hashlib
 import hmac
-import importlib.util
 import os
 import pickle
-import sys
 import traceback
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 try:
@@ -30,57 +29,50 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 PORTAL_URL = 'https://sh-portal.maya2silence.com'
+HMAC_KEY_ENV_NAME = 'maya2_key'
+_env_loaded = False
+
+
+def _load_dotenv_once(path: str | Path = '.env') -> None:
+    """python-dotenvを増やさず、単純な KEY=VALUE だけ読み込む。"""
+    global _env_loaded
+    if _env_loaded:
+        return
+    _env_loaded = True
+
+    env_path = Path(path)
+    if not env_path.exists():
+        return
+
+    try:
+        for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, value = line.split('=', 1)
+            key = key.strip()
+            value = value.strip()
+            if not key or key in os.environ:
+                continue
+            if (
+                len(value) >= 2
+                and value[0] == value[-1]
+                and value[0] in ('"', "'")
+            ):
+                value = value[1:-1]
+            os.environ[key] = value
+    except Exception:
+        logger.warning(f'.env の読み込みをスキップしました:\n{traceback.format_exc()}')
 
 
 def _resolve_hmac_key() -> str:
-    """HMAC署名キーを以下の優先順位で解決する。
-
-    1. src/portal_secret.py の PORTAL_HMAC_KEY
-       - 開発時: Python ファイルから import
-       - cx_Freeze ビルド時: ビルド前に設定しておくとコンパイル済み .pyc に埋め込まれる
-    2. exe 隣の portal_secret.txt（cx_Freeze 配布後に外部設定したい場合）
-    3. sdvx_helper/params_secret.py の maya2_key（v1共存環境・開発時のみ）
-    """
-    # 1. Python import（開発時はソース、cx_Freeze時はコンパイル済み .pyc から）
-    try:
-        from src.portal_secret import PORTAL_HMAC_KEY
-        if PORTAL_HMAC_KEY:
-            logger.debug('HMAC key loaded from src/portal_secret.py')
-            return PORTAL_HMAC_KEY
-    except ImportError:
-        pass
-
-    is_frozen = getattr(sys, 'frozen', False)
-
-    # 2. exe 隣の portal_secret.txt（cx_Freeze 配布時の外部設定用）
-    if is_frozen:
-        secret_file = os.path.join(os.path.dirname(sys.executable), 'portal_secret.txt')
-        if os.path.exists(secret_file):
-            try:
-                with open(secret_file, encoding='utf-8') as f:
-                    key = f.read().strip()
-                if key:
-                    logger.debug('HMAC key loaded from portal_secret.txt')
-                    return key
-            except Exception:
-                logger.debug(f'portal_secret.txt 読み込み失敗:\n{traceback.format_exc()}')
-
-    # 3. v1 の params_secret.py（開発環境のみ。frozen では __file__ が仮想パスになるためスキップ）
-    if not is_frozen:
-        v1_path = os.path.normpath(
-            os.path.join(os.path.dirname(__file__), '..', 'sdvx_helper', 'params_secret.py')
-        )
-        if os.path.exists(v1_path):
-            try:
-                spec = importlib.util.spec_from_file_location('_params_secret_v1', v1_path)
-                mod  = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                key = getattr(mod, 'maya2_key', '')
-                if key:
-                    logger.debug('HMAC key loaded from sdvx_helper/params_secret.py')
-                    return key
-            except Exception:
-                logger.debug(f'v1 params_secret.py 読み込み失敗:\n{traceback.format_exc()}')
+    """HMAC署名キーを .env の maya2_key から解決する。"""
+    _load_dotenv_once()
+    key = os.environ.get(HMAC_KEY_ENV_NAME, '').strip()
+    if key:
+        logger.debug(f'HMAC key loaded from .env/{HMAC_KEY_ENV_NAME}')
+        return key
+    return ''
 
 
 _HMAC_KEY = _resolve_hmac_key()
@@ -434,16 +426,15 @@ class PortalManager:
 
         # HMAC チェックサム
         key = _HMAC_KEY or _resolve_hmac_key()  # 起動後にファイルが置かれた場合も拾う
-        if key:
-            checksum = hmac.new(key.encode('utf-8'),
-                                payload_str.encode('utf-8'),
-                                hashlib.sha256).hexdigest()
-        else:
-            checksum = ''
+        if not key:
             logger.warning(
-                'HMAC キー未設定。src/portal_secret.py に PORTAL_HMAC_KEY を設定するか、'
-                'sdvx_helper/params_secret.py に maya2_key が存在することを確認してください。'
+                'HMAC キー未設定のため portal 送信をスキップします。'
+                '.env に maya2_key を設定してください。'
             )
+            return None
+        checksum = hmac.new(key.encode('utf-8'),
+                            payload_str.encode('utf-8'),
+                            hashlib.sha256).hexdigest()
 
         full_csv = payload_str + '\r\n' + f'{now},{cnt},{checksum}'
 
@@ -522,13 +513,15 @@ class PortalManager:
         payload_str = '\r\n'.join(lines)
 
         key = _HMAC_KEY or _resolve_hmac_key()
-        if key:
-            checksum = hmac.new(key.encode('utf-8'),
-                                payload_str.encode('utf-8'),
-                                hashlib.sha256).hexdigest()
-        else:
-            checksum = ''
-            logger.warning('HMAC キー未設定のため checksum なしで送信します')
+        if not key:
+            logger.warning(
+                'HMAC キー未設定のため portal 削除送信をスキップします。'
+                '.env に maya2_key を設定してください。'
+            )
+            return None
+        checksum = hmac.new(key.encode('utf-8'),
+                            payload_str.encode('utf-8'),
+                            hashlib.sha256).hexdigest()
 
         full_csv = payload_str + '\r\n' + f'{now},1,{checksum}'
 

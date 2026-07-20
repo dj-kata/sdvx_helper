@@ -58,3 +58,6 @@ clean:
 
 test:
 	@$(WUV) run python $(main_file_name).pyw
+
+edit:
+	@$(WUV) run -m misc.manage_db --gui
