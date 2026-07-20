@@ -981,6 +981,7 @@ class ConfigDialog(QDialog):
         self.portal_manager.update_token(token)
 
         player_name = self._portal_player_name_edit.text().strip() or 'NONAME'
+        total_vf = self.result_database.get_total_vf()
         self._portal_upload_btn.setEnabled(False)
         self._portal_status_label.setText(self.ui.portal.upload_status_running)
 
@@ -988,7 +989,7 @@ class ConfigDialog(QDialog):
             self.portal_manager,
             self.result_database,
             player_name=player_name,
-            volforce='0.000',
+            volforce=f'{total_vf / 1000:.3f}',
         )
         self._portal_upload_worker.result_ready.connect(
             self._on_portal_upload_finished,
