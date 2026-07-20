@@ -24,3 +24,4 @@ config.json
 .env
 sdvx_helper.db
 results/*
+to_bin
