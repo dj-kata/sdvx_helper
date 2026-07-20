@@ -22,7 +22,7 @@ except ImportError:
     KEYBOARD_AVAILABLE = False
 
 from src.config import Config
-from src.classes import detect_mode
+from src.classes import detect_mode, clear_lamp
 from src.funcs import calc_chart_id, get_title_with_chart, escape_for_filename
 from src.obs_websocket_manager import OBSWebSocketManager
 from src.songinfo import SongDatabase, update_musiclist_from_remote
@@ -82,6 +82,7 @@ class MainWindow(MainWindowUI):
     """メインウィンドウクラス - 制御ロジックを担当"""
 
     musiclist_update_finished = Signal(bool)
+    select_score_register_requested = Signal()
 
     def __init__(self):
         self.config = Config()
@@ -114,6 +115,9 @@ class MainWindow(MainWindowUI):
 
         self.musiclist_update_finished.connect(
             self._on_musiclist_update_finished, Qt.QueuedConnection
+        )
+        self.select_score_register_requested.connect(
+            self.register_select_score_from_hotkey, Qt.QueuedConnection
         )
         QTimer.singleShot(100, self._update_musiclist_async)
 
@@ -457,6 +461,133 @@ class MainWindow(MainWindowUI):
         source = self.config.obs_text_source_name
         if source and self.obs_manager.is_connected and self.obs_manager.uses_obs_websocket():
             self.obs_manager.change_text(source, text)
+
+    # ── グローバルホットキー ────────────────────────────────────────────────
+
+    def setup_global_hotkeys(self):
+        """グローバルホットキーの設定"""
+        if not KEYBOARD_AVAILABLE:
+            logger.warning("keyboardライブラリが利用できません。グローバルホットキーは無効です。")
+            return
+        try:
+            keyboard.add_hotkey('f6', self.save_image, suppress=False)
+            keyboard.add_hotkey(
+                'f7',
+                lambda: self.select_score_register_requested.emit(),
+                suppress=False,
+            )
+            logger.info("グローバルホットキー (F6/F7) を登録しました")
+        except Exception as e:
+            logger.error(f"グローバルホットキー登録エラー: {e}")
+            logger.warning("グローバルホットキーの登録に失敗しました。管理者権限で実行してください。")
+
+    def remove_global_hotkeys(self):
+        """グローバルホットキーの解除"""
+        if not KEYBOARD_AVAILABLE:
+            return
+        for key in ('f6', 'f7'):
+            try:
+                keyboard.remove_hotkey(key)
+            except Exception as e:
+                logger.error(f"グローバルホットキー解除エラー ({key}): {e}")
+
+    @Slot()
+    def register_select_score_from_hotkey(self):
+        """F7: 選曲画面から現在曲の自己ベストを登録する。"""
+        if self.current_mode != detect_mode.select:
+            logger.info(f"F7選曲登録スキップ: 選曲画面ではありません mode={self.current_mode}")
+            self.statusBar().showMessage("選曲画面ではないのでスキップします", 3000)
+            return
+
+        try:
+            data = self.screen_reader.read_from_select()
+            if not data:
+                logger.info("F7選曲登録スキップ: 選曲画面の読み取りに失敗")
+                self.statusBar().showMessage("選曲画面の読み取りに失敗しました", 3000)
+                return
+
+            title = data.get('title')
+            diff = data.get('difficulty')
+            lamp = data.get('lamp')
+            score = data.get('score')
+            exscore = data.get('exscore')
+            jacket_img = data.get('jacket_img')
+
+            if self.score_viewer is not None and self.score_viewer.isVisible():
+                if self.score_viewer.register_current_select_score():
+                    self._after_select_score_registered(
+                        self.score_viewer.last_registered_select_title or title,
+                        self.score_viewer.last_registered_select_diff or diff,
+                    )
+                return
+
+            if not title or diff is None or score is None:
+                logger.info(
+                    "F7選曲登録スキップ: 認識不足 "
+                    f"title={title!r}, diff={diff}, score={score}, lamp={lamp}"
+                )
+                self.statusBar().showMessage("曲名・難易度・スコアの認識が不足しています", 3000)
+                return
+            if lamp is None or lamp == clear_lamp.noplay:
+                logger.info(f"F7選曲登録スキップ: ランプ未認識 lamp={lamp}")
+                self.statusBar().showMessage("ランプが認識できないためスキップしました", 3000)
+                return
+
+            if self._register_select_score(title, diff, score, exscore, lamp, jacket_img):
+                self._after_select_score_registered(title, diff)
+                self.statusBar().showMessage(
+                    f"選曲画面から登録: {get_title_with_chart(title, diff)}",
+                    5000,
+                )
+            else:
+                self.statusBar().showMessage("更新がなかったため登録をスキップしました", 3000)
+        except Exception:
+            logger.error(f"F7選曲登録エラー:\n{traceback.format_exc()}")
+            self.statusBar().showMessage("選曲画面からの登録でエラーが発生しました", 5000)
+
+    def _register_select_score(
+        self,
+        title: str,
+        diff,
+        score: int,
+        exscore: int | None,
+        lamp: clear_lamp,
+        jacket_img=None,
+    ) -> bool:
+        """選曲画面の認識結果を1件登録する。"""
+        info = self.song_database.get_song_info(title)
+        level = info.get_level(diff) if info else None
+        result = OneResult(
+            title=title,
+            difficulty=diff,
+            lamp=lamp,
+            score=score,
+            exscore=exscore,
+            level=level,
+            detect_mode=detect_mode.select,
+        )
+        added = self.result_database.add(result)
+        if not added:
+            logger.info(f"F7選曲登録スキップ(更新なし): {result}")
+            return False
+
+        chart_id = calc_chart_id(title, diff)
+        self.result_database.save_jacket_image(chart_id, jacket_img, source='select')
+        logger.info(f"F7選曲登録: {result}")
+        return True
+
+    def _after_select_score_registered(self, title: str | None, diff):
+        """選曲登録後の表示・配信更新をまとめる。"""
+        if not title or diff is None:
+            return
+        self.current_title = title
+        self.current_diff = diff
+        if self.score_viewer is not None and self.score_viewer.isVisible():
+            self.score_viewer._refresh_song_row(title, diff)
+        self.result_database.broadcast_today_results_data(self.start_time_with_offset)
+        self.result_database.broadcast_vf_data()
+        self.result_database.broadcast_cursong_data(title, diff)
+        self.result_database.broadcast_stats_data()
 
     # ── 設定ダイアログ ────────────────────────────────────────────────────────
 

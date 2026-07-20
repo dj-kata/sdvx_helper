@@ -276,6 +276,10 @@ class ScoreViewer(QMainWindow):
         # 編集パネル用
         self._edit_data: dict = {}
         self._edit_autofill_title: str = ''  # 最後に自動補完したタイトル
+        self._edit_lamp_user_selected: bool = False
+        self._updating_edit_lamp_combo: bool = False
+        self.last_registered_select_title: str | None = None
+        self.last_registered_select_diff = None
         self._last_auto_registered: tuple | None = None
         self._last_auto_attempted: tuple | None = None
         self._last_auto_attempted_at: float = 0.0
@@ -587,6 +591,7 @@ class ScoreViewer(QMainWindow):
         self._edit_lamp_combo = QComboBox()
         for lp in clear_lamp:
             self._edit_lamp_combo.addItem(str(lp), lp)
+        self._edit_lamp_combo.currentIndexChanged.connect(self._on_edit_lamp_changed)
         op_v.addWidget(self._edit_lamp_combo)
         self._edit_autoregister_cb = QCheckBox("自動登録")
         self._edit_autoregister_cb.stateChanged.connect(
@@ -1345,6 +1350,7 @@ class ScoreViewer(QMainWindow):
         self._edit_data = new_data
         if title != prev_title:
             self._reset_auto_register_guard()
+            self._edit_lamp_user_selected = False
 
         if not self._edit_mode_cb.isChecked():
             return
@@ -1382,8 +1388,19 @@ class ScoreViewer(QMainWindow):
         # ランプコンボを認識ランプに合わせる
         if lamp is not None:
             idx = self._edit_lamp_combo.findData(lamp)
-            if idx >= 0:
-                self._edit_lamp_combo.setCurrentIndex(idx)
+            if idx >= 0 and not self._edit_lamp_user_selected:
+                self._updating_edit_lamp_combo = True
+                try:
+                    self._edit_lamp_combo.setCurrentIndex(idx)
+                finally:
+                    self._updating_edit_lamp_combo = False
+
+    def _on_edit_lamp_changed(self, _index: int):
+        """ランプ補正が手動で変更されたことを記録する。"""
+        if self._updating_edit_lamp_combo:
+            return
+        if self._edit_mode_cb.isChecked():
+            self._edit_lamp_user_selected = True
 
     def _do_edit_search(self):
         """曲名検索ボックスの内容で候補リストを絞り込む（デバウンス後に実行）"""
@@ -1500,6 +1517,47 @@ class ScoreViewer(QMainWindow):
             QMessageBox.information(self, "情報",
                 "スコアに更新がなかったため登録をスキップしました\n"
                 "（現在の自己ベスト以下のスコア・ランプ）")
+
+    def register_current_select_score(self) -> bool:
+        """現在保持している選曲画面データを登録する。
+
+        編集モード中は、曲名候補とランプコンボで補正された値を使用する。
+        """
+        data = self._edit_data
+        title = self._get_effective_title()
+        diff = data.get('diff')
+        score = data.get('score')
+        exscore = data.get('exscore')
+        lamp = (
+            self._edit_lamp_combo.currentData()
+            if self._edit_mode_cb.isChecked()
+            else data.get('lamp')
+        )
+
+        self.last_registered_select_title = None
+        self.last_registered_select_diff = None
+
+        if not title:
+            self.statusBar().showMessage("曲名が設定されていません", 3000)
+            return False
+        if diff is None:
+            self.statusBar().showMessage("難易度が認識されていません", 3000)
+            return False
+        if score is None:
+            self.statusBar().showMessage("スコアが認識されていません", 3000)
+            return False
+        if lamp is None or lamp == clear_lamp.noplay:
+            self.statusBar().showMessage("ランプが認識されていません", 3000)
+            return False
+
+        added = self._do_register(title, diff, score, exscore, lamp)
+        if not added:
+            self.statusBar().showMessage("更新がなかったため登録をスキップしました", 3000)
+            return False
+
+        self.last_registered_select_title = title
+        self.last_registered_select_diff = diff
+        return True
 
     def _do_register(
         self,
