@@ -794,9 +794,22 @@ class ResultDatabase:
             except Exception:
                 logger.error(f"ライバル表示データ生成エラー:\n{traceback.format_exc()}")
 
-        rows.sort(key=lambda item: (item.get('score') or 0, item.get('lamp') or 0), reverse=True)
+        rows.sort(
+            key=lambda item: (
+                item.get('score') or 0,
+                item.get('exscore') if item.get('exscore') is not None else -1,
+                item.get('lamp') or 0,
+            ),
+            reverse=True,
+        )
+        prev_score = None
+        prev_rank = 0
         for idx, item in enumerate(rows, 1):
-            item['rank'] = idx
+            score = item.get('score') or 0
+            if score != prev_score:
+                prev_rank = idx
+                prev_score = score
+            item['rank'] = prev_rank
             my_score = best_score or 0
             item['diff'] = (item.get('score') or 0) - my_score
         return rows

@@ -1030,9 +1030,10 @@ class ScoreViewer(QMainWindow):
                 name_item.setForeground(QBrush(QColor(0, 80, 200)))
             self._rival_table.setItem(row, 0, name_item)
 
-            self._rival_table.setItem(row, 1, _mk(score, score))
+            ex_sort = exscore if exscore is not None else -1
+            self._rival_table.setItem(row, 1, _mk(score, (score, ex_sort)))
             ex_text = exscore if exscore is not None else '―'
-            self._rival_table.setItem(row, 2, _mk(ex_text, exscore if exscore is not None else -1))
+            self._rival_table.setItem(row, 2, _mk(ex_text, ex_sort))
 
             lamp_bg = _LAMP_BG.get(lamp, QColor(185, 185, 185))
             lum = (lamp_bg.red() * 299 + lamp_bg.green() * 587 + lamp_bg.blue() * 114) // 1000
