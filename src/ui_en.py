@@ -130,6 +130,15 @@ class UIText:
         confirm_title = 'Confirm'
         completed_title = 'Completed'
         success = 'Success'
+        select_action = 'Select an action'
+        select_timing = 'Select a timing'
+        select_scene_and_source = 'Select a target scene and source'
+        select_next_scene = 'Select the scene to switch to'
+        failed_add_setting = 'Failed to add setting: {0}'
+        select_setting_to_remove = 'Select a setting to remove'
+        ask_remove_all_settings = 'Remove all OBS control settings?'
+        removed_all_settings = 'Removed all OBS control settings'
+        target_source_removed = 'Cleared the monitor source'
 
     class status:
         """Status bar"""

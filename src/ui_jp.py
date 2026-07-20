@@ -130,6 +130,15 @@ class UIText:
         confirm_title = '確認'
         completed_title = '完了'
         success = '成功'
+        select_action = 'アクションを選択してください'
+        select_timing = '実行タイミングを選択してください'
+        select_scene_and_source = '対象シーンと対象ソースを選択してください'
+        select_next_scene = '切り替え先シーンを選択してください'
+        failed_add_setting = '設定の追加に失敗しました: {0}'
+        select_setting_to_remove = '削除する設定を選択してください'
+        ask_remove_all_settings = 'すべてのOBS制御設定を削除しますか?'
+        removed_all_settings = 'すべてのOBS制御設定を削除しました'
+        target_source_removed = '監視対象ソースをクリアしました'
 
     class status:
         """ステータスバー"""
