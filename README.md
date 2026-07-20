@@ -56,19 +56,14 @@ F6キーを押すことでキャプチャの手動保存もできます。
 念のために書いておきますが、本アプリの処理内容はリバースエンジニアリングの類ではありません。  
 ゲーム画面を定期的にキャプチャし、画像処理によってどの画面かを判定しています。  
 
-## 検証に用いている環境
-以下の環境で検証しています。  
-```
-OS: Windows11 Pro 64bit (25H2)
-CPU: Intel Core i7-12700F
-GPU: NVIDIA RTX4060
-ウイルス対策ソフト: Windows Defender
-OBS: 32.0.1 (64bit)
-```
+# sdvx_helper設定方法
+[Releaseページ](https://github.com/dj-kata/sdvx_helper/releases)の一番上にあるsdvx_helper.zipをダウンロードし、好きなフォルダ(デスクトップ以外)に解凍してください。  
+sdvx_helper.exeをクリックすると実行できます。
 
-最新のWebSocket APIを使う都合上、OBSは28以降が必須となります。(WebSocket経由で画面取得する場合)
-CPUはAMD系でも問題ないはずです。(websocket経由だと安定する模様)  
-OBSとの通信(tcp4444)を行うため、ウイルス対策ソフトによってはブロックされる可能性があります。  
+詳しくは以下を参照してください。
+
+[インストール・初期設定について](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
+
 
 # ファイル一覧
 
@@ -95,14 +90,6 @@ Windowsアプリ実行のためのライブラリ類も多数含まれていま�
 
 各HTMLはOBSへドラッグ&ドロップして使う想定です。  
 Chromeなどの通常のブラウザからも確認できます。
-
-# sdvx_helper設定方法
-[Releaseページ](https://github.com/dj-kata/sdvx_helper/releases)の一番上にあるsdvx_helper.zipをダウンロードし、好きなフォルダ(デスクトップ以外)に解凍してください。  
-sdvx_helper.exeをクリックすると実行できます。
-
-詳しくは以下を参照してください。
-
-[インストール・初期設定について](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
 
 # 使い方
 上記設定ができていれば、OBS配信や録画を行う際に起動しておくだけでOKです。  
