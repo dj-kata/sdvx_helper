@@ -249,6 +249,17 @@ class MainWindow(MainWindowUI):
             and r.timestamp >= self.start_time_with_offset
         )
 
+    def _refresh_autoload_offset_dependent_state(self):
+        """自動読み込みオフセット変更後に派生表示を再計算・再配信する。"""
+        self._count_today_plays()
+        self.result_database.broadcast_today_results_data(self.start_time_with_offset)
+        self.broadcast_session_stats_data()
+        logger.info(
+            "自動読み込みオフセット反映: "
+            f"offset={self.config.autoload_offset}, "
+            f"start={datetime.datetime.fromtimestamp(self.start_time_with_offset)}"
+        )
+
     def _load_recent_result_images_for_summary(self):
         """起動時に保存済みリザルト画像からsummary用パーツを復元する。"""
         try:
@@ -681,6 +692,7 @@ class MainWindow(MainWindowUI):
 
     def _apply_config_changes(self):
         """設定変更を全モジュールに反映"""
+        old_autoload_offset = self.config.autoload_offset
         self.config.load_config()
         self.obs_manager.set_config(self.config)
         self.screen_reader = ScreenReader(
@@ -693,6 +705,8 @@ class MainWindow(MainWindowUI):
             self.obs_manager.disconnect()
         elif not self.obs_manager.is_connected:
             self.obs_manager.connect()
+        if self.config.autoload_offset != old_autoload_offset:
+            self._refresh_autoload_offset_dependent_state()
 
     def show_about(self):
         """バージョン情報表示"""
