@@ -66,6 +66,8 @@ class UIText:
         websocket_port = 'データ表示用port:'
         obs_text_source = 'OBSテキストソース名:'
         keep_on_top = '常に最前面表示する'
+        csv_group = 'CSV出力'
+        csv_export_path = 'CSV出力先(空=out/):'
 
     class image_save:
         """画像保存設定タブ"""
@@ -84,8 +86,6 @@ class UIText:
         summary_exit_filename = 'レシートのファイル名:'
         summary_exit_filename_datetime = '日付+時刻'
         summary_exit_filename_date = '日付のみ'
-        csv_group = 'CSV出力'
-        csv_export_path = 'CSV出力先(空=out/):'
 
     class capture:
         """キャプチャ設定タブ"""

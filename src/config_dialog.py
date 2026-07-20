@@ -375,6 +375,21 @@ class ConfigDialog(QDialog):
         other_layout.addRow(self.keep_on_top_check)
 
         layout.addWidget(other_group)
+
+        csv_group = QGroupBox(self.ui.feature.csv_group)
+        csv_layout = QFormLayout()
+        csv_group.setLayout(csv_layout)
+
+        self.csv_export_path_edit = QLineEdit()
+        csv_browse_button = QPushButton(self.ui.dialog.browse)
+        csv_browse_button.clicked.connect(self._browse_csv_path)
+
+        csv_row = QHBoxLayout()
+        csv_row.addWidget(self.csv_export_path_edit)
+        csv_row.addWidget(csv_browse_button)
+        csv_layout.addRow(self.ui.feature.csv_export_path, csv_row)
+
+        layout.addWidget(csv_group)
         layout.addStretch()
         return widget
 
@@ -474,20 +489,6 @@ class ConfigDialog(QDialog):
 
         layout.addWidget(path_group)
 
-        csv_group = QGroupBox(self.ui.image_save.csv_group)
-        csv_layout = QFormLayout()
-        csv_group.setLayout(csv_layout)
-
-        self.csv_export_path_edit = QLineEdit()
-        csv_browse_button = QPushButton(self.ui.dialog.browse)
-        csv_browse_button.clicked.connect(self._browse_csv_path)
-
-        csv_row = QHBoxLayout()
-        csv_row.addWidget(self.csv_export_path_edit)
-        csv_row.addWidget(csv_browse_button)
-        csv_layout.addRow(self.ui.image_save.csv_export_path, csv_row)
-
-        layout.addWidget(csv_group)
         layout.addStretch()
         return widget
 

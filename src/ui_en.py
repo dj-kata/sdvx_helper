@@ -66,6 +66,8 @@ class UIText:
         websocket_port = 'Data display port:'
         obs_text_source = 'OBS Text Source Name:'
         keep_on_top = 'Always on Top'
+        csv_group = 'CSV Export'
+        csv_export_path = 'CSV export path (empty=out/):'
 
     class image_save:
         """Image save settings tab"""
@@ -84,8 +86,6 @@ class UIText:
         summary_exit_filename = 'Receipt filename:'
         summary_exit_filename_datetime = 'Date + time'
         summary_exit_filename_date = 'Date only'
-        csv_group = 'CSV Export'
-        csv_export_path = 'CSV export path (empty=out/):'
 
     class capture:
         """Capture settings tab"""
