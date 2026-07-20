@@ -1,9 +1,10 @@
-# todo
-- EXスコアメインにしても取得できるようにする
+# TODO
 - 邪魔をしないで-MySongのhash修正
 - RTA機能
+- ブラスターゲージ最大時に音声で通知
 - 認識用範囲の変更(best枠の影響排除)
 - 挑戦状機能作成
+- 最新の段位画像の切り抜き
 
 English ver is [here](https://github.com/dj-kata/sdvx_helper/blob/main/en_README.md).
 
@@ -12,7 +13,6 @@ English ver is [here](https://github.com/dj-kata/sdvx_helper/blob/main/en_README
 OBSでの配信を想定しています。  
 
 主な機能は以下。
-- Vaddict上での各種画像作成([sdvx_helper portal](https://sh-portal.maya2silence.com)との連携機能)
 - プレー中の曲情報を分かりやすく表示
 - その日のプレーログを画像出力
 - リザルト画像の自動保存(曲名やスコア等を含んだファイル名)
@@ -20,7 +20,11 @@ OBSでの配信を想定しています。
 - 自己ベストや全プレーログをCSV出力
 - OBS制御機能(シーン、ソースの自動切り替え)
 - Discordへのリザルト自動投稿
-- ブラスターゲージ最大時に音声で通知
+- スコアビューワによる自己ベスト確認
+- ライバルとのスコア比較(Google Drive経由)
+  - 他のコナステユーザの自己ベスト
+  - ACの自己ベスト
+- Vaddict上での各種画像作成([sdvx_helper portal](https://sh-portal.maya2silence.com)との連携機能)
 
 [sdvx_helper portal](https://sh-portal.maya2silence.com)を利用することで、
 Web上でコナステ版のスコアを確認したり、Vaddictから様々な画像を生成することができます。  
@@ -51,19 +55,18 @@ F6キーを押すことでキャプチャの手動保存もできます。
 ## 本アプリの原理について
 念のために書いておきますが、本アプリの処理内容はリバースエンジニアリングの類ではありません。  
 ゲーム画面を定期的にキャプチャし、画像処理によってどの画面かを判定しています。  
-OBSwebsocket経由でキャプチャを取得することで、PCへの負荷を抑えています。
 
 ## 検証に用いている環境
 以下の環境で検証しています。  
 ```
-OS: Windows10 64bit(22H2)
-CPU: Intel系(i7-12700F)
-GPU: NVIDIA系(RTX3050)
+OS: Windows11 Pro 64bit (25H2)
+CPU: Intel Core i7-12700F
+GPU: NVIDIA RTX4060
 ウイルス対策ソフト: Windows Defender
-OBS: 29.1.2
+OBS: 32.0.1 (64bit)
 ```
 
-最新のWebSocket APIを使う都合上、OBSは28以降が必須となります。
+最新のWebSocket APIを使う都合上、OBSは28以降が必須となります。(WebSocket経由で画面取得する場合)
 CPUはAMD系でも問題ないはずです。(websocket経由だと安定する模様)  
 OBSとの通信(tcp4444)を行うため、ウイルス対策ソフトによってはブロックされる可能性があります。  
 
@@ -73,17 +76,30 @@ OBSとの通信(tcp4444)を行うため、ウイルス対策ソフトによっ�
 |-|-|
 |sdvx_helper.exe|sdvx_helper本体のバイナリ|
 |version.txt|バージョン情報|
+|sdvx_helper.db|本ツールで取得したプレーログ|
+|config.json|コンフィグ情報|
 |resources/|画像認識などに必要なファイル一式|
 |out/|曲名情報やプレーログなどの出力先フォルダ|
-|template/nowplaying.html|曲情報表示用HTML|
+|log/|各ログファイルの出力先フォルダ|
+|template/whole_layout_1.html|配信画面風HTML, ログが大きめ|
+|template/whole_layout_2.html|配信画面風HTML, 少し画面が大きい、統計情報ビュー入り|
+|template/nowplaying.html|曲情報表示用HTML(画像版)|
 |template/nowplaying_v2.html|曲情報表示用HTML(文字表示版)|
 |template/history_cursong.html|単曲ビュー表示用HTML|
 |template/today_result.html|本日のプレー履歴表示用HTML|
 |template/rival.html|ライバル欄表示用HTML|
-|template/whole_layout_1.html|配信画面風HTML|
+|template/sdvx_stats.html|統計情報表示用HTML|
+|各*.dll, lib/*|GUI実行のために必要なライブラリ類|
+
+Windowsアプリ実行のためのライブラリ類も多数含まれていますが、削除しないようにしてください。
 
 各HTMLはOBSへドラッグ&ドロップして使う想定です。  
 Chromeなどの通常のブラウザからも確認できます。
+
+# sdvx_helper設定方法
+- [インストール・初期設定について](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
+- [各種HTMLの設定方法](https://github.com/dj-kata/sdvx_helper/wiki/%E5%90%84%E7%A8%AEHTML%E3%81%AE%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
+- [sdvx_helper v1からのデータ移行方法](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper-v1%E3%81%8B%E3%82%89%E3%81%AE%E3%83%87%E3%83%BC%E3%82%BF%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF)
 
 # インストール方法
 [Releaseページ](https://github.com/dj-kata/sdvx_helper/releases)の一番上にあるsdvx_helper.zipをダウンロードし、好きなフォルダ(デスクトップ以外)に解凍してください。  
@@ -93,38 +109,8 @@ sdvx_helper.exeをクリックすると実行できます。
 
 # sdvx_helperの設定方法
 ゲーム画面について直接取得であれば設定不要で使うことができます。  
-お好みで7の設定をしてください。OBS自動制御設定も利用可能なので、
-配信画面を自動制御したい方は1～6も設定してください。
-
-ゲーム画面をOBS WebSocket経由で取得する場合は1～6の設定が必須となります。  
-(WebSocket経由のほうが多少負荷が低いかも？)
-
-## 1. OBS(28以降)でwebsocketが使えるように設定する。
-OBSwebsocketについては、インストールされていない場合は[ここ](https://github.com/obsproject/obs-websocket/releases)から最新のalphaってついてないバージョンの(～Windows-Installer.exe)をDLしてインストールしてください。  
-OBSのメニューバー内ツール→WebSocketサーバ設定で以下のように設定してあればOK。
-![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/7b4fd58e-9e0c-4ffc-a875-3ec427312012)
-
-## 2. sdvx_helper.exeを実行し、メニューバーから設定を開く
-## 3. 1で設定したポート番号とパスワードを入力する。
-OBSに接続できませんの表示が出る場合はこの辺を疑いましょう。  
-![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/6b63586e-8d9f-4429-876f-2fe12fefe459)
-
-## 4. 設定画面を閉じる
-## 5. メニューバーからOBS制御設定を開く
-## 6. OBS配信や録画で使うシーン名を選択し、ゲーム画面のキャプチャに使うソース名を選択してから、ゲーム画面の横にあるsetを押す。
-この設定をやらないとゲーム画面を取得できないので注意。  
-![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/7fdd5401-c2cb-4b7a-af04-3bb98f511357)
-
-ちなみに、OBS制御設定画面では各シーン(選曲、プレー中、リザルト)でソースの表示・非表示制御ができます。  
-
-- プレー中のみ手元カメラを表示
-- リザルト・選曲画面で別のシーンに移行
-
-みたいなことが簡単にできます。
-
-## 7. OBSに各htmlをドラッグ&ドロップする。
-`template\whole_layout_1.html`をOBSへドラッグ&ドロップしてください。
-幅1920，高さ1080で合うようになっています。
+詳しくは以下を参照してください。
+[sdvx_helper設定方法](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
 
 ## その他の設定
 必須ではないですが、その他の便利機能の設定方法について記しておきます。  
@@ -175,34 +161,6 @@ out\summary_full.pngがもう少し大きい版となります。こちらはス
 また、リザルト取得に失敗して変な画像(ダブった、色が薄いなど)が入ってしまった場合は、  
 該当するリザルト画像のファイルを削除すれば次の生成で直ります。
 
-
-### BLASTER GAUGE最大時の通知をオンにする
-設定画面の```BLASTER GAUGE最大時に音声でリマインドする```をチェックすることで、
-選曲画面でゲージが最大だった場合にアラート音声(resources\blastermax.wav)が再生されます。  
-![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/d2695579-7aef-4476-bb4b-27c53e45df5b)
-
-また、OBS上で```sdvx_helper_blastermax```という名前のテキストソースを作っておくと、ゲージ最大時のみ**BLASTER GAUGEが最大です！**という文字列を入れるようにしています。  
-(フィルタのスクロール設定時に使いやすいように、後ろに数十文字分の全角スペースを入れています)  
-ゲージが足りていない場合は何も表示されません。  
-OBS制御設定から、sdvx_helper_blastermaxは選曲画面でのみ表示するのが良いかもしれません。
-
-### プレー曲数を表示する
-OBS上で```sdvx_helper_playcount```という名前のテキストを作ると**plays: 13**のように本アプリ起動後にプレーした曲数を表示することができます。  
-ヘッダには数字の前に入れる文字列(本日のプレー曲数:など)を、  
-フッタには数字の後ろに入れる文字列(曲目など)をそれぞれ指定してください。
-
-手順
-1. ソース一覧で右クリック→追加→テキスト(GDI+)をクリック。
-2. 色やフォントなどを好みに合わせて設定する。(適当な文字を入力しておくとどこに置いたのかわかりやすいです。)
-3. 作成したソースを右クリック→名前を変更→```sdvx_helper_playcount```にする。
-
-### 配信前後でのVF及び段位の変化を表示する
-以下の画像ファイルをOBSにドラッグ&ドロップすることで、VF等の情報を表示できます。
-- vf_cur.png: 最新のVF
-- vf_pre.png: アプリ起動時のVF
-- class_cur.png: 最新の段位
-- class_pre.png: アプリ起動時の段位
-
 ### リザルトをDiscordに自動投稿する
 v.1.0.8からリザルトをDiscordに自動投稿できるようになりました。  
 自分のDiscordサーバに以下のようなプレーログを自動投稿することができます。  
@@ -237,30 +195,6 @@ v.1.0.8からリザルトをDiscordに自動投稿できるようになりまし
 うまく設定できると、選曲画面やリザルト画面で以下のようなビュー(out\rival.html)が表示できます。
 ![image](https://github.com/dj-kata/sdvx_helper/assets/61326119/9bf84220-a720-4a67-97fb-65c10e2c0c4c)
 
-### RTA機能を利用する
-インペリアルRTAなどに使えるように、VF:0からスタートして目標VFを達成するまでの時間を測定できるようになりました。
-
-1. 設定画面から目標VFを設定する。(デフォルト:20.000)
-2. メニューバー内RTA->RTA開始をクリック(または、F3キーを押下)してRTAモードを開始する
-3. 目標VFに到達するとタイマーが止まる
-4. sdvx_helper終了時に、rta_sdvx_stats_v2.htmlという名前のソースがあれば画像フォルダにRTA結果ビューが自動保存される。
-
-![image](https://github.com/user-attachments/assets/a630e3db-5be1-45bc-89db-640652d5194a)
-
-RTA用の情報に関しては以下のお好きな方法で表示できます。
-- RTA用統計情報ビュー(layout\rta_sdvx_stats_v2.html)をOBSにD&D(幅4000，高さ3000ぐらいを推奨)
-- 指定された名前のテキスト(GDI+)のソースを用意する
-  - VF表示: sdvx_helper_rta_vf
-  - タイマー表示: sdvx_helper_rta_timer
-
-![image](https://github.com/user-attachments/assets/4f2ad38f-2b2b-4e41-acfc-b1af5a706939)
-![image](https://github.com/user-attachments/assets/c6c17963-33e7-43c4-8c05-ed8ab3dde29d)
-RTA用統計情報ビューに表示されるタイマーについては、達成時以外は空白になります。
-
-また、指定した名前のテキストソースに書き込まれる方のタイマーについては、曲決定画面で止まってしまう問題があります。  
-将来的には別スレッドに移動して止まらないようにしますが、そこまで大きな影響はないと思うので一旦このまま出しています。
-インペRTAチャレンジなどにご活用ください。
-
 # 使い方
 上記設定ができていれば、OBS配信や録画を行う際に起動しておくだけでOKです。  
 F6キーを押すと指定したフォルダにキャプチャ画像を正しい向きで保存することができます。
@@ -276,4 +210,4 @@ F6キーを押すと指定したフォルダにキャプチャ画像を正しい
 [このページ](https://github.com/dj-kata/sdvx_helper/wiki/%E3%83%88%E3%83%A9%E3%83%96%E3%83%AB%E3%82%B7%E3%83%A5%E3%83%BC%E3%83%86%E3%82%A3%E3%83%B3%E3%82%B0)にトラブルシューティング情報をまとめていく予定です。
 
 バグ報告や要望は[本レポジトリのIssue](https://github.com/dj-kata/sdvx_helper/issues)またはTwitter(@[cold_planet_](https://twitter.com/cold_planet_))にご連絡ください。  
-ytlive_helper でエゴサしてるかもしれません。
+sdvx_helper でエゴサしてるかもしれません。
