@@ -9,7 +9,10 @@
         <link href="https://fonts.googleapis.com/css2?family=Monomaniac+One&display=swap" rel="stylesheet">
         <link rel="stylesheet" href="./websocket.css">
         <style>
-            :root { --websocket-port: 8767; }
+            :root {
+                --websocket-port: 8767;
+                --history-scale: 0.8;
+            }
             body {
             height: 100%;
             background-color: rgba(0, 0, 0, 0.95);
@@ -31,11 +34,13 @@
                 box-sizing: border-box;
                 position: absolute;
                 top:0;
-                bottom:0;
                 left:0;
-                right:0;
+                width: calc(100% / var(--history-scale));
+                height: calc(100% / var(--history-scale));
                 background-color: rgba(0, 0, 0, 0.95);
                 overflow: hidden;
+                transform: scale(var(--history-scale));
+                transform-origin: top left;
             }
             table#title {
                 color: #fff;

@@ -8,7 +8,11 @@
     <link href="https://fonts.googleapis.com/css2?family=RocknRoll+One&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./websocket.css">
     <style>
-        :root { --websocket-port: 8767; --enable-header: 0; }
+        :root {
+            --websocket-port: 8767;
+            --enable-header: 0;
+            --rival-scale: 0.8;
+        }
         body {
             height: 100%;
             background-color: rgba(0, 0, 0, 0.95);
@@ -23,9 +27,14 @@
             border: 16px solid #000077;
             box-sizing: border-box;
             position: absolute;
-            inset: 0;
+            top: 0;
+            left: 0;
+            width: calc(100% / var(--rival-scale));
+            height: calc(100% / var(--rival-scale));
             background-color: rgba(0, 0, 0, 0.95);
             overflow: hidden;
+            transform: scale(var(--rival-scale));
+            transform-origin: top left;
         }
         #title {
             display: none;
