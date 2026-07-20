@@ -23,6 +23,10 @@ from src.funcs import load_ui_text, convert_difficulty, convert_lamp
 from src.result import OneResult
 from src.classes import detect_mode
 from src.result_image import expand_result_info_area
+from src.portal_uploaded_scores import (
+    ManageUploadedScores,
+    load_uploaded_scores_from_path,
+)
 logger = get_logger(__name__)
 
 from typing import TYPE_CHECKING
@@ -927,6 +931,8 @@ class ConfigDialog(QDialog):
             QMessageBox.warning(self, self.ui.message.warning_title, "データベースが初期化されていません")
             return
 
+        self._confirm_and_import_uploaded_scores(path)
+
         self._alllog_import_btn.setEnabled(False)
         self._alllog_cancel_btn.setVisible(True)
         self._alllog_progress.setVisible(True)
@@ -966,6 +972,45 @@ class ConfigDialog(QDialog):
         self._alllog_import_btn.setEnabled(True)
         self._alllog_cancel_btn.setVisible(False)
         self._alllog_status_label.setText("キャンセルしました")
+
+    def _confirm_and_import_uploaded_scores(self, alllog_path: str):
+        """alllog.pkl と同じ v1 ルート配下の uploaded_score.pkl を任意で取り込む。"""
+        v1_root = os.path.dirname(os.path.abspath(alllog_path))
+        uploaded_path = os.path.join(v1_root, 'out', 'uploaded_score.pkl')
+        if not os.path.isfile(uploaded_path):
+            return
+
+        reply = QMessageBox.question(
+            self,
+            self.ui.message.confirm_title,
+            'v1の out/uploaded_score.pkl が見つかりました。\n'
+            'sdvx_helper portal 送信済み履歴も取り込みますか？',
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        try:
+            imported = load_uploaded_scores_from_path(uploaded_path)
+            mng = ManageUploadedScores()
+            added = mng.merge(imported)
+            if added > 0:
+                mng.save()
+                if self.portal_manager is not None:
+                    self.portal_manager._uploaded_scores_mng = mng
+            QMessageBox.information(
+                self,
+                self.ui.message.completed_title,
+                f'portal 送信済み履歴を取り込みました。\n'
+                f'{added} / {len(imported)} 件を追加しました。',
+            )
+        except Exception as e:
+            logger.warning(f'uploaded_score.pkl import failed:\n{traceback.format_exc()}')
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                f'uploaded_score.pkl の取り込みに失敗しました:\n{e}',
+            )
 
     def _on_portal_upload_all(self):
         """全プレーログをPortalに送信"""

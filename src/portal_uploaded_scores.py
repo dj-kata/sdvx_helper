@@ -52,6 +52,8 @@ class _CompatUnpickler(pickle.Unpickler):
     def find_class(self, module: str, name: str):
         if name == 'OneUploadedScore':
             return OneUploadedScore
+        if name == 'ManageUploadedScores' and 'ManageUploadedScores' in globals():
+            return ManageUploadedScores
         return super().find_class(module, name)
 
 
@@ -65,6 +67,36 @@ class ManageUploadedScores:
     def push(self, data: OneUploadedScore) -> int:
         self.scores.append(data)
         return len(self.scores)
+
+    def merge(self, scores: List[OneUploadedScore]) -> int:
+        """既存データにない送信済みスコアだけを追加する。"""
+        existing = {
+            (
+                s.revision,
+                s.music_id,
+                s.difficulty,
+                s.score,
+                s.exscore,
+                s.lamp,
+            )
+            for s in self.scores
+        }
+        added = 0
+        for score in scores:
+            key = (
+                score.revision,
+                score.music_id,
+                score.difficulty,
+                score.score,
+                score.exscore,
+                score.lamp,
+            )
+            if key in existing:
+                continue
+            self.scores.append(score)
+            existing.add(key)
+            added += 1
+        return added
 
     def delete(self, revision: int, music_id: str, difficulty: str = None) -> bool:
         for i, s in enumerate(self.scores):
@@ -94,3 +126,31 @@ class ManageUploadedScores:
 
     def get_by_revision(self, revision: int) -> List[OneUploadedScore]:
         return [s for s in self.scores if s.revision == revision]
+
+
+def load_uploaded_scores_from_path(path: str) -> List[OneUploadedScore]:
+    """v1/v2 の uploaded_score.pkl から送信済みスコアリストを読み込む。"""
+    with open(path, 'rb') as fp:
+        data = _CompatUnpickler(fp).load()
+
+    if isinstance(data, ManageUploadedScores):
+        data = data.scores
+
+    if not isinstance(data, (list, tuple)):
+        raise ValueError('uploaded_score.pkl のフォーマットが不正です')
+
+    scores: List[OneUploadedScore] = []
+    for item in data:
+        if isinstance(item, OneUploadedScore):
+            scores.append(item)
+            continue
+        scores.append(OneUploadedScore(
+            revision=getattr(item, 'revision', None),
+            music_id=getattr(item, 'music_id', None),
+            difficulty=getattr(item, 'difficulty', None),
+            score=getattr(item, 'score', None),
+            exscore=getattr(item, 'exscore', None),
+            lamp=getattr(item, 'lamp', None),
+            uploaded_at=getattr(item, 'uploaded_at', None),
+        ))
+    return scores
