@@ -97,20 +97,13 @@ Windowsアプリ実行のためのライブラリ類も多数含まれていま�
 Chromeなどの通常のブラウザからも確認できます。
 
 # sdvx_helper設定方法
-- [インストール・初期設定について](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
-- [各種HTMLの設定方法](https://github.com/dj-kata/sdvx_helper/wiki/%E5%90%84%E7%A8%AEHTML%E3%81%AE%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
-- [sdvx_helper v1からのデータ移行方法](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper-v1%E3%81%8B%E3%82%89%E3%81%AE%E3%83%87%E3%83%BC%E3%82%BF%E5%8F%96%E3%82%8A%E8%BE%BC%E3%81%BF)
-
-# インストール方法
 [Releaseページ](https://github.com/dj-kata/sdvx_helper/releases)の一番上にあるsdvx_helper.zipをダウンロードし、好きなフォルダ(デスクトップ以外)に解凍してください。  
 sdvx_helper.exeをクリックすると実行できます。
 
-自動アップデート機能を搭載しており、更新データがある際は起動時にアップデートが走るようになっています。  
-
-# sdvx_helperの設定方法
-ゲーム画面について直接取得であれば設定不要で使うことができます。  
 詳しくは以下を参照してください。
-[sdvx_helper設定方法](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
+
+[インストール・初期設定について](https://github.com/dj-kata/sdvx_helper/wiki/sdvx_helper%E8%A8%AD%E5%AE%9A%E6%96%B9%E6%B3%95)
+
 
 ## その他の設定
 必須ではないですが、その他の便利機能の設定方法について記しておきます。  
