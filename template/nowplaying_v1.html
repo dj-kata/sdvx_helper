@@ -151,8 +151,8 @@
             setImage("jacket", images.jacket);
             document.getElementById("title").textContent = decodeText(data.title) || "---";
             document.getElementById("meta").textContent = [
-                decodeText(data.difficulty),
-                data.level ? "Lv." + decodeText(data.level) : ""
+                data.level ? "Lv" + decodeText(data.level) : "",
+                decodeText(data.difficulty)
             ].filter(Boolean).join(" / ") || "---";
         }
 
