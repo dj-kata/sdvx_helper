@@ -12,6 +12,7 @@ import re
 import traceback
 import datetime
 import threading
+import unicodedata
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Callable, Dict, List, Tuple, Optional
 
@@ -34,6 +35,29 @@ _TITLE_SPACE_TRANSLATION = str.maketrans({
 def _normalize_title(title: str) -> str:
     """CSVなど外部データ由来の曲名をDB照合用に軽く正規化する。"""
     return title.translate(_TITLE_SPACE_TRANSLATION).strip()
+
+
+def _normalize_header(header: str) -> str:
+    """CSVヘッダーを表記ゆれに強い比較キーへ変換する。"""
+    normalized = unicodedata.normalize('NFKC', header or '').strip().lower()
+    return re.sub(r'[\s_\-()（）]+', '', normalized)
+
+
+def _parse_positive_int(value: str) -> Optional[int]:
+    """カンマ入り数値などを int に変換し、0/空欄は未記録として None を返す。"""
+    normalized = unicodedata.normalize('NFKC', value or '').strip()
+    if not normalized:
+        return None
+    digits = re.sub(r'[,\s]', '', normalized)
+    if not digits.isdigit():
+        return None
+    parsed = int(digits)
+    return parsed if parsed > 0 else None
+
+
+def _normalize_token(value: str) -> str:
+    """ランプ/難易度などの短い識別子を比較用に正規化する。"""
+    return unicodedata.normalize('NFKC', value or '').strip().upper()
 
 
 class RivalScoreEntry:
@@ -236,45 +260,60 @@ class RivalFetchWorker(QThread):
         必須列: Title(title), Difficulty(difficulty), Score(score)
         任意列: Lamp(lamp), ExScore(exscore)
         """
-        reader = csv.DictReader(io.StringIO(csv_text))
+        if re.search(r'<html\b', csv_text[:4096], re.IGNORECASE):
+            if 'accounts.google.com' in csv_text or 'ServiceLogin' in csv_text:
+                raise ValueError('Google Driveのログインページが返されました。共有設定を確認してください。')
+            raise ValueError('CSVではなくHTMLが返されました。共有URL/ダウンロードURLを確認してください。')
+
+        sample = csv_text[:8192]
+        try:
+            dialect = csv.Sniffer().sniff(sample, delimiters=',\t;')
+        except csv.Error:
+            dialect = csv.excel
+
+        reader = csv.DictReader(io.StringIO(csv_text), dialect=dialect)
         if reader.fieldnames is None:
             return
 
-        lower_map: Dict[str, str] = {
-            (fn or '').lower(): fn for fn in reader.fieldnames
+        header_map: Dict[str, str] = {
+            _normalize_header(fn): fn for fn in reader.fieldnames
         }
-        if '楽曲名' in reader.fieldnames:
+        if _normalize_header('楽曲名') in header_map:
             rival.source = 'arcade_csv'
 
         def _get(row: dict, *keys: str) -> str:
             for k in keys:
-                v = row.get(lower_map.get(k, ''), '').strip()
+                v = row.get(header_map.get(_normalize_header(k), ''), '').strip()
                 if v:
                     return v
             return ''
 
         for row in reader:
-            title    = _normalize_title(_get(row, 'title', '楽曲名'))
-            diff_raw = _get(row, 'difficulty', '難易度').upper()
-            score_s  = _get(row, 'score', 'ハイスコア', 'スコア')
-            lamp_s   = _get(row, 'lamp', 'クリアランク', 'クリア')
-            ex_s     = _get(row, 'exscore', 'exスコア')
+            title    = _normalize_title(_get(row, 'title', 'music', 'song', '楽曲名', '曲名'))
+            diff_raw = _normalize_token(_get(row, 'difficulty', 'diff', '難易度'))
+            score_s  = _get(row, 'score', 'highscore', 'high_score', 'ハイスコア', 'スコア')
+            lamp_s   = _get(row, 'lamp', 'clear_lamp', 'clear', 'クリアランク', 'クリア')
+            ex_s     = _get(row, 'exscore', 'ex_score', 'ex-score', 'ex score', 'exスコア')
 
             if not title or not score_s:
                 continue
-            try:
-                score = int(score_s)
-            except ValueError:
+            score = _parse_positive_int(score_s)
+            if score is None:
                 continue
 
             # INF/GRV/HVN/VVD/XCD はすべて "MXM" に正規化してキーを統一
-            diff_enum = convert_difficulty(diff_raw)
-            diff_key  = str(diff_enum) if diff_enum else diff_raw
+            # sdvx_helper旧CSVは4th枠(MXM/INF/...)の difficulty が空欄になるためMXM扱いにする
+            diff_enum = convert_difficulty(diff_raw) if diff_raw else None
+            diff_key = (
+                str(diff_enum)
+                if diff_enum
+                else (str(convert_difficulty('MXM')) if not diff_raw else diff_raw)
+            )
 
             entry         = RivalScoreEntry()
             entry.score   = score
-            entry.lamp    = convert_lamp(lamp_s) if lamp_s else clear_lamp.noplay
-            entry.exscore = int(ex_s) if ex_s.isdigit() else None
+            entry.lamp    = convert_lamp(_normalize_token(lamp_s)) if lamp_s else clear_lamp.noplay
+            entry.exscore = _parse_positive_int(ex_s)
             rival.scores[(title, diff_key)] = entry
 
     # ── ポータルライバルパース ────────────────────────────────────────────────
