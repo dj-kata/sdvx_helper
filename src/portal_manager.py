@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import os
 import pickle
+import sys
 import traceback
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
@@ -65,13 +66,42 @@ def _load_dotenv_once(path: str | Path = '.env') -> None:
         logger.warning(f'.env の読み込みをスキップしました:\n{traceback.format_exc()}')
 
 
+def _read_secret_text(path: Path) -> str:
+    try:
+        if path.is_file():
+            return path.read_text(encoding='utf-8').splitlines()[0].strip()
+    except Exception:
+        logger.warning(f'HMAC key file read failed: {path}\n{traceback.format_exc()}')
+    return ''
+
+
 def _resolve_hmac_key() -> str:
-    """HMAC署名キーを .env の maya2_key から解決する。"""
+    """HMAC署名キーを .env / exe隣接ファイル / 定数から解決する。"""
     _load_dotenv_once()
     key = os.environ.get(HMAC_KEY_ENV_NAME, '').strip()
     if key:
         logger.debug(f'HMAC key loaded from .env/{HMAC_KEY_ENV_NAME}')
         return key
+
+    candidate_paths = []
+    exe_dir = Path(sys.executable).resolve().parent
+    candidate_paths.append(exe_dir / 'portal_secret.txt')
+    candidate_paths.append(Path.cwd() / 'portal_secret.txt')
+    for path in candidate_paths:
+        key = _read_secret_text(path)
+        if key:
+            logger.debug(f'HMAC key loaded from {path}')
+            return key
+
+    try:
+        from src.portal_secret import PORTAL_HMAC_KEY
+        key = str(PORTAL_HMAC_KEY).strip()
+        if key:
+            logger.debug('HMAC key loaded from src.portal_secret.PORTAL_HMAC_KEY')
+            return key
+    except Exception:
+        logger.warning(f'portal_secret import failed:\n{traceback.format_exc()}')
+
     return ''
 
 
@@ -101,6 +131,7 @@ class PortalManager:
         self.token = token
         self.master_db: list = []
         self._uploaded_scores_mng: Optional[ManageUploadedScores] = None
+        self.last_upload_error: str = ''
         if _HMAC_KEY:
             logger.info('PortalManager initialized (HMAC key OK)')
         else:
@@ -323,10 +354,13 @@ class PortalManager:
         Returns:
             requests.Response or None
         """
+        self.last_upload_error = ''
         if not _REQUESTS_AVAILABLE:
+            self.last_upload_error = 'requests library not installed'
             logger.warning('requests ライブラリが未インストールのためスキップ')
             return None
         if not self.token:
+            self.last_upload_error = 'token not set'
             logger.info('トークン未設定のためスキップ')
             return None
         if upload_all:
@@ -338,6 +372,7 @@ class PortalManager:
             ]
         elif results is not None:
             if not results:
+                self.last_upload_error = 'no updated result to upload'
                 logger.info('Portal送信対象の更新リザルトなし、送信スキップ')
                 return None
             candidates = [
@@ -347,10 +382,12 @@ class PortalManager:
             ]
         else:
             if start_time is None:
+                self.last_upload_error = 'start_time not set'
                 logger.info('start_time 未指定かつ upload_all=False のためスキップ')
                 return None
             today = result_database.get_today_results(start_time)
             if not today:
+                self.last_upload_error = 'no result today'
                 logger.info('今日のリザルトなし、送信スキップ')
                 return None
             candidates = [
@@ -360,12 +397,14 @@ class PortalManager:
             ]
 
         if not candidates:
+            self.last_upload_error = 'no score data'
             logger.info('送信データなし')
             return None
 
         if not self.master_db:
             logger.info('楽曲マスタ未取得のため取得を試みます...')
             if not self.get_musiclist() or not self.master_db:
+                self.last_upload_error = 'musiclist fetch failed'
                 logger.warning('楽曲マスタ取得失敗のためスキップ')
                 return None
 
@@ -410,6 +449,7 @@ class PortalManager:
 
         logger.info(f'マッチング結果: OK={cnt_ok}, NG={cnt_ng}')
         if not tmp:
+            self.last_upload_error = 'all songs failed to match portal DB'
             logger.info('全曲マッチング失敗、送信スキップ')
             return None
 
@@ -427,9 +467,11 @@ class PortalManager:
         # HMAC チェックサム
         key = _HMAC_KEY or _resolve_hmac_key()  # 起動後にファイルが置かれた場合も拾う
         if not key:
+            self.last_upload_error = 'HMAC key not set'
             logger.warning(
                 'HMAC キー未設定のため portal 送信をスキップします。'
-                '.env に maya2_key を設定してください。'
+                '.env の maya2_key、exe隣の portal_secret.txt、'
+                'または src.portal_secret.PORTAL_HMAC_KEY を設定してください。'
             )
             return None
         checksum = hmac.new(key.encode('utf-8'),
@@ -476,6 +518,7 @@ class PortalManager:
 
             return res
         except Exception:
+            self.last_upload_error = 'portal upload request failed'
             logger.error(f'portal upload 失敗:\n{traceback.format_exc()}')
             return None
 

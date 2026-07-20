@@ -293,7 +293,12 @@ class _PortalUploadAllWorker(QThread):
                 volforce=self.volforce,
             )
             if res is None:
-                self.result_ready.emit(False, 'no data or token not set')
+                detail = getattr(
+                    self.portal_manager,
+                    'last_upload_error',
+                    '',
+                ) or 'no data or token not set'
+                self.result_ready.emit(False, detail)
             elif res.status_code == 200:
                 self.result_ready.emit(True, '')
             else:

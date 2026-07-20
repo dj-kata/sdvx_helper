@@ -4,6 +4,7 @@ SDVX Helper - cx_Freeze build settings.
 
 import sys
 import shutil
+import os
 from pathlib import Path
 
 from cx_Freeze import Executable, setup
@@ -16,12 +17,48 @@ EXE_NAME = "sdvx_helper.exe" if sys.platform == "win32" else "sdvx_helper"
 BUILD_DIR = "sdvx_helper"
 FREEZE_BUILD_DIR = "build/sdvx_helper_freeze"
 ICON_FILE = Path("src/icon.ico")
+HMAC_KEY_ENV_NAME = "maya2_key"
 
 
 def add_if_exists(include_files: list[tuple[str, str]], src: str, dst: str) -> None:
     path = Path(src)
     if path.exists():
         include_files.append((str(path), dst))
+
+
+def read_dotenv_value(name: str, path: Path = Path(".env")) -> str:
+    if not path.exists():
+        return ""
+
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() != name:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+            value = value[1:-1]
+        return value
+    return ""
+
+
+def add_portal_secret_if_available(include_files: list[tuple[str, str]]) -> None:
+    key = os.environ.get(HMAC_KEY_ENV_NAME, "").strip() or read_dotenv_value(
+        HMAC_KEY_ENV_NAME
+    )
+    if not key:
+        print(
+            "Warning: maya2_key is not set. "
+            "Portal score upload will be disabled in this build."
+        )
+        return
+
+    secret_path = Path("build/portal_secret.txt")
+    secret_path.parent.mkdir(parents=True, exist_ok=True)
+    secret_path.write_text(f"{key}\n", encoding="utf-8")
+    include_files.append((str(secret_path), "portal_secret.txt"))
 
 
 include_files: list[tuple[str, str]] = []
@@ -57,6 +94,7 @@ add_if_exists(include_files, "LICENSE", "LICENSE")
 add_if_exists(include_files, "README.md", "README.md")
 add_if_exists(include_files, "en_README.md", "en_README.md")
 add_if_exists(include_files, str(ICON_FILE), str(ICON_FILE))
+add_portal_secret_if_available(include_files)
 
 build_exe_options = {
     "packages": [
