@@ -25,7 +25,7 @@ $(target_zip): $(target)
 	@rm -rf $(project_name)/*.json
 	@$(ZIP) $(target_zip) $(project_name)
 
-$(target): $(srcs) $(html_files) version.txt
+$(target): $(srcs) $(html_files) version.txt $(wildcard .env)
 	@rm -rf $(project_name)
 	@$(WUV) run setup.py build
 	@echo "不要なファイルを削除中..."
