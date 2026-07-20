@@ -101,6 +101,26 @@
             text-overflow: ellipsis;
         }
 
+        .level,
+        .difficulty {
+            display: inline;
+            color: inherit;
+            font: inherit;
+            line-height: inherit;
+        }
+
+        .difficulty.nov {
+            color: #74c7ff;
+        }
+
+        .difficulty.adv {
+            color: #ffe36e;
+        }
+
+        .difficulty.exh {
+            color: #ff7777;
+        }
+
         .empty {
             opacity: 0;
         }
@@ -150,10 +170,41 @@
             const images = data.images || {};
             setImage("jacket", images.jacket);
             document.getElementById("title").textContent = decodeText(data.title) || "---";
-            document.getElementById("meta").textContent = [
-                data.level ? "Lv" + decodeText(data.level) : "",
-                decodeText(data.difficulty)
-            ].filter(Boolean).join(" / ") || "---";
+            updateMeta(data);
+        }
+
+        function updateMeta(data) {
+            const meta = document.getElementById("meta");
+            const level = data.level ? "Lv" + decodeText(data.level) : "";
+            const difficulty = decodeText(data.difficulty);
+            const diffClass = difficulty.toLowerCase();
+
+            meta.textContent = "";
+            if (!level && !difficulty) {
+                meta.textContent = "---";
+                return;
+            }
+
+            if (level) {
+                const levelEl = document.createElement("span");
+                levelEl.className = "level";
+                levelEl.textContent = level;
+                meta.appendChild(levelEl);
+            }
+
+            if (level && difficulty) {
+                meta.appendChild(document.createTextNode(" / "));
+            }
+
+            if (difficulty) {
+                const diffEl = document.createElement("span");
+                diffEl.className = "difficulty";
+                if (["nov", "adv", "exh"].includes(diffClass)) {
+                    diffEl.classList.add(diffClass);
+                }
+                diffEl.textContent = difficulty;
+                meta.appendChild(diffEl);
+            }
         }
 
         function decodeText(value) {

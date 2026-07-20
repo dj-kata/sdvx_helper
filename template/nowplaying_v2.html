@@ -16,8 +16,8 @@
 
         html,
         body {
-            width: 1200px;
-            height: 500px;
+            width: 100%;
+            height: 100%;
             margin: 0;
             padding: 0;
             overflow: hidden;
@@ -35,8 +35,8 @@
         }
 
         .nowplaying {
-            width: 100%;
-            height: 100%;
+            width: 1200px;
+            height: 500px;
             display: grid;
             grid-template-columns: 250px minmax(0, 1fr);
             grid-template-rows:
@@ -48,6 +48,7 @@
                 linear-gradient(90deg, rgba(18, 32, 94, 0.92), rgba(7, 8, 22, 0.92) 48%, rgba(34, 10, 64, 0.92)),
                 rgba(0, 0, 0, 0.82);
             border: 12px solid #02144a;
+            transform-origin: top left;
         }
 
         .jacket-wrap {
@@ -190,6 +191,20 @@
 
     <script src="./sdvx_ws_client.js"></script>
     <script>
+        const BASE_WIDTH = 1200;
+        const BASE_HEIGHT = 500;
+
+        function fitToViewport() {
+            const root = document.querySelector(".nowplaying");
+            if (!root) return;
+            const width = window.innerWidth || BASE_WIDTH;
+            const height = window.innerHeight || BASE_HEIGHT;
+            const scale = Math.max(width / BASE_WIDTH, height / BASE_HEIGHT);
+            const offsetX = (width - BASE_WIDTH * scale) / 2;
+            const offsetY = (height - BASE_HEIGHT * scale) / 2;
+            root.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+        }
+
         function setImage(id, src) {
             const el = document.getElementById(id);
             if (!el) return;
@@ -255,6 +270,9 @@
             target: "nowplaying",
             onData: update
         });
+
+        fitToViewport();
+        window.addEventListener("resize", fitToViewport);
     </script>
 </body>
 
