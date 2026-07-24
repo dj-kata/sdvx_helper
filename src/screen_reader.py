@@ -420,6 +420,31 @@ class ScreenReader:
         except ValueError:
             return None
 
+    def _read_digits_as_int_allow_leading_blanks(
+        self,
+        img: Image.Image,
+        rects: list,
+        hash_dict: dict,
+        threshold: int = 10,
+        enable_68_correction: bool = True,
+    ) -> Optional[int]:
+        """固定桁枠の左側空白を許して整数を読む。
+
+        EXスコアメイン表示の大きなEXスコア欄は5桁分の枠があるが、
+        4桁以下のEXスコアでは左側が空白になる。
+        """
+        for start in range(len(rects)):
+            value = self._read_digits_as_int(
+                img,
+                rects[start:],
+                hash_dict,
+                threshold=threshold,
+                enable_68_correction=enable_68_correction,
+            )
+            if value is not None:
+                return value
+        return None
+
     def _read_score_8digit(
         self,
         img: Image.Image,
@@ -801,7 +826,7 @@ class ScreenReader:
                 threshold=16,
                 enable_68_correction=True,
             )
-        exscore = self._read_digits_as_int(
+        exscore = self._read_digits_as_int_allow_leading_blanks(
             img,
             RECT_RESULT_EXSCORE_EXMODE,
             HASH_RESULT_SCORE_LARGE,

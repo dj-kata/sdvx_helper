@@ -151,6 +151,8 @@ class MainWindow(MainWindowUI):
         self._last_select_cursong_key = None   # 選曲画面から最後に履歴表示へ配信した譜面
         self.result_timestamp: int = 0         # リザルト画面に入った時刻
         self.result_pre = None                 # 前回のリザルト読み取り結果
+        self.result_data_pre = None            # 前回のリザルト読み取りキー(summary用)
+        self._result_summary_captured_key = None
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
         self._text_summary_results = []        # テキスト版summary用の当日リザルト
         self._portal_pending_results = []      # 今回の起動中に自己ベスト更新したPortal送信対象
@@ -791,6 +793,8 @@ class MainWindow(MainWindowUI):
         if new.is_result_screen() and not old.is_result_screen():
             self.result_timestamp = int(datetime.datetime.now().timestamp())
             self.result_pre = None
+            self.result_data_pre = None
+            self._result_summary_captured_key = None
 
     # ── 各モードの処理 ────────────────────────────────────────────────────────
 
@@ -956,6 +960,10 @@ class MainWindow(MainWindowUI):
         if score is None or lamp is None:
             return
 
+        result_data_key = self._result_data_key(data)
+        is_result_data_confirmed = result_data_key == self.result_data_pre
+        self.result_data_pre = result_data_key
+
         recognized_title = data.get('title')
         if not recognized_title:
             post_unknown_result_jacket(
@@ -968,6 +976,11 @@ class MainWindow(MainWindowUI):
         title = recognized_title or self.current_title
         diff  = data.get('difficulty') or self.current_diff
         if not title or diff is None:
+            if is_result_data_confirmed:
+                self._capture_result_summary_from_current_screen(
+                    result_data_key,
+                    self.result_timestamp,
+                )
             return
 
         self.current_title = title
@@ -1055,18 +1068,12 @@ class MainWindow(MainWindowUI):
 
             # 画像保存 + スクリーンショット版サマリー生成
             if self.config.autosave_image:
-                if screen is not None and should_include_summary:
-                    summary_item = capture_summary_item_from_screen(
-                        screen,
+                if should_include_summary:
+                    self._capture_result_summary_from_current_screen(
+                        result_data_key,
                         result.timestamp,
+                        screen=screen,
                     )
-                    if summary_item is not None:
-                        self._result_summary_items.append(summary_item)
-                        generate_summary_from_items(
-                            self._result_summary_items,
-                            bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
-                            min_rows=getattr(self.config, 'summary_min_rows', 15),
-                        )
 
                 if self._should_save_result_image(is_result_updated):
                     self.save_image(
@@ -1144,6 +1151,50 @@ class MainWindow(MainWindowUI):
         if not getattr(self.config, 'summary_updated_results_only', False):
             return True
         return is_result_updated
+
+    @staticmethod
+    def _result_data_key(data: dict) -> tuple:
+        """リザルト読み取りの安定判定とsummary重複防止に使うキー。"""
+        return (
+            data.get('title'),
+            data.get('difficulty'),
+            data.get('score'),
+            data.get('exscore'),
+            data.get('lamp'),
+            data.get('detect_mode'),
+        )
+
+    def _capture_result_summary_from_current_screen(
+        self,
+        result_data_key: tuple,
+        timestamp: int,
+        screen=None,
+    ) -> bool:
+        """現在のリザルト画面を summary_*.png 用に取り込む。"""
+        if not self.config.autosave_image:
+            return False
+        if self._result_summary_captured_key == result_data_key:
+            return False
+
+        screen = screen or self._current_result_screen()
+        if screen is None:
+            return False
+
+        summary_item = capture_summary_item_from_screen(
+            screen,
+            timestamp or int(datetime.datetime.now().timestamp()),
+        )
+        if summary_item is None:
+            return False
+
+        self._result_summary_items.append(summary_item)
+        self._result_summary_captured_key = result_data_key
+        generate_summary_from_items(
+            self._result_summary_items,
+            bg_alpha=getattr(self.config, 'summary_bg_alpha', 200),
+            min_rows=getattr(self.config, 'summary_min_rows', 15),
+        )
+        return True
 
     def _should_include_saved_summary_image(self, data: dict | None, image_mtime: int) -> bool:
         """保存済み画像を起動時summary復元に含めるかを返す。"""
