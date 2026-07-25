@@ -215,23 +215,28 @@ def post_unknown_result_jacket(
 ) -> bool:
     """リザルト画面で曲名認識できなかったジャケットを送信する。"""
     if diff is None:
+        logger.info("未登録ジャケットWebhookスキップ: 難易度なし")
         return False
 
     env_name = RESULT_UNKNOWN_ROUTE_BY_DIFF.get(diff)
     if not env_name:
+        logger.info(f"未登録ジャケットWebhookスキップ: 未対応難易度 diff={diff}")
         return False
     url = _webhook_url(env_name)
     if not url:
+        logger.info(f"未登録ジャケットWebhookスキップ: {env_name} 未設定")
         return False
 
     hash_hex = jacket_hash_hex(jacket_img)
     if not hash_hex:
+        logger.info("未登録ジャケットWebhookスキップ: ジャケット画像/hashなし")
         return False
 
     route_name = env_name.removesuffix('_WEBHOOK_URL')
     key = (route_name, _difficulty_label(diff), hash_hex)
     with _sent_lock:
         if key in _sent_keys:
+            logger.info(f"未登録ジャケットWebhookスキップ: 送信済み {route_name} {hash_hex}")
             return False
         _sent_keys.add(key)
 

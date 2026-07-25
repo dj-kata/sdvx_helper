@@ -951,19 +951,6 @@ class MainWindow(MainWindowUI):
         if not data:
             return
 
-        score      = data.get('score')
-        lamp       = data.get('lamp')
-        exscore    = data.get('exscore')
-        bestscore  = data.get('bestscore')
-        bestex     = data.get('bestexscore')
-
-        if score is None or lamp is None:
-            return
-
-        result_data_key = self._result_data_key(data)
-        is_result_data_confirmed = result_data_key == self.result_data_pre
-        self.result_data_pre = result_data_key
-
         recognized_title = data.get('title')
         if not recognized_title:
             post_unknown_result_jacket(
@@ -972,6 +959,24 @@ class MainWindow(MainWindowUI):
                 self._current_result_screen(),
                 version=f"v.{SWVER}",
             )
+
+        score      = data.get('score')
+        lamp       = data.get('lamp')
+        exscore    = data.get('exscore')
+        bestscore  = data.get('bestscore')
+        bestex     = data.get('bestexscore')
+
+        if score is None or lamp is None:
+            logger.warning(
+                "リザルト登録スキップ: スコア/ランプ認識不足 "
+                f"title={recognized_title!r}, difficulty={data.get('difficulty')}, "
+                f"score={score}, lamp={lamp}"
+            )
+            return
+
+        result_data_key = self._result_data_key(data)
+        is_result_data_confirmed = result_data_key == self.result_data_pre
+        self.result_data_pre = result_data_key
 
         title = recognized_title or self.current_title
         diff  = data.get('difficulty') or self.current_diff
