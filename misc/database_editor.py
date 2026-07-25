@@ -1,935 +1,699 @@
-"""
-misc/database_editor.py
-songinfo.infdc を編集するための GUI ツール
+"""SDVX musiclist editor.
 
-起動: uv run -m misc.database_editor
-"""
+resources/musiclist.pkl と resources/musiclistv2.sdvxh を編集するための GUI ツール。
 
+起動:
+    uv run -m misc.database_editor
+"""
+from __future__ import annotations
+
+import bz2
+import pickle
 import sys
+import unicodedata
+from copy import deepcopy
 from pathlib import Path
-from typing import Optional
 
-from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QSplitter, QTableWidget, QTableWidgetItem, QHeaderView,
-    QLabel, QLineEdit, QPushButton, QGroupBox, QGridLayout,
-    QComboBox, QRadioButton, QButtonGroup, QScrollArea,
-    QDialog, QFormLayout, QDoubleSpinBox, QSpinBox,
-    QAbstractItemView,
-)
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import (
+    QApplication,
+    QAbstractItemView,
+    QCheckBox,
+    QComboBox,
+    QFormLayout,
+    QGridLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QRadioButton,
+    QSpinBox,
+    QSplitter,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-# プロジェクトルートをパスに追加
-sys.path.insert(0, str(Path(__file__).parent.parent))
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-from src.classes import play_style, difficulty, music_pack, unofficial_difficulty
-from src.songinfo import SongDatabase, OneSongInfo
-from src.funcs import calc_chart_id
 
-# =========================================================
-#  定数
-# =========================================================
+MUSICLIST_V1 = Path("resources") / "musiclist.pkl"
+MUSICLIST_V2 = Path("resources") / "musiclistv2.sdvxh"
 
-VERSION_NAMES: dict[int, str] = {
-    1:        '1st&substream',
-    2:        '2nd style',
-    3:        '3rd style',
-    4:        '4th style',
-    5:        '5th style',
-    6:        '6th style',
-    7:        '7th style',
-    8:        '8th style',
-    9:        '9th style',
-    10:       '10th style',
-    11:       'IIDX RED',
-    12:       'HAPPY SKY',
-    13:       'DistorteD',
-    14:       'GOLD',
-    15:       'DJ TROOPERS',
-    16:       'EMPRESS',
-    17:       'SIRIUS',
-    18:       'Resort Anthem',
-    19:       'Lincle',
-    20:       'tricoro',
-    21:       'SPADA',
-    22:       'PENDUAL',
-    23:       'copula',
-    24:       'SINOBUZ',
-    25:       'CANNON BALLERS',
-    26:       'Rootage',
-    27:       'HEROIC VERSE',
-    28:       'BISTROVER',
-    29:       'CastHour',
-    30:       'RESIDENT',
-    31:       'EPOLIS',
-    32:       'Pinky Crush',
-    33:       'Sparkle Shower',
-    99999999: 'INFINITAS',
-}
-VERSION_NAME_TO_NUM: dict[str, int] = {v: k for k, v in VERSION_NAMES.items()}
-
-# 難易度ラベルと Enum のペア (表示順)
-DIFF_LABELS = [
-    ('B', difficulty.beginner),
-    ('N', difficulty.normal),
-    ('H', difficulty.hyper),
-    ('A', difficulty.another),
-    ('L', difficulty.leggendaria),
+DIFFS = [
+    ("nov", "NOV", 3),
+    ("adv", "ADV", 4),
+    ("exh", "EXH", 5),
+    ("APPEND", "APPEND", 6),
 ]
-
-# unofficial_difficulty の表示名リスト (先頭が空欄 = None)
-UNOFF_NAMES = [''] + [str(ud) for ud in unofficial_difficulty]
-UNOFF_NAME_TO_ENUM: dict[str, unofficial_difficulty] = {
-    str(ud): ud for ud in unofficial_difficulty
-}
+GRADE_LEVELS = (17, 18, 19)
 
 
-# =========================================================
-#  ヘルパー関数
-# =========================================================
-
-def version_str(version: Optional[int]) -> str:
-    if version is None:
-        return ''
-    return VERSION_NAMES.get(version, str(version))
-
-
-def pack_str(pack) -> str:
-    if pack is None:
-        return ''
-    if isinstance(pack, music_pack):
-        return pack.name
-    return str(pack)
-
-
-def level_str(level: Optional[int]) -> str:
-    return str(level) if level is not None else '-'
-
-
-# =========================================================
-#  EditDialog – モードレス編集ダイアログ
-# =========================================================
-
-class EditDialog(QDialog):
-    """曲情報を編集するモードレスダイアログ。
-    メインウィンドウの選択が変わるたびに set_title() が呼ばれる。
-    """
-
-    saved = Signal()  # 保存完了時に emit
-
-    def __init__(self, db: SongDatabase, parent=None):
-        super().__init__(parent)
-        self.db = db
-        self.current_title: Optional[str] = None
-        self.setWindowTitle('曲情報編集')
-        self.setMinimumWidth(420)
-        self.resize(480, 700)
-        self._setup_ui()
-
-    # =========================================================
-    #  UI 構築
-    # =========================================================
-
-    def _setup_ui(self):
-        root = QVBoxLayout(self)
-
-        # ---- タイトル表示 ----
-        self.title_label = QLabel('(未選択)')
-        self.title_label.setStyleSheet('font-weight: bold; font-size: 14px;')
-        root.addWidget(self.title_label)
-
-        # ---- SP/DP ラジオ ----
-        ps_box = QGroupBox('プレースタイル')
-        ps_layout = QHBoxLayout(ps_box)
-        self.rb_sp = QRadioButton('SP')
-        self.rb_dp = QRadioButton('DP')
-        self.rb_sp.setChecked(True)
-        self._ps_group = QButtonGroup(self)
-        self._ps_group.addButton(self.rb_sp, 0)
-        self._ps_group.addButton(self.rb_dp, 1)
-        ps_layout.addWidget(self.rb_sp)
-        ps_layout.addWidget(self.rb_dp)
-        root.addWidget(ps_box)
-
-        # ---- 難易度ラジオ ----
-        diff_box = QGroupBox('難易度')
-        diff_layout = QHBoxLayout(diff_box)
-        self.rb_diffs: dict[difficulty, QRadioButton] = {}
-        self._diff_group = QButtonGroup(self)
-        for i, (label, d) in enumerate(DIFF_LABELS):
-            rb = QRadioButton(label)
-            self.rb_diffs[d] = rb
-            self._diff_group.addButton(rb, i)
-            diff_layout.addWidget(rb)
-        self.rb_diffs[difficulty.another].setChecked(True)
-        root.addWidget(diff_box)
-
-        # ---- チャート存在ラベル ----
-        self.chart_status_label = QLabel('')
-        root.addWidget(self.chart_status_label)
-
-        # ---- スクロールエリア (フォーム本体) ----
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        inner = QWidget()
-        form = QFormLayout(inner)
-        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-
-        # == 基本情報 ==
-        self._section(form, '基本情報')
-
-        self.cb_version = QComboBox()
-        self.cb_version.addItem('')
-        for name in VERSION_NAMES.values():
-            self.cb_version.addItem(name)
-        form.addRow('収録バージョン:', self.cb_version)
-
-        self.cb_pack = QComboBox()
-        self.cb_pack.addItem('')
-        for mp in music_pack:
-            self.cb_pack.addItem(mp.name)
-        form.addRow('楽曲パック:', self.cb_pack)
-
-        bpm_row = QWidget()
-        bpm_rl = QHBoxLayout(bpm_row)
-        bpm_rl.setContentsMargins(0, 0, 0, 0)
-        self.sb_min_bpm = self._spinbox(0, 9999)
-        self.sb_max_bpm = self._spinbox(0, 9999)
-        bpm_rl.addWidget(QLabel('min:'))
-        bpm_rl.addWidget(self.sb_min_bpm)
-        bpm_rl.addWidget(QLabel('max:'))
-        bpm_rl.addWidget(self.sb_max_bpm)
-        bpm_rl.addStretch()
-        form.addRow('BPM:', bpm_row)
-
-        # == 譜面情報 ==
-        self._section(form, '譜面情報')
-
-        self.sb_notes = self._spinbox(0, 99999)
-        form.addRow('ノーツ数:', self.sb_notes)
-
-        self.cb_level = QComboBox()
-        self.cb_level.addItem('')
-        for i in range(1, 13):
-            self.cb_level.addItem(str(i))
-        form.addRow('レベル (1–12):', self.cb_level)
-
-        # == ノーツレーダー ==
-        self._section(form, 'ノーツレーダー')
-
-        self.dsb_rader_notes   = self._dspinbox()
-        self.dsb_rader_peak    = self._dspinbox()
-        self.dsb_rader_scratch = self._dspinbox()
-        self.dsb_rader_soflan  = self._dspinbox()
-        self.dsb_rader_charge  = self._dspinbox()
-        self.dsb_rader_chord   = self._dspinbox()
-        form.addRow('Notes:',   self.dsb_rader_notes)
-        form.addRow('Peak:',    self.dsb_rader_peak)
-        form.addRow('Scratch:', self.dsb_rader_scratch)
-        form.addRow('Soflan:',  self.dsb_rader_soflan)
-        form.addRow('Charge:',  self.dsb_rader_charge)
-        form.addRow('Chord:',   self.dsb_rader_chord)
-
-        # == SP 非公式難易度 ==
-        self._section(form, 'SP 非公式難易度')
-
-        self.cb_sp12_hard  = self._unoff_combo()
-        self.cb_sp12_clear = self._unoff_combo()
-        self.le_sp12_title = QLineEdit()
-        self.cb_sp11_hard  = self._unoff_combo()
-        self.cb_sp11_clear = self._unoff_combo()
-        form.addRow('SP12 Hard:',  self.cb_sp12_hard)
-        form.addRow('SP12 Clear:', self.cb_sp12_clear)
-        form.addRow('SP12 Title:', self.le_sp12_title)
-        form.addRow('SP11 Hard:',  self.cb_sp11_hard)
-        form.addRow('SP11 Clear:', self.cb_sp11_clear)
-
-        # == CPI ==
-        self._section(form, 'CPI')
-
-        self.dsb_cpi_easy  = self._dspinbox()
-        self.dsb_cpi_clear = self._dspinbox()
-        self.dsb_cpi_hard  = self._dspinbox()
-        self.dsb_cpi_exh   = self._dspinbox()
-        self.dsb_cpi_fc    = self._dspinbox()
-        form.addRow('Easy:',  self.dsb_cpi_easy)
-        form.addRow('Clear:', self.dsb_cpi_clear)
-        form.addRow('Hard:',  self.dsb_cpi_hard)
-        form.addRow('EXH:',   self.dsb_cpi_exh)
-        form.addRow('FC:',    self.dsb_cpi_fc)
-
-        # == 片手難易度 ==
-        self._section(form, '片手難易度')
-
-        self.sb_katate_12 = self._spinbox(-1, 99)
-        self.sb_katate_11 = self._spinbox(-1, 99)
-        form.addRow('Katate 12:', self.sb_katate_12)
-        form.addRow('Katate 11:', self.sb_katate_11)
-
-        # == BPI ==
-        self._section(form, 'BPI')
-
-        self.sb_bpi_ave   = self._spinbox(-1, 99999)
-        self.sb_bpi_top   = self._spinbox(-1, 99999)
-        self.dsb_bpi_coef = self._dspinbox(lo=-999.0, hi=999.0)
-        self.le_bpi_title = QLineEdit()
-        form.addRow('Ave:',       self.sb_bpi_ave)
-        form.addRow('Top:',       self.sb_bpi_top)
-        form.addRow('Coef:',      self.dsb_bpi_coef)
-        form.addRow('BPI Title:', self.le_bpi_title)
-
-        # == DP 非公式難易度 ==
-        self._section(form, 'DP 非公式難易度')
-
-        self.dsb_dp_unofficial  = self._dspinbox(lo=-1.0, hi=30.0)
-        self.dsb_dp_ereter_easy = self._dspinbox()
-        self.dsb_dp_ereter_hard = self._dspinbox()
-        self.dsb_dp_ereter_exh  = self._dspinbox()
-        form.addRow('DP 非公式:',   self.dsb_dp_unofficial)
-        form.addRow('ereter Easy:', self.dsb_dp_ereter_easy)
-        form.addRow('ereter Hard:', self.dsb_dp_ereter_hard)
-        form.addRow('ereter EXH:',  self.dsb_dp_ereter_exh)
-
-        scroll.setWidget(inner)
-        root.addWidget(scroll)
-
-        # ---- ボタン行 ----
-        btn_layout = QHBoxLayout()
-        self.btn_save   = QPushButton('保存')
-        self.btn_cancel = QPushButton('キャンセル')
-        btn_layout.addWidget(self.btn_save)
-        btn_layout.addWidget(self.btn_cancel)
-        root.addLayout(btn_layout)
-
-        # ---- シグナル接続 ----
-        self._ps_group.buttonClicked.connect(self._on_chart_changed)
-        self._diff_group.buttonClicked.connect(self._on_chart_changed)
-        self.btn_save.clicked.connect(self._on_save)
-        self.btn_cancel.clicked.connect(self._on_cancel)
-
-    # ---- ウィジェットファクトリ ----
-
-    def _spinbox(self, lo: int = -1, hi: int = 9999) -> QSpinBox:
-        sb = QSpinBox()
-        sb.setRange(lo, hi)
-        if lo == -1:
-            sb.setSpecialValueText('-')
-        return sb
-
-    def _dspinbox(self, lo: float = -1.0, hi: float = 9999.0) -> QDoubleSpinBox:
-        dsb = QDoubleSpinBox()
-        dsb.setRange(lo, hi)
-        dsb.setDecimals(2)
-        if lo == -1.0:
-            dsb.setSpecialValueText('-')
-        return dsb
-
-    def _unoff_combo(self) -> QComboBox:
-        cb = QComboBox()
-        for name in UNOFF_NAMES:
-            cb.addItem(name)
-        return cb
-
-    def _section(self, form: QFormLayout, title: str):
-        lbl = QLabel(f'── {title} ──')
-        lbl.setStyleSheet('color: gray; margin-top: 6px;')
-        form.addRow(lbl)
-
-    # =========================================================
-    #  公開メソッド
-    # =========================================================
-
-    def set_title(self, title: Optional[str]):
-        """メインウィンドウの選択が変わったときに呼ぶ。"""
-        self.current_title = title
-        self.title_label.setText(title if title else '(未選択)')
-        self._load_chart()
-
-    # =========================================================
-    #  内部処理
-    # =========================================================
-
-    def _current_ps_diff(self) -> tuple[play_style, difficulty]:
-        ps = play_style.sp if self.rb_sp.isChecked() else play_style.dp
-        for d, rb in self.rb_diffs.items():
-            if rb.isChecked():
-                return ps, d
-        return play_style.sp, difficulty.another
-
-    def _on_chart_changed(self):
-        self._load_chart()
-
-    def _load_chart(self):
-        if not self.current_title:
-            self._clear_fields()
-            self.chart_status_label.setText('')
-            return
-        ps, diff = self._current_ps_diff()
-        chart = self.db.search(title=self.current_title, play_style=ps, difficulty=diff)
-        if chart:
-            self.chart_status_label.setText('')
-            self._fill_fields(chart)
+def normalize_search_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", str(text)).lower()
+    chars = []
+    for ch in normalized:
+        code = ord(ch)
+        if 0x30A1 <= code <= 0x30F6:
+            chars.append(chr(code - 0x60))
         else:
-            self.chart_status_label.setText(
-                '※ このチャートは DB に未登録です (保存すると新規作成)'
-            )
-            self.chart_status_label.setStyleSheet('color: orange;')
-            self._clear_fields()
-
-    # ---- フィールドクリア ----
-
-    def _clear_fields(self):
-        self.cb_version.setCurrentIndex(0)
-        self.cb_pack.setCurrentIndex(0)
-        self.sb_min_bpm.setValue(0)
-        self.sb_max_bpm.setValue(0)
-        self.sb_notes.setValue(0)
-        self.cb_level.setCurrentIndex(0)
-        for dsb in (
-            self.dsb_rader_notes, self.dsb_rader_peak, self.dsb_rader_scratch,
-            self.dsb_rader_soflan, self.dsb_rader_charge, self.dsb_rader_chord,
-        ):
-            dsb.setValue(dsb.minimum())
-        for cb in (self.cb_sp12_hard, self.cb_sp12_clear, self.cb_sp11_hard, self.cb_sp11_clear):
-            cb.setCurrentIndex(0)
-        self.le_sp12_title.clear()
-        for dsb in (
-            self.dsb_cpi_easy, self.dsb_cpi_clear, self.dsb_cpi_hard,
-            self.dsb_cpi_exh, self.dsb_cpi_fc,
-        ):
-            dsb.setValue(dsb.minimum())
-        self.sb_katate_12.setValue(-1)
-        self.sb_katate_11.setValue(-1)
-        self.sb_bpi_ave.setValue(-1)
-        self.sb_bpi_top.setValue(-1)
-        self.dsb_bpi_coef.setValue(self.dsb_bpi_coef.minimum())
-        self.le_bpi_title.clear()
-        self.dsb_dp_unofficial.setValue(self.dsb_dp_unofficial.minimum())
-        for dsb in (self.dsb_dp_ereter_easy, self.dsb_dp_ereter_hard, self.dsb_dp_ereter_exh):
-            dsb.setValue(dsb.minimum())
-
-    # ---- フィールド入力 ----
-
-    def _fill_fields(self, c: OneSongInfo):
-        # バージョン
-        vname = version_str(c.version)
-        idx = self.cb_version.findText(vname)
-        self.cb_version.setCurrentIndex(idx if idx >= 0 else 0)
-
-        # パック
-        pname = pack_str(c.music_pack)
-        idx = self.cb_pack.findText(pname)
-        self.cb_pack.setCurrentIndex(idx if idx >= 0 else 0)
-
-        # BPM
-        self.sb_min_bpm.setValue(c.min_bpm or 0)
-        self.sb_max_bpm.setValue(c.max_bpm or 0)
-
-        # ノーツ数
-        self.sb_notes.setValue(c.notes or 0)
-
-        # レベル
-        if c.level is not None:
-            idx = self.cb_level.findText(str(c.level))
-            self.cb_level.setCurrentIndex(idx if idx >= 0 else 0)
-        else:
-            self.cb_level.setCurrentIndex(0)
-
-        # ノーツレーダー
-        def fv(v): return v if v is not None else -1.0
-        self.dsb_rader_notes.setValue(fv(c.rader_notes))
-        self.dsb_rader_peak.setValue(fv(c.rader_peak))
-        self.dsb_rader_scratch.setValue(fv(c.rader_scratch))
-        self.dsb_rader_soflan.setValue(fv(c.rader_soflan))
-        self.dsb_rader_charge.setValue(fv(c.rader_charge))
-        self.dsb_rader_chord.setValue(fv(c.rader_chord))
-
-        # SP 非公式難易度
-        def set_unoff(cb, val):
-            name = str(val) if val is not None else ''
-            idx = cb.findText(name)
-            cb.setCurrentIndex(idx if idx >= 0 else 0)
-
-        set_unoff(self.cb_sp12_hard,  c.sp12_hard)
-        set_unoff(self.cb_sp12_clear, c.sp12_clear)
-        set_unoff(self.cb_sp11_hard,  c.sp11_hard)
-        set_unoff(self.cb_sp11_clear, c.sp11_clear)
-        self.le_sp12_title.setText(c.sp12_title or '')
-
-        # CPI
-        self.dsb_cpi_easy.setValue(fv(c.cpi_easy))
-        self.dsb_cpi_clear.setValue(fv(c.cpi_clear))
-        self.dsb_cpi_hard.setValue(fv(c.cpi_hard))
-        self.dsb_cpi_exh.setValue(fv(c.cpi_exh))
-        self.dsb_cpi_fc.setValue(fv(c.cpi_fc))
-
-        # 片手難易度
-        self.sb_katate_12.setValue(c.katate_12 if c.katate_12 is not None else -1)
-        self.sb_katate_11.setValue(c.katate_11 if c.katate_11 is not None else -1)
-
-        # BPI
-        self.sb_bpi_ave.setValue(c.bpi_ave if c.bpi_ave is not None else -1)
-        self.sb_bpi_top.setValue(c.bpi_top if c.bpi_top is not None else -1)
-        self.dsb_bpi_coef.setValue(fv(c.bpi_coef))
-        self.le_bpi_title.setText(c.bpi_title or '')
-
-        # DP 非公式難易度
-        # dp_unofficial はDBでは float として格納されている
-        dp_unoff = c.dp_unofficial
-        if dp_unoff is not None:
-            try:
-                self.dsb_dp_unofficial.setValue(float(dp_unoff))
-            except (ValueError, TypeError):
-                self.dsb_dp_unofficial.setValue(-1.0)
-        else:
-            self.dsb_dp_unofficial.setValue(-1.0)
-
-        self.dsb_dp_ereter_easy.setValue(fv(c.dp_ereter_easy))
-        self.dsb_dp_ereter_hard.setValue(fv(c.dp_ereter_hard))
-        self.dsb_dp_ereter_exh.setValue(fv(c.dp_ereter_exh))
-
-    # ---- 保存 ----
-
-    def _on_save(self):
-        if not self.current_title:
-            return
-        ps, diff = self._current_ps_diff()
-        chart = self.db.search(title=self.current_title, play_style=ps, difficulty=diff)
-        if chart is None:
-            lt = self.cb_level.currentText()
-            chart = OneSongInfo(
-                title=self.current_title,
-                play_style=ps,
-                difficulty=diff,
-                level=int(lt) if lt else None,
-            )
-
-        # バージョン
-        vname = self.cb_version.currentText()
-        chart.version = VERSION_NAME_TO_NUM.get(vname) if vname else None
-
-        # パック
-        pack_name = self.cb_pack.currentText()
-        if pack_name:
-            try:
-                chart.music_pack = music_pack[pack_name]
-            except KeyError:
-                chart.music_pack = None
-        else:
-            chart.music_pack = None
-
-        # BPM
-        chart.min_bpm = self.sb_min_bpm.value() or None
-        chart.max_bpm = self.sb_max_bpm.value() or None
-
-        # ノーツ数
-        chart.notes = self.sb_notes.value() or None
-
-        # レベル
-        lt = self.cb_level.currentText()
-        chart.level = int(lt) if lt else chart.level
-
-        # ノーツレーダー
-        def gf(dsb: QDoubleSpinBox):
-            v = dsb.value()
-            return None if v <= dsb.minimum() + 0.001 else v
-
-        def gi(sb: QSpinBox):
-            v = sb.value()
-            return None if v == -1 else v
-
-        chart.rader_notes   = gf(self.dsb_rader_notes)
-        chart.rader_peak    = gf(self.dsb_rader_peak)
-        chart.rader_scratch = gf(self.dsb_rader_scratch)
-        chart.rader_soflan  = gf(self.dsb_rader_soflan)
-        chart.rader_charge  = gf(self.dsb_rader_charge)
-        chart.rader_chord   = gf(self.dsb_rader_chord)
-
-        # SP 非公式難易度
-        def get_unoff(cb: QComboBox):
-            name = cb.currentText()
-            return UNOFF_NAME_TO_ENUM.get(name) if name else None
-
-        chart.sp12_hard  = get_unoff(self.cb_sp12_hard)
-        chart.sp12_clear = get_unoff(self.cb_sp12_clear)
-        chart.sp11_hard  = get_unoff(self.cb_sp11_hard)
-        chart.sp11_clear = get_unoff(self.cb_sp11_clear)
-        chart.sp12_title = self.le_sp12_title.text() or None
-
-        # CPI
-        chart.cpi_easy  = gf(self.dsb_cpi_easy)
-        chart.cpi_clear = gf(self.dsb_cpi_clear)
-        chart.cpi_hard  = gf(self.dsb_cpi_hard)
-        chart.cpi_exh   = gf(self.dsb_cpi_exh)
-        chart.cpi_fc    = gf(self.dsb_cpi_fc)
-
-        # 片手難易度
-        chart.katate_12 = gi(self.sb_katate_12)
-        chart.katate_11 = gi(self.sb_katate_11)
-
-        # BPI
-        chart.bpi_ave   = gi(self.sb_bpi_ave)
-        chart.bpi_top   = gi(self.sb_bpi_top)
-        chart.bpi_coef  = gf(self.dsb_bpi_coef)
-        chart.bpi_title = self.le_bpi_title.text() or None
-
-        # DP 非公式難易度
-        chart.dp_unofficial  = gf(self.dsb_dp_unofficial)
-        chart.dp_ereter_easy = gf(self.dsb_dp_ereter_easy)
-        chart.dp_ereter_hard = gf(self.dsb_dp_ereter_hard)
-        chart.dp_ereter_exh  = gf(self.dsb_dp_ereter_exh)
-
-        self.db.add(chart)
-        self.db.save()
-
-        self.chart_status_label.setText(
-            f'保存しました: {ps.name.upper()} {diff.name.upper()}'
-        )
-        self.chart_status_label.setStyleSheet('color: green;')
-        self.saved.emit()
-
-    # ---- キャンセル ----
-
-    def _on_cancel(self):
-        """変更を破棄してリロード。"""
-        self._load_chart()
-        self.chart_status_label.setText('変更を破棄しました')
-        self.chart_status_label.setStyleSheet('color: gray;')
+            chars.append(ch)
+    return "".join(chars)
 
 
-# =========================================================
-#  PropertiesPanel – 右上のプロパティ表示
-# =========================================================
-
-class PropertiesPanel(QGroupBox):
-    """選択中の曲の概要を表示し、編集ボタンを持つパネル。"""
-
-    edit_requested = Signal()
-
-    def __init__(self, parent=None):
-        super().__init__('プロパティ', parent)
-        self._setup_ui()
-
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        grid = QGridLayout()
-
-        def lbl(bold=False) -> QLabel:
-            l = QLabel('-')
-            if bold:
-                l.setStyleSheet('font-weight: bold;')
-            l.setWordWrap(True)
-            return l
-
-        self.lbl_title   = lbl(bold=True)
-        self.lbl_sp      = lbl()
-        self.lbl_dp      = lbl()
-        self.lbl_version = lbl()
-        self.lbl_pack    = lbl()
-
-        grid.addWidget(QLabel('曲名:'),   0, 0, Qt.AlignTop)
-        grid.addWidget(self.lbl_title,   0, 1)
-        grid.addWidget(QLabel('SP:'),     1, 0, Qt.AlignTop)
-        grid.addWidget(self.lbl_sp,      1, 1)
-        grid.addWidget(QLabel('DP:'),     2, 0, Qt.AlignTop)
-        grid.addWidget(self.lbl_dp,      2, 1)
-        grid.addWidget(QLabel('Version:'),3, 0, Qt.AlignTop)
-        grid.addWidget(self.lbl_version, 3, 1)
-        grid.addWidget(QLabel('Pack:'),   4, 0, Qt.AlignTop)
-        grid.addWidget(self.lbl_pack,    4, 1)
-        grid.setColumnStretch(1, 1)
-
-        layout.addLayout(grid)
-
-        self.btn_edit = QPushButton('編集...')
-        self.btn_edit.clicked.connect(self.edit_requested)
-        self.btn_edit.setEnabled(False)
-        layout.addWidget(self.btn_edit)
-        layout.addStretch()
-
-    def update_song(self, title: Optional[str], charts: dict):
-        """
-        charts: {(play_style, difficulty): OneSongInfo}
-        """
-        if title is None:
-            self.lbl_title.setText('-')
-            self.lbl_sp.setText('-')
-            self.lbl_dp.setText('-')
-            self.lbl_version.setText('-')
-            self.lbl_pack.setText('-')
-            self.btn_edit.setEnabled(False)
-            return
-
-        self.lbl_title.setText(title)
-
-        # SP レベル表示 (B N H A L)
-        sp_parts = []
-        for label, d in DIFF_LABELS:
-            c = charts.get((play_style.sp, d))
-            if c:
-                sp_parts.append(f'{label}:{level_str(c.level)}')
-        self.lbl_sp.setText('  '.join(sp_parts) if sp_parts else '-')
-
-        # DP レベル表示 (N H A L, Beginner はなし)
-        dp_parts = []
-        for label, d in DIFF_LABELS[1:]:
-            c = charts.get((play_style.dp, d))
-            if c:
-                dp_parts.append(f'{label}:{level_str(c.level)}')
-        self.lbl_dp.setText('  '.join(dp_parts) if dp_parts else '-')
-
-        # バージョン (最初の非 None)
-        ver = next((c.version for c in charts.values() if c.version is not None), None)
-        self.lbl_version.setText(version_str(ver) or '-')
-
-        # パック (最初の非 None)
-        pk = next((c.music_pack for c in charts.values() if c.music_pack is not None), None)
-        self.lbl_pack.setText(pack_str(pk) or '-')
-
-        self.btn_edit.setEnabled(True)
+def load_pkl(path: Path) -> dict:
+    with open(path, "rb") as f:
+        return pickle.load(f)
 
 
-# =========================================================
-#  FilterPanel – 左上のフィルタ・検索パネル
-# =========================================================
+def save_pkl(data: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp_path, "wb") as f:
+        pickle.dump(data, f)
+    tmp_path.replace(path)
+
+
+def load_sdvxh(path: Path) -> dict:
+    with bz2.open(path, "rb") as f:
+        return pickle.load(f)
+
+
+def save_sdvxh(data: dict, path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with bz2.open(tmp_path, "wb") as f:
+        pickle.dump(data, f)
+    tmp_path.replace(path)
+
+
+def load_musiclist(path: Path) -> dict:
+    if path.suffix == ".sdvxh":
+        return load_sdvxh(path)
+    return load_pkl(path)
+
+
+def save_musiclist(data: dict, path: Path) -> None:
+    if path.suffix == ".sdvxh":
+        save_sdvxh(data, path)
+    else:
+        save_pkl(data, path)
+
+
+def ensure_title_row(row: list) -> list:
+    row = list(row)
+    while len(row) < 7:
+        row.append(0 if len(row) >= 3 else "")
+    return row
+
+
+def row_level(row: list, idx: int) -> int:
+    try:
+        return int(row[idx] or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def grade_value(data: dict, level: int, title: str) -> str:
+    return str(data.get(f"gradeS_lv{level}", {}).get(title, ""))
+
+
+def set_grade_value(data: dict, level: int, title: str, enabled: bool) -> None:
+    key = f"gradeS_lv{level}"
+    grades = data.setdefault(key, {})
+    if enabled:
+        grades[title] = "1"
+    else:
+        grades.pop(title, None)
+
 
 class FilterPanel(QGroupBox):
-    """プレースタイル・レベル・曲名検索でリストを絞り込むパネル。"""
-
     filter_changed = Signal()
 
     def __init__(self, parent=None):
-        super().__init__('フィルタ', parent)
+        super().__init__("フィルタ", parent)
+        layout = QVBoxLayout(self)
+
+        self.rb_v2 = QRadioButton("v2 (musiclistv2.sdvxh)")
+        self.rb_v1 = QRadioButton("v1 (musiclist.pkl)")
+        self.rb_v2.setChecked(True)
+        layout.addWidget(self.rb_v2)
+        layout.addWidget(self.rb_v1)
+
+        self.cb_diff = QComboBox()
+        self.cb_diff.addItem("ALL")
+        for _key, label, _idx in DIFFS:
+            self.cb_diff.addItem(label)
+        layout.addWidget(QLabel("難易度"))
+        layout.addWidget(self.cb_diff)
+
+        self.cb_level = QComboBox()
+        self.cb_level.addItem("ALL")
+        for lv in range(1, 21):
+            self.cb_level.addItem(str(lv))
+        layout.addWidget(QLabel("レベル"))
+        layout.addWidget(self.cb_level)
+
+        self.search_edit = QLineEdit()
+        self.search_edit.setPlaceholderText("曲名 / アーティストで検索")
+        layout.addWidget(QLabel("検索"))
+        layout.addWidget(self.search_edit)
+
+        layout.addStretch()
+
+        self.rb_v1.toggled.connect(self.filter_changed)
+        self.rb_v2.toggled.connect(self.filter_changed)
+        self.cb_diff.currentIndexChanged.connect(self.filter_changed)
+        self.cb_level.currentIndexChanged.connect(self.filter_changed)
+        self.search_edit.textChanged.connect(self.filter_changed)
+
+    def target_key(self) -> str:
+        return "v2" if self.rb_v2.isChecked() else "v1"
+
+    def diff_filter(self) -> str | None:
+        text = self.cb_diff.currentText()
+        return None if text == "ALL" else text
+
+    def level_filter(self) -> int | None:
+        text = self.cb_level.currentText()
+        return None if text == "ALL" else int(text)
+
+    def search_text(self) -> str:
+        return normalize_search_text(self.search_edit.text().strip())
+
+
+class SongEditPanel(QGroupBox):
+    saved = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__("編集", parent)
+        self._data: dict | None = None
+        self._title: str | None = None
+        self._loading = False
         self._setup_ui()
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # プレースタイル
-        ps_layout = QHBoxLayout()
-        self.rb_all = QRadioButton('ALL')
-        self.rb_sp  = QRadioButton('SP')
-        self.rb_dp  = QRadioButton('DP')
-        self.rb_all.setChecked(True)
-        self._ps_group = QButtonGroup(self)
-        for i, rb in enumerate([self.rb_all, self.rb_sp, self.rb_dp]):
-            self._ps_group.addButton(rb, i)
-            ps_layout.addWidget(rb)
-        layout.addLayout(ps_layout)
+        self.title_label = QLabel("(未選択)")
+        self.title_label.setWordWrap(True)
+        self.title_label.setStyleSheet("font-weight: bold;")
+        layout.addWidget(self.title_label)
 
-        # レベル
-        lv_layout = QHBoxLayout()
-        lv_layout.addWidget(QLabel('Level:'))
-        self.cb_level = QComboBox()
-        self.cb_level.addItem('ALL')
-        for i in range(1, 13):
-            self.cb_level.addItem(str(i))
-        lv_layout.addWidget(self.cb_level)
-        lv_layout.addStretch()
-        layout.addLayout(lv_layout)
+        form_box = QGroupBox("基本情報")
+        form = QFormLayout(form_box)
+        self.title_edit = QLineEdit()
+        self.artist_edit = QLineEdit()
+        self.bpm_edit = QLineEdit()
+        self.title_v1_edit = QLineEdit()
+        form.addRow("曲名:", self.title_edit)
+        form.addRow("アーティスト:", self.artist_edit)
+        form.addRow("BPM:", self.bpm_edit)
+        form.addRow("v1曲名:", self.title_v1_edit)
+        layout.addWidget(form_box)
 
-        # 曲名検索
-        layout.addWidget(QLabel('検索:'))
-        self.le_search = QLineEdit()
-        self.le_search.setPlaceholderText('曲名で検索...')
-        layout.addWidget(self.le_search)
+        levels_box = QGroupBox("レベル")
+        levels = QGridLayout(levels_box)
+        self.level_spins: dict[str, QSpinBox] = {}
+        for col, (db_key, label, _idx) in enumerate(DIFFS):
+            levels.addWidget(QLabel(label), 0, col)
+            spin = QSpinBox()
+            spin.setRange(0, 20)
+            spin.setSpecialValueText("-")
+            self.level_spins[db_key] = spin
+            levels.addWidget(spin, 1, col)
+        layout.addWidget(levels_box)
 
+        hash_box = QGroupBox("hash")
+        hash_grid = QGridLayout(hash_box)
+        hash_grid.addWidget(QLabel("難易度"), 0, 0)
+        hash_grid.addWidget(QLabel("jacket"), 0, 1)
+        hash_grid.addWidget(QLabel("info"), 0, 2)
+        self.jacket_edits: dict[str, QLineEdit] = {}
+        self.info_edits: dict[str, QLineEdit] = {}
+        for row, (db_key, label, _idx) in enumerate(DIFFS, start=1):
+            hash_grid.addWidget(QLabel(label), row, 0)
+            jacket = QLineEdit()
+            info = QLineEdit()
+            self.jacket_edits[db_key] = jacket
+            self.info_edits[db_key] = info
+            hash_grid.addWidget(jacket, row, 1)
+            hash_grid.addWidget(info, row, 2)
+        layout.addWidget(hash_box)
+
+        grade_box = QGroupBox("Grade S 対象")
+        grade_layout = QHBoxLayout(grade_box)
+        self.grade_checks: dict[int, QCheckBox] = {}
+        for lv in GRADE_LEVELS:
+            cb = QCheckBox(f"Lv{lv}")
+            self.grade_checks[lv] = cb
+            grade_layout.addWidget(cb)
+        grade_layout.addStretch()
+        layout.addWidget(grade_box)
+
+        buttons = QHBoxLayout()
+        self.save_btn = QPushButton("保存")
+        self.reload_btn = QPushButton("再読み込み")
+        self.save_btn.clicked.connect(self._save)
+        self.reload_btn.clicked.connect(self._reload_current)
+        buttons.addWidget(self.save_btn)
+        buttons.addWidget(self.reload_btn)
+        layout.addLayout(buttons)
         layout.addStretch()
 
-        self._ps_group.buttonClicked.connect(self.filter_changed)
-        self.cb_level.currentIndexChanged.connect(self.filter_changed)
-        self.le_search.textChanged.connect(self.filter_changed)
+        self._set_enabled(False)
 
-    def ps_filter(self) -> Optional[play_style]:
-        id_ = self._ps_group.checkedId()
-        if id_ == 1:
-            return play_style.sp
-        if id_ == 2:
-            return play_style.dp
-        return None
+    def _set_enabled(self, enabled: bool):
+        for widget in (
+            self.title_edit,
+            self.artist_edit,
+            self.bpm_edit,
+            self.title_v1_edit,
+            self.save_btn,
+            self.reload_btn,
+        ):
+            widget.setEnabled(enabled)
+        for widget in list(self.level_spins.values()) + list(self.jacket_edits.values()) + list(self.info_edits.values()):
+            widget.setEnabled(enabled)
+        for widget in self.grade_checks.values():
+            widget.setEnabled(enabled)
 
-    def level_filter(self) -> Optional[int]:
-        txt = self.cb_level.currentText()
-        return None if txt == 'ALL' else int(txt)
+    def set_database(self, data: dict):
+        self._data = data
+        self.set_title(self._title)
 
-    def search_text(self) -> str:
-        return self.le_search.text().strip()
+    def set_title(self, title: str | None):
+        self._title = title
+        self._load_title()
 
+    def _load_title(self):
+        self._loading = True
+        try:
+            if not self._data or not self._title:
+                self.title_label.setText("(未選択)")
+                self._clear()
+                self._set_enabled(False)
+                return
 
-# =========================================================
-#  MainWindow
-# =========================================================
+            row = self._data.get("titles", {}).get(self._title)
+            if not row:
+                self.title_label.setText("(未選択)")
+                self._clear()
+                self._set_enabled(False)
+                return
+
+            row = ensure_title_row(row)
+            self.title_label.setText(self._title)
+            self.title_edit.setText(str(row[0] or self._title))
+            self.artist_edit.setText(str(row[1] or ""))
+            self.bpm_edit.setText(str(row[2] or ""))
+            self.title_v1_edit.setText(str(row[7] or "") if len(row) > 7 else "")
+
+            for db_key, _label, idx in DIFFS:
+                self.level_spins[db_key].setValue(row_level(row, idx))
+                self.jacket_edits[db_key].setText(str(self._data.get("jacket", {}).get(db_key, {}).get(self._title, "") or ""))
+                self.info_edits[db_key].setText(str(self._data.get("info", {}).get(db_key, {}).get(self._title, "") or ""))
+
+            for lv, cb in self.grade_checks.items():
+                cb.setChecked(grade_value(self._data, lv, self._title) == "1")
+            self._set_enabled(True)
+        finally:
+            self._loading = False
+
+    def _clear(self):
+        for edit in (self.title_edit, self.artist_edit, self.bpm_edit, self.title_v1_edit):
+            edit.clear()
+        for spin in self.level_spins.values():
+            spin.setValue(0)
+        for edit in list(self.jacket_edits.values()) + list(self.info_edits.values()):
+            edit.clear()
+        for cb in self.grade_checks.values():
+            cb.setChecked(False)
+
+    def _reload_current(self):
+        self._load_title()
+
+    def _save(self):
+        if not self._data or not self._title:
+            return
+
+        old_title = self._title
+        new_title = self.title_edit.text().strip()
+        if not new_title:
+            QMessageBox.warning(self, "保存できません", "曲名は空にできません。")
+            return
+        if new_title != old_title and new_title in self._data.get("titles", {}):
+            QMessageBox.warning(self, "保存できません", f"既に同名の曲があります:\n{new_title}")
+            return
+
+        titles = self._data.setdefault("titles", {})
+        row = ensure_title_row(titles.get(old_title, [old_title, "", "", 0, 0, 0, 0]))
+        row[0] = new_title
+        row[1] = self.artist_edit.text().strip()
+        row[2] = self.bpm_edit.text().strip()
+        for db_key, _label, idx in DIFFS:
+            row[idx] = int(self.level_spins[db_key].value())
+
+        title_v1 = self.title_v1_edit.text().strip()
+        if title_v1:
+            while len(row) <= 7:
+                row.append("")
+            row[7] = title_v1
+        elif len(row) > 7:
+            row[7] = ""
+
+        if new_title != old_title:
+            titles.pop(old_title, None)
+        titles[new_title] = row
+
+        self._rename_nested_title(old_title, new_title)
+        self._write_hashes(new_title)
+        for lv, cb in self.grade_checks.items():
+            if old_title != new_title:
+                self._data.setdefault(f"gradeS_lv{lv}", {}).pop(old_title, None)
+            set_grade_value(self._data, lv, new_title, cb.isChecked())
+
+        self._title = new_title
+        self.title_label.setText(new_title)
+        self.saved.emit(new_title)
+
+    def _rename_nested_title(self, old_title: str, new_title: str):
+        if old_title == new_title or not self._data:
+            return
+        for section in ("jacket", "info"):
+            for by_title in self._data.get(section, {}).values():
+                if isinstance(by_title, dict) and old_title in by_title:
+                    by_title[new_title] = by_title.pop(old_title)
+        for key, value in self._data.items():
+            if key.startswith("gradeS_lv") and isinstance(value, dict) and old_title in value:
+                value[new_title] = value.pop(old_title)
+
+    def _write_hashes(self, title: str):
+        if not self._data:
+            return
+        for section, edits in (("jacket", self.jacket_edits), ("info", self.info_edits)):
+            section_data = self._data.setdefault(section, {})
+            for db_key, edit in edits.items():
+                value = edit.text().strip().lower()
+                by_title = section_data.setdefault(db_key, {})
+                if value:
+                    by_title[title] = value
+                else:
+                    by_title.pop(title, None)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Database Editor – songinfo.infdc')
-        self.resize(1100, 750)
-
-        print('Loading database...')
-        self.db = SongDatabase()
-        self._build_title_data()
+        self.setWindowTitle("SDVX musiclist editor")
+        self.resize(1280, 820)
+        self._db: dict[str, dict] = {}
+        self._paths = {"v1": MUSICLIST_V1, "v2": MUSICLIST_V2}
+        self._dirty = {"v1": False, "v2": False}
         self._setup_ui()
+        self._load_all()
         self._apply_filter()
-
-    # ---- データ構築 ----
-
-    def _build_title_data(self):
-        """曲名をキーとして全チャートを集約する。"""
-        self.title_data: dict[str, dict] = {}
-        for chart in self.db.songs.values():
-            t = chart.title
-            if t not in self.title_data:
-                self.title_data[t] = {'charts': {}}
-            self.title_data[t]['charts'][(chart.play_style, chart.difficulty)] = chart
-
-    # ---- UI 構築 ----
 
     def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
-        main_layout = QVBoxLayout(central)
+        root = QVBoxLayout(central)
 
-        # 上部: フィルタ(左) + プロパティ(右)
-        top_splitter = QSplitter(Qt.Horizontal)
+        splitter = QSplitter(Qt.Horizontal)
+        root.addWidget(splitter)
 
+        left = QWidget()
+        left_layout = QVBoxLayout(left)
         self.filter_panel = FilterPanel()
-        self.filter_panel.setMaximumWidth(260)
-        self.filter_panel.filter_changed.connect(self._apply_filter)
-        top_splitter.addWidget(self.filter_panel)
+        self.filter_panel.filter_changed.connect(self._on_filter_changed)
+        left_layout.addWidget(self.filter_panel)
 
-        self.props_panel = PropertiesPanel()
-        self.props_panel.edit_requested.connect(self._on_edit_requested)
-        top_splitter.addWidget(self.props_panel)
-        top_splitter.setStretchFactor(1, 1)
-
-        # 下部: リストビュー
         self.table = QTableWidget()
-        self.table.setColumnCount(3)
-        self.table.setHorizontalHeaderLabels(['曲名', 'Version', 'Music Pack'])
+        self.table.setColumnCount(7)
+        self.table.setHorizontalHeaderLabels(["曲名", "Artist", "NOV", "ADV", "EXH", "APPEND", "v1曲名"])
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        for col in range(2, 6):
+            self.table.horizontalHeader().setSectionResizeMode(col, QHeaderView.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        self.table.verticalHeader().setDefaultSectionSize(22)
+        self.table.verticalHeader().setVisible(False)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSortingEnabled(True)
         self.table.itemSelectionChanged.connect(self._on_selection_changed)
+        left_layout.addWidget(self.table)
 
-        # 垂直スプリッタ (上部 / リスト)
-        vsplit = QSplitter(Qt.Vertical)
-        vsplit.addWidget(top_splitter)
-        vsplit.addWidget(self.table)
-        vsplit.setStretchFactor(1, 1)
-        vsplit.setSizes([240, 510])
+        splitter.addWidget(left)
 
-        main_layout.addWidget(vsplit)
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        self.edit_panel = SongEditPanel()
+        self.edit_panel.saved.connect(self._on_song_saved)
+        right_layout.addWidget(self.edit_panel)
 
-        # モードレス編集ダイアログ
-        self.edit_dialog = EditDialog(self.db, self)
-        self.edit_dialog.saved.connect(self._on_db_saved)
+        db_buttons = QGroupBox("DB")
+        db_layout = QVBoxLayout(db_buttons)
+        self.save_current_btn = QPushButton("表示中DBをファイルへ保存")
+        self.save_all_btn = QPushButton("両方保存")
+        self.copy_v1_to_v2_btn = QPushButton("同名曲を v1 -> v2 に反映")
+        self.reload_btn = QPushButton("ファイルから再読み込み")
+        self.save_current_btn.clicked.connect(self._save_current)
+        self.save_all_btn.clicked.connect(self._save_all)
+        self.copy_v1_to_v2_btn.clicked.connect(self._copy_selected_v1_to_v2)
+        self.reload_btn.clicked.connect(self._reload_all)
+        db_layout.addWidget(self.save_current_btn)
+        db_layout.addWidget(self.save_all_btn)
+        db_layout.addWidget(self.copy_v1_to_v2_btn)
+        db_layout.addWidget(self.reload_btn)
+        right_layout.addWidget(db_buttons)
 
-    # =========================================================
-    #  フィルタ & テーブル更新
-    # =========================================================
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        right_layout.addWidget(self.status_label)
+        right_layout.addStretch()
+
+        splitter.addWidget(right)
+        splitter.setSizes([820, 460])
+
+    def _load_all(self):
+        self._db = {}
+        errors = []
+        for key, path in self._paths.items():
+            try:
+                self._db[key] = load_musiclist(path)
+                self._dirty[key] = False
+            except Exception as exc:
+                self._db[key] = {"titles": {}, "jacket": {}, "info": {}}
+                errors.append(f"{path}: {exc}")
+        self._refresh_editor_db()
+        if errors:
+            QMessageBox.warning(self, "読み込みエラー", "\n".join(errors))
+        self._set_status("読み込み完了")
+
+    def _current_key(self) -> str:
+        return self.filter_panel.target_key()
+
+    def _current_db(self) -> dict:
+        return self._db[self._current_key()]
+
+    def _refresh_editor_db(self):
+        self.edit_panel.set_database(self._current_db())
+
+    def _on_filter_changed(self):
+        self._refresh_editor_db()
+        self._apply_filter()
 
     def _apply_filter(self):
-        ps_f  = self.filter_panel.ps_filter()
-        lv_f  = self.filter_panel.level_filter()
-        srch  = self.filter_panel.search_text().lower()
-
-        # 現在の選択を保持
         selected_title = self._selected_title()
+        data = self._current_db()
+        search = self.filter_panel.search_text()
+        diff = self.filter_panel.diff_filter()
+        level = self.filter_panel.level_filter()
 
-        # フィルタ適用
-        filtered: list[str] = []
-        for title, data in self.title_data.items():
-            if srch and srch not in title.lower():
+        rows = []
+        for title, raw_row in data.get("titles", {}).items():
+            row = ensure_title_row(raw_row)
+            haystack = normalize_search_text(f"{title} {row[0]} {row[1]}")
+            if search and search not in haystack:
                 continue
-            if ps_f is not None or lv_f is not None:
-                ok = any(
-                    (ps_f is None or ps == ps_f)
-                    and (lv_f is None or (c.level is not None and c.level == lv_f))
-                    for (ps, _), c in data['charts'].items()
-                )
-                if not ok:
+            if diff or level is not None:
+                matched = False
+                for _db_key, label, idx in DIFFS:
+                    lv = row_level(row, idx)
+                    if diff and label != diff:
+                        continue
+                    if level is not None and lv != level:
+                        continue
+                    if lv:
+                        matched = True
+                        break
+                if not matched:
                     continue
-            filtered.append(title)
+            rows.append((title, row))
 
-        filtered.sort()
+        rows.sort(key=lambda item: normalize_search_text(item[0]))
 
-        # テーブル更新 (ソートを一時停止)
         self.table.setSortingEnabled(False)
-        self.table.setRowCount(len(filtered))
-        for row, title in enumerate(filtered):
-            charts = self.title_data[title]['charts']
-            ver = next((c.version for c in charts.values() if c.version is not None), None)
-            pk  = next((c.music_pack for c in charts.values() if c.music_pack is not None), None)
-            self.table.setItem(row, 0, QTableWidgetItem(title))
-            self.table.setItem(row, 1, QTableWidgetItem(version_str(ver)))
-            self.table.setItem(row, 2, QTableWidgetItem(pack_str(pk)))
+        self.table.setRowCount(len(rows))
+        for table_row, (title, row) in enumerate(rows):
+            values = [
+                title,
+                str(row[1] or ""),
+                str(row_level(row, 3) or ""),
+                str(row_level(row, 4) or ""),
+                str(row_level(row, 5) or ""),
+                str(row_level(row, 6) or ""),
+                str(row[7] or "") if len(row) > 7 else "",
+            ]
+            for col, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if col in (2, 3, 4, 5):
+                    item.setData(Qt.UserRole, int(value or 0))
+                    item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(table_row, col, item)
         self.table.setSortingEnabled(True)
 
-        # 選択を復元
         if selected_title:
-            for row in range(self.table.rowCount()):
-                item = self.table.item(row, 0)
-                if item and item.text() == selected_title:
-                    self.table.selectRow(row)
-                    break
+            self._select_title(selected_title)
+        elif self.table.rowCount():
+            self.table.selectRow(0)
+        else:
+            self.edit_panel.set_title(None)
 
-    # =========================================================
-    #  選択変更ハンドラ
-    # =========================================================
+        self._update_window_title()
 
-    def _selected_title(self) -> Optional[str]:
+    def _selected_title(self) -> str | None:
         row = self.table.currentRow()
         if row < 0:
             return None
         item = self.table.item(row, 0)
         return item.text() if item else None
 
+    def _select_title(self, title: str):
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, 0)
+            if item and item.text() == title:
+                self.table.selectRow(row)
+                return
+
     def _on_selection_changed(self):
-        title = self._selected_title()
-        if title is None:
-            self.props_panel.update_song(None, {})
-            self.edit_dialog.set_title(None)
-            return
-        data = self.title_data.get(title, {'charts': {}})
-        self.props_panel.update_song(title, data['charts'])
-        self.edit_dialog.set_title(title)
+        self.edit_panel.set_title(self._selected_title())
 
-    # =========================================================
-    #  編集ダイアログ
-    # =========================================================
-
-    def _on_edit_requested(self):
-        self.edit_dialog.show()
-        self.edit_dialog.raise_()
-        self.edit_dialog.activateWindow()
-
-    def _on_db_saved(self):
-        """EditDialog が保存したあとに呼ばれる。title_data を再構築してリストを更新。"""
-        self._build_title_data()
+    def _on_song_saved(self, title: str):
+        key = self._current_key()
+        self._dirty[key] = True
         self._apply_filter()
-        # プロパティパネルも更新
+        self._select_title(title)
+        self._set_status(f"未保存の変更あり: {self._paths[key]}")
+
+    def _copy_selected_v1_to_v2(self):
         title = self._selected_title()
-        if title:
-            data = self.title_data.get(title, {'charts': {}})
-            self.props_panel.update_song(title, data['charts'])
+        if not title:
+            return
+        v1 = self._db["v1"]
+        v2 = self._db["v2"]
+        if title not in v1.get("titles", {}):
+            QMessageBox.information(self, "反映できません", "同名曲が v1 にありません。")
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "確認",
+            f"v1 の同名曲データを v2 へ反映しますか?\n\n{title}",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        v2.setdefault("titles", {})[title] = deepcopy(v1["titles"][title])
+        for section in ("jacket", "info"):
+            for db_key, _label, _idx in DIFFS:
+                src = v1.get(section, {}).get(db_key, {})
+                dst = v2.setdefault(section, {}).setdefault(db_key, {})
+                if title in src:
+                    dst[title] = src[title]
+                else:
+                    dst.pop(title, None)
+        for lv in GRADE_LEVELS:
+            set_grade_value(v2, lv, title, grade_value(v1, lv, title) == "1")
+
+        self._dirty["v2"] = True
+        self.filter_panel.rb_v2.setChecked(True)
+        self._apply_filter()
+        self._select_title(title)
+        self._set_status("v1 から v2 へ反映しました。ファイル保存はまだです。")
+
+    def _save_current(self):
+        self._save_one(self._current_key())
+
+    def _save_all(self):
+        self._save_one("v1")
+        self._save_one("v2")
+
+    def _save_one(self, key: str):
+        try:
+            save_musiclist(self._db[key], self._paths[key])
+        except Exception as exc:
+            QMessageBox.critical(self, "保存失敗", f"{self._paths[key]}\n{exc}")
+            return
+        self._dirty[key] = False
+        self._update_window_title()
+        self._set_status(f"保存しました: {self._paths[key]}")
+
+    def _reload_all(self):
+        if any(self._dirty.values()):
+            reply = QMessageBox.question(
+                self,
+                "確認",
+                "未保存の変更を破棄して再読み込みしますか?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                return
+        self._load_all()
+        self._apply_filter()
+
+    def _set_status(self, text: str):
+        dirty = [key for key, value in self._dirty.items() if value]
+        suffix = f" / 未保存: {', '.join(dirty)}" if dirty else ""
+        self.status_label.setText(text + suffix)
+        self._update_window_title()
+
+    def _update_window_title(self):
+        dirty_mark = "*" if any(self._dirty.values()) else ""
+        current = self._current_key()
+        self.setWindowTitle(f"SDVX musiclist editor{dirty_mark} - {current}")
+
+    def closeEvent(self, event):
+        if any(self._dirty.values()):
+            reply = QMessageBox.question(
+                self,
+                "確認",
+                "未保存の変更があります。終了しますか?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply != QMessageBox.Yes:
+                event.ignore()
+                return
+        super().closeEvent(event)
 
 
-# =========================================================
-#  エントリーポイント
-# =========================================================
-
-def main():
-    app = QApplication(sys.argv)
-    app.setApplicationName('DB Editor')
+def main() -> None:
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.setApplicationName("SDVX musiclist editor")
     win = MainWindow()
     win.show()
     sys.exit(app.exec())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
