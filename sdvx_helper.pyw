@@ -153,6 +153,7 @@ class MainWindow(MainWindowUI):
         self.result_pre = None                 # 前回のリザルト読み取り結果
         self.result_data_pre = None            # 前回のリザルト読み取りキー(summary用)
         self._result_summary_captured_key = None
+        self._unknown_result_image_saved_key = None
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
         self._text_summary_results = []        # テキスト版summary用の当日リザルト
         self._portal_pending_results = []      # 今回の起動中に自己ベスト更新したPortal送信対象
@@ -795,6 +796,7 @@ class MainWindow(MainWindowUI):
             self.result_pre = None
             self.result_data_pre = None
             self._result_summary_captured_key = None
+            self._unknown_result_image_saved_key = None
 
     # ── 各モードの処理 ────────────────────────────────────────────────────────
 
@@ -986,6 +988,12 @@ class MainWindow(MainWindowUI):
                     result_data_key,
                     self.result_timestamp,
                 )
+                self._save_unknown_result_image_once(
+                    result_data_key,
+                    score=score,
+                    exscore=exscore,
+                    lamp=lamp,
+                )
             return
 
         self.current_title = title
@@ -1080,7 +1088,10 @@ class MainWindow(MainWindowUI):
                         screen=screen,
                     )
 
-                if self._should_save_result_image(is_result_updated):
+                if (
+                    not recognized_title
+                    or self._should_save_result_image(is_result_updated)
+                ):
                     self.save_image(
                         score=score,
                         exscore=exscore,
@@ -1156,6 +1167,29 @@ class MainWindow(MainWindowUI):
         if not getattr(self.config, 'summary_updated_results_only', False):
             return True
         return is_result_updated
+
+    def _save_unknown_result_image_once(
+        self,
+        result_data_key: tuple,
+        score=None,
+        exscore=None,
+        lamp=None,
+    ) -> bool:
+        """曲名未確定のリザルト画像を、同一読み取りにつき1回だけ保存する。"""
+        if not self.config.autosave_image:
+            return False
+        if self._unknown_result_image_saved_key == result_data_key:
+            return False
+
+        screen = self._current_result_screen()
+        if screen is None:
+            return False
+
+        if self.save_image(score=score, exscore=exscore, lamp=lamp, screen=screen):
+            self._unknown_result_image_saved_key = result_data_key
+            logger.info(f"曲名未確定リザルト画像保存: {result_data_key}")
+            return True
+        return False
 
     @staticmethod
     def _result_data_key(data: dict) -> tuple:
