@@ -32,6 +32,13 @@ _RIVAL_PATH   = Path('rival.sdvxh')
 _JACKET_EXT = '.jpg'
 _JACKET_FALLBACK_EXTS = (_JACKET_EXT, '.png')
 _NON_PC_APPEND_DIFFS = {'ULT'}
+_LOCAL_APPEND_DIFF_OVERRIDES = {
+    # musiclistv2 は4th枠を1つしか持てないため、Everlasting Message は
+    # ULT(Lv20)で上書きされた状態になりうる。portalマスタ取得前でも
+    # PC版のGRVだけを自己べ/VF集計に残す。
+    ('Everlasting Message', 19): 'GRV',
+    ('Everlasting Message', 20): 'ULT',
+}
 
 
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
@@ -64,6 +71,7 @@ class ResultDatabase:
         self._display_bests_cache_signature = None
         self._append_diff_map_cache_signature = None
         self._append_diff_map_cache: dict[tuple[str, int], str] = {}
+        self._append_diff_norm_map_cache: dict[tuple[str, int], str] = {}
         self._results_revision = 0
         self._results_by_chart: Dict[str, List[OneResult]] = {}
 
@@ -211,7 +219,14 @@ class ResultDatabase:
             return False
 
         # DB から自己ベストを補完（リザルト画面読み取りが失敗していた場合のフォールバック）
-        db_score, db_exscore, db_lamp = self.get_best(chart_id=result.chart_id)
+        #
+        # chart_id だけで引くと、MXM/INF/GRV/HVN/VVD/XCD/ULT を統合した
+        # difficulty.maximum 内の別レベル譜面まで候補になる。title/diff を渡して
+        # マスタ/レベル判定を必ず通す。
+        db_score, db_exscore, db_lamp = self.get_best(
+            title=result.title,
+            diff=result.difficulty,
+        )
         if result.bestscore is None:
             result.bestscore = db_score
         if result.bestexscore is None:
@@ -429,16 +444,15 @@ class ResultDatabase:
     def _get_append_cdiff(self, title: str, level: int | None) -> str | None:
         """portalマスタから4th枠の実難易度名を返す。"""
         if not title or not level or self.portal_manager is None:
-            return None
+            return _LOCAL_APPEND_DIFF_OVERRIDES.get((title, level))
         diff_map = self._get_append_diff_map()
         cdiff = diff_map.get((title, level))
         if cdiff is not None:
             return cdiff
-        normalized_title = title.strip().lower()
-        for (map_title, map_level), value in diff_map.items():
-            if map_level == level and map_title.strip().lower() == normalized_title:
-                return value
-        return None
+        return (
+            self._append_diff_norm_map_cache.get((title.strip().lower(), level))
+            or _LOCAL_APPEND_DIFF_OVERRIDES.get((title, level))
+        )
 
     def _get_append_diff_map(self) -> dict[tuple[str, int], str]:
         """portalの4th難易度マップをマスタ更新単位でキャッシュして返す。"""
@@ -452,6 +466,10 @@ class ResultDatabase:
                 self._append_diff_map_cache = self.portal_manager.get_4th_diff_map()
             except Exception:
                 self._append_diff_map_cache = {}
+        self._append_diff_norm_map_cache = {
+            (title.strip().lower(), level): cdiff
+            for (title, level), cdiff in self._append_diff_map_cache.items()
+        }
         self._append_diff_map_cache_signature = signature
         return self._append_diff_map_cache
 
