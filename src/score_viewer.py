@@ -261,7 +261,6 @@ class ScoreViewer(QMainWindow):
         self.portal_manager = portal_manager
         self.app_version = app_version
         self._bests: dict = {}
-        self._history_map: dict[int, object] = {}
         self._current_rival: str | None = None
         self._selected_title: str | None = None
         self._selected_diff = None
@@ -1206,13 +1205,11 @@ class ScoreViewer(QMainWindow):
         if level is not None:
             target = [r for r in target if (r.level or 0) == level]
 
-        self._history_map.clear()
         self._hist_table.setSortingEnabled(False)
         self._hist_table.clearContents()
         self._hist_table.setRowCount(len(target))
 
         for row, r in enumerate(reversed(target)):
-            self._history_map[row] = r
             ts      = datetime.datetime.fromtimestamp(r.timestamp).strftime('%Y-%m-%d %H:%M')
             lamp_bg = _LAMP_BG.get(r.lamp, QColor(185, 185, 185))
             lum     = (lamp_bg.red() * 299 + lamp_bg.green() * 587
@@ -1227,7 +1224,9 @@ class ScoreViewer(QMainWindow):
                 it.setFlags(it.flags() & ~Qt.ItemIsEditable)
                 return it
 
-            self._hist_table.setItem(row, 0, _mk(ts, r.timestamp))
+            date_item = _mk(ts, r.timestamp)
+            date_item.setData(Qt.UserRole + 1, r)
+            self._hist_table.setItem(row, 0, date_item)
             self._hist_table.setItem(row, 1, _mk(r.score   or '', r.score   or 0))
             self._hist_table.setItem(row, 2, _mk(r.grade, _GRADE_ORDER.get(r.grade, -1)))
             self._hist_table.setItem(row, 3, _mk(r.exscore or '', r.exscore or 0))
@@ -1657,7 +1656,8 @@ class ScoreViewer(QMainWindow):
         if not sel:
             return
         row    = self._hist_table.row(sel[0])
-        result = self._history_map.get(row)
+        date_item = self._hist_table.item(row, 0)
+        result = date_item.data(Qt.UserRole + 1) if date_item else None
         if result is None:
             return
         reply = QMessageBox.question(
