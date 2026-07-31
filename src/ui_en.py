@@ -117,6 +117,9 @@ class UIText:
         result_image_group = 'Result Image Folder'
         result_image_label = 'Folder path:'
         result_image_button = 'Import'
+        settings_group = 'v1 Settings File (settings.json)'
+        settings_label = 'settings.json path:'
+        settings_rival_button = 'Import Rivals'
         import_success = 'Imported {count} records'
         import_failed = 'Failed to import data'
 

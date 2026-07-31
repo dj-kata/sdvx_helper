@@ -4,6 +4,7 @@
 """
 
 import datetime
+import json
 import pickle
 import traceback
 import os
@@ -689,6 +690,36 @@ class ConfigDialog(QDialog):
         img_layout.addRow(img_status_row)
 
         layout.addWidget(img_group)
+
+        # v1 settings.json グループ
+        settings_group = QGroupBox(self.ui.import_data.settings_group)
+        settings_layout = QFormLayout()
+        settings_group.setLayout(settings_layout)
+
+        self.v1_settings_path_edit = QLineEdit()
+        settings_browse_btn = QPushButton(self.ui.dialog.browse)
+        settings_browse_btn.clicked.connect(self._browse_v1_settings_path)
+
+        settings_path_row = QHBoxLayout()
+        settings_path_row.addWidget(self.v1_settings_path_edit)
+        settings_path_row.addWidget(settings_browse_btn)
+        settings_layout.addRow(
+            self.ui.import_data.settings_label,
+            settings_path_row,
+        )
+
+        self._v1_settings_import_btn = QPushButton(
+            self.ui.import_data.settings_rival_button
+        )
+        self._v1_settings_import_btn.clicked.connect(
+            self._on_v1_settings_rivals_import
+        )
+        settings_layout.addRow(self._v1_settings_import_btn)
+
+        self._v1_settings_status_label = QLabel("")
+        settings_layout.addRow(self._v1_settings_status_label)
+
+        layout.addWidget(settings_group)
         layout.addStretch()
         return widget
 
@@ -787,6 +818,15 @@ class ConfigDialog(QDialog):
         dir_path = QFileDialog.getExistingDirectory(self, "リザルト画像フォルダを選択", current)
         if dir_path:
             self.result_image_path_edit.setText(dir_path)
+
+    def _browse_v1_settings_path(self):
+        current = self.v1_settings_path_edit.text()
+        start_dir = os.path.dirname(current) if current else os.path.expanduser("~")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "v1 settings.json を選択", start_dir, "JSON files (*.json)"
+        )
+        if file_path:
+            self.v1_settings_path_edit.setText(file_path)
 
     # ── ライバル操作 ──────────────────────────────────────────────────────────
 
@@ -1116,6 +1156,118 @@ class ConfigDialog(QDialog):
             self._img_worker.cancel()
             self._img_status_label.setText("キャンセル中...")
             self._img_cancel_btn.setEnabled(False)
+
+    def _on_v1_settings_rivals_import(self):
+        path = self.v1_settings_path_edit.text().strip()
+        if not path or not os.path.isfile(path):
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                "有効な settings.json を指定してください",
+            )
+            return
+
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except UnicodeDecodeError:
+            try:
+                with open(path, 'r', encoding='cp932') as f:
+                    data = json.load(f)
+            except Exception as e:
+                QMessageBox.critical(
+                    self,
+                    self.ui.message.error_title,
+                    f"settings.json の読み込みに失敗しました:\n{e}",
+                )
+                return
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                self.ui.message.error_title,
+                f"settings.json の読み込みに失敗しました:\n{e}",
+            )
+            return
+
+        if not isinstance(data, dict):
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                "settings.json のフォーマットが不正です",
+            )
+            return
+
+        names = data.get('rival_names')
+        urls = data.get('rival_googledrive')
+        if not isinstance(names, list) or not isinstance(urls, list):
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                "rival_names / rival_googledrive が見つかりません",
+            )
+            return
+
+        existing_names = {
+            str(r.get('name', '')).strip()
+            for r in self.config.rivals
+            if isinstance(r, dict)
+        }
+        existing_urls = {
+            str(r.get('url', '')).strip()
+            for r in self.config.rivals
+            if isinstance(r, dict)
+        }
+
+        imported = 0
+        skipped = 0
+        for name_raw, url_raw in zip(names, urls):
+            name = str(name_raw).strip()
+            url = str(url_raw).strip()
+            if not name or not url:
+                skipped += 1
+                continue
+            if name in existing_names or url in existing_urls:
+                skipped += 1
+                continue
+            self.config.rivals.append({'name': name, 'url': url, 'enabled': True})
+            existing_names.add(name)
+            existing_urls.add(url)
+            imported += 1
+
+        if len(names) != len(urls):
+            skipped += abs(len(names) - len(urls))
+
+        if imported <= 0:
+            self._v1_settings_status_label.setText(
+                f"追加なし: {skipped} 件スキップ"
+            )
+            QMessageBox.information(
+                self,
+                self.ui.message.info_title,
+                "追加できるライバルはありませんでした",
+            )
+            return
+
+        self.config.save_config()
+        self._rival_load_del_combo()
+        self._v1_settings_status_label.setText(
+            f"完了: {imported} 件追加 / {skipped} 件スキップ"
+        )
+
+        if self.rival_manager is not None:
+            self._rival_status_label.setText("取得中...")
+            portal_fn = (self.portal_manager.get_rivals
+                         if self.portal_manager and self.config.portal_token else None)
+            self.rival_manager.start_fetch(self.config.rivals, portal_fetch_fn=portal_fn)
+        else:
+            self._update_rival_status()
+
+        QMessageBox.information(
+            self,
+            self.ui.message.completed_title,
+            f"ライバル一覧を取り込みました。\n"
+            f"{imported} 件追加 / {skipped} 件スキップ",
+        )
 
     # ── 設定読み書き ─────────────────────────────────────────────────────────
 

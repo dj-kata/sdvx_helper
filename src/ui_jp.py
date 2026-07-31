@@ -117,6 +117,9 @@ class UIText:
         result_image_group = 'リザルト画像フォルダ'
         result_image_label = 'フォルダパス:'
         result_image_button = '取り込む'
+        settings_group = 'v1設定ファイル (settings.json)'
+        settings_label = 'settings.json パス:'
+        settings_rival_button = 'ライバル一覧を取り込む'
         import_success = '{count} 件のデータを取り込みました'
         import_failed = 'データの取り込みに失敗しました'
 
