@@ -26,6 +26,8 @@ class Config:
         """直接取得対象のプロセス名"""
         self.direct_capture_title: str = 'SOUND VOLTEX EXCEED GEAR'
         """直接取得対象のウィンドウタイトル"""
+        self.direct_capture_all_monitors: bool = False
+        """Whether to capture all monitors. Only applies when capture_method is 'direct_window'. Enabling this can cause frame lag in sv6c.exe, if the monitors being captured use mixed refresh rates."""
         self.obs_scene_collection: str = ''
         """起動時に切り替えるシーンコレクション（空=切り替えなし）"""
         self.obs_control_enabled: bool = False

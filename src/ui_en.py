@@ -94,6 +94,7 @@ class UIText:
         method_label = 'Method:'
         method_obs_websocket = 'OBS WebSocket'
         method_direct_window = 'Direct capture'
+        direct_capture_all_monitors = '(Applies to direct capture only) Capture all monitors'
         orientation_group = 'Screen Orientation'
         orientation_auto = 'Auto-detect'
         orientation_top_up = 'Top up (top_up)'
