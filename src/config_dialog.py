@@ -519,8 +519,8 @@ class ConfigDialog(QDialog):
         method_group.setLayout(method_layout)
 
         self.capture_method_group = QButtonGroup()
-        self.capture_method_obs_radio = QRadioButton(self.ui.capture.method_obs_websocket)
         self.capture_method_direct_radio = QRadioButton(self.ui.capture.method_direct_window)
+        self.capture_method_obs_radio = QRadioButton(self.ui.capture.method_obs_websocket)
         self.capture_method_group.addButton(self.capture_method_direct_radio, 0)
         self.capture_method_group.addButton(self.capture_method_obs_radio, 1)
 
@@ -529,6 +529,9 @@ class ConfigDialog(QDialog):
         method_radio_row.addWidget(self.capture_method_obs_radio)
         method_radio_row.addStretch()
         method_layout.addRow(self.ui.capture.method_label, method_radio_row)
+
+        self.direct_capture_all_monitors_check = QCheckBox(self.ui.capture.direct_capture_all_monitors)
+        method_layout.addRow(self.direct_capture_all_monitors_check)
 
         layout.addWidget(method_group)
 
@@ -1317,6 +1320,8 @@ class ConfigDialog(QDialog):
         else:
             self.capture_method_obs_radio.setChecked(True)
 
+        self.direct_capture_all_monitors_check.setChecked(self.config.direct_capture_all_monitors)
+
         orient_map = {None: 0, 'top_up': 1, 'top_right': 2, 'top_left': 3}
         btn_id = orient_map.get(self.config.screen_orientation_override, 0)
         btn = self.orientation_group.button(btn_id)
@@ -1373,6 +1378,8 @@ class ConfigDialog(QDialog):
             if self.capture_method_group.checkedId() == 0
             else 'obs_websocket'
         )
+
+        self.config.direct_capture_all_monitors = self.direct_capture_all_monitors_check.isChecked()
 
         orient_map = {0: None, 1: 'top_up', 2: 'top_right', 3: 'top_left'}
         self.config.screen_orientation_override = orient_map.get(

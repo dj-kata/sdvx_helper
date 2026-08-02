@@ -94,6 +94,7 @@ class UIText:
         method_label = '方式:'
         method_obs_websocket = 'OBS WebSocket'
         method_direct_window = '直接取得'
+        direct_capture_all_monitors = '(ダイレクトキャプチャのみ) すべてのモニターをキャプチャする'
         orientation_group = '画面向き'
         orientation_auto = '自動検出'
         orientation_top_up = '上向き (top_up)'

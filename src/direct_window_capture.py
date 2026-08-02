@@ -183,7 +183,7 @@ class DirectWindowCapture:
         bbox = self._client_screen_bbox(hwnd)
         if bbox is not None:
             try:
-                return ImageGrab.grab(bbox=bbox, all_screens=True).convert("RGB")
+                return ImageGrab.grab(bbox=bbox, all_screens=self.config.direct_capture_all_monitors).convert("RGB")
             except Exception as e:
                 self._log_error("ImageGrabで直接キャプチャできませんでした: %s", e)
 
