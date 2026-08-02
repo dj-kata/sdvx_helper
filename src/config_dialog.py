@@ -531,7 +531,9 @@ class ConfigDialog(QDialog):
         method_layout.addRow(self.ui.capture.method_label, method_radio_row)
 
         self.direct_capture_all_monitors_check = QCheckBox(self.ui.capture.direct_capture_all_monitors)
+        self.direct_capture_all_monitors_check.setToolTip(self.ui.capture.direct_capture_all_monitors_tip)
         method_layout.addRow(self.direct_capture_all_monitors_check)
+        self.capture_method_group.idClicked.connect(self._update_direct_capture_option_enabled)
 
         layout.addWidget(method_group)
 
@@ -557,6 +559,11 @@ class ConfigDialog(QDialog):
         layout.addWidget(orient_group)
         layout.addStretch()
         return widget
+
+    def _update_direct_capture_option_enabled(self):
+        """直接取得向けの詳細設定を、直接取得選択時だけ操作可能にする。"""
+        is_direct_capture = self.capture_method_group.checkedId() == 0
+        self.direct_capture_all_monitors_check.setEnabled(is_direct_capture)
 
     def create_rival_tab(self):
         """ライバル登録タブ"""
@@ -1320,7 +1327,10 @@ class ConfigDialog(QDialog):
         else:
             self.capture_method_obs_radio.setChecked(True)
 
-        self.direct_capture_all_monitors_check.setChecked(self.config.direct_capture_all_monitors)
+        self.direct_capture_all_monitors_check.setChecked(
+            bool(getattr(self.config, 'direct_capture_all_monitors', False))
+        )
+        self._update_direct_capture_option_enabled()
 
         orient_map = {None: 0, 'top_up': 1, 'top_right': 2, 'top_left': 3}
         btn_id = orient_map.get(self.config.screen_orientation_override, 0)

@@ -17,6 +17,16 @@ logger = get_logger(__name__)
 
 _LANDSCAPE_SIZE = (1920, 1080)
 _PORTRAIT_SIZE = (1080, 1920)
+_MONITORINFOF_PRIMARY = 0x00000001
+
+
+class _MONITORINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("rcMonitor", wintypes.RECT),
+        ("rcWork", wintypes.RECT),
+        ("dwFlags", wintypes.DWORD),
+    ]
 
 
 class DirectWindowCapture:
@@ -183,7 +193,8 @@ class DirectWindowCapture:
         bbox = self._client_screen_bbox(hwnd)
         if bbox is not None:
             try:
-                return ImageGrab.grab(bbox=bbox, all_screens=self.config.direct_capture_all_monitors).convert("RGB")
+                all_screens = self._should_grab_all_screens(bbox)
+                return ImageGrab.grab(bbox=bbox, all_screens=all_screens).convert("RGB")
             except Exception as e:
                 self._log_error("ImageGrabで直接キャプチャできませんでした: %s", e)
 
@@ -195,6 +206,48 @@ class DirectWindowCapture:
         if pixmap.isNull():
             return None
         return self._qimage_to_pil(pixmap.toImage())
+
+    def _should_grab_all_screens(self, bbox: tuple[int, int, int, int]) -> bool:
+        if bool(getattr(self.config, "direct_capture_all_monitors", False)):
+            return True
+
+        primary_rect = self._primary_monitor_rect()
+        if primary_rect is None:
+            return False
+
+        left, top, right, bottom = bbox
+        primary_left, primary_top, primary_right, primary_bottom = primary_rect
+        return (
+            left < primary_left
+            or top < primary_top
+            or right > primary_right
+            or bottom > primary_bottom
+        )
+
+    def _primary_monitor_rect(self) -> tuple[int, int, int, int] | None:
+        user32 = ctypes.windll.user32
+        result: list[tuple[int, int, int, int]] = []
+        enum_monitor_proc = ctypes.WINFUNCTYPE(
+            wintypes.BOOL,
+            wintypes.HANDLE,
+            wintypes.HDC,
+            ctypes.POINTER(wintypes.RECT),
+            wintypes.LPARAM,
+        )
+
+        def callback(hmonitor, _hdc, _rect, _lparam):
+            info = _MONITORINFO()
+            info.cbSize = ctypes.sizeof(_MONITORINFO)
+            if user32.GetMonitorInfoW(hmonitor, ctypes.byref(info)):
+                if info.dwFlags & _MONITORINFOF_PRIMARY:
+                    rect = info.rcMonitor
+                    result.append((rect.left, rect.top, rect.right, rect.bottom))
+                    return False
+            return True
+
+        if not user32.EnumDisplayMonitors(None, None, enum_monitor_proc(callback), 0):
+            return None
+        return result[0] if result else None
 
     def _qimage_to_pil(self, image: QImage) -> Image.Image:
         image = image.convertToFormat(QImage.Format.Format_RGB888)
