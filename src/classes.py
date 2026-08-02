@@ -5,11 +5,11 @@ logger = get_logger(__name__)
 
 
 class difficulty(Enum):
-    """難易度を表すクラス。INF/GRV/HVN/VVD/XCDはゲーム上MXMと同一枠のためmaximumに統合。"""
+    """難易度を表すクラス。INF/GRV/HVN/VVD/XCD(EXD)はゲーム上MXMと同一枠のためmaximumに統合。"""
     novice   = 0  # NOV
     advanced = 1  # ADV
     exhaust  = 2  # EXH
-    maximum  = 3  # MXM / INF / GRV / HVN / VVD / XCD（4th枠の総称）
+    maximum  = 3  # MXM / INF / GRV / HVN / VVD / XCD(EXD)（4th枠の総称）
 
     def __str__(self):
         return {0: 'NOV', 1: 'ADV', 2: 'EXH', 3: 'MXM'}[self.value]

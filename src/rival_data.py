@@ -301,7 +301,7 @@ class RivalFetchWorker(QThread):
             if score is None:
                 continue
 
-            # INF/GRV/HVN/VVD/XCD はすべて "MXM" に正規化してキーを統一
+            # INF/GRV/HVN/VVD/XCD(EXD) はすべて "MXM" に正規化してキーを統一
             # sdvx_helper旧CSVは4th枠(MXM/INF/...)の difficulty が空欄になるためMXM扱いにする
             diff_enum = convert_difficulty(diff_raw) if diff_raw else None
             diff_key = (
@@ -338,7 +338,7 @@ class RivalFetchWorker(QThread):
                 score    = s.get('score', 0)
                 if not title or not diff_raw:
                     continue
-                # INF/GRV/HVN/VVD/XCD はすべて "MXM" に正規化してキーを統一
+                # INF/GRV/HVN/VVD/XCD(EXD) はすべて "MXM" に正規化してキーを統一
                 diff_enum = convert_difficulty(diff_raw)
                 diff_key  = str(diff_enum) if diff_enum else diff_raw
                 entry         = RivalScoreEntry()

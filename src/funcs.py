@@ -132,11 +132,18 @@ _DIFFICULTY_MAP = {
     'MXM':      difficulty.maximum,
     'MAXIMUM':  difficulty.maximum,   # アーケードCSV
     'INF':      difficulty.maximum,
+    'INFINITE': difficulty.maximum,   # アーケードCSV
     'GRV':      difficulty.maximum,
+    'GRAVITY':  difficulty.maximum,   # アーケードCSV
     'HVN':      difficulty.maximum,
+    'HEAVENLY': difficulty.maximum,   # アーケードCSV
     'VVD':      difficulty.maximum,
+    'VIVID':    difficulty.maximum,   # アーケードCSV
     'XCD':      difficulty.maximum,
+    'EXD':      difficulty.maximum,   # EXCEEDの略称ゆれ
+    'EXCEED':   difficulty.maximum,   # アーケードCSV
     'ULT':      difficulty.maximum,
+    'APPEND':   difficulty.maximum,
 }
 
 
