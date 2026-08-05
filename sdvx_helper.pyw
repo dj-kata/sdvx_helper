@@ -36,7 +36,12 @@ from src.config_dialog import ConfigDialog
 from src.score_viewer import ScoreViewer
 from src.obs_dialog import OBSControlDialog
 from src.discord_dialog import DiscordConfigDialog
-from src.discord_webhook import post_result_to_discord, should_send_discord_result
+from src.discord_webhook import (
+    matching_discord_rules,
+    matching_unrecognized_discord_rules,
+    post_result_to_discord,
+    post_unrecognized_result_to_discord,
+)
 from src.unknown_jacket_webhook import post_unknown_result_jacket
 from src.main_window import MainWindowUI
 from src.rival_data import RivalManager
@@ -154,6 +159,7 @@ class MainWindow(MainWindowUI):
         self.result_data_pre = None            # 前回のリザルト読み取りキー(summary用)
         self._result_summary_captured_key = None
         self._unknown_result_image_saved_key = None
+        self._unknown_result_discord_sent_key = None
         self._result_summary_items = []        # 保存有無に関係なく当日summaryへ使う切り出しパーツ
         self._text_summary_results = []        # テキスト版summary用の当日リザルト
         self._portal_pending_results = []      # 今回の起動中に自己ベスト更新したPortal送信対象
@@ -797,6 +803,7 @@ class MainWindow(MainWindowUI):
             self.result_data_pre = None
             self._result_summary_captured_key = None
             self._unknown_result_image_saved_key = None
+            self._unknown_result_discord_sent_key = None
 
     # ── 各モードの処理 ────────────────────────────────────────────────────────
 
@@ -994,6 +1001,13 @@ class MainWindow(MainWindowUI):
                     exscore=exscore,
                     lamp=lamp,
                 )
+                self._send_unknown_discord_result_once(
+                    result_data_key,
+                    score=score,
+                    exscore=exscore,
+                    lamp=lamp,
+                    screen=self._current_result_screen(),
+                )
             return
 
         self.current_title = title
@@ -1110,7 +1124,8 @@ class MainWindow(MainWindowUI):
     def _send_discord_result(self, result, info, pre_score, pre_exscore,
                              is_result_updated: bool, screen):
         """条件を満たすリザルトをDiscordへバックグラウンド送信する。"""
-        if not should_send_discord_result(self.config, result, is_result_updated):
+        rules = matching_discord_rules(self.config, result, is_result_updated)
+        if not rules:
             return
 
         import threading
@@ -1118,16 +1133,48 @@ class MainWindow(MainWindowUI):
         artist = getattr(info, 'artist', '') if info else ''
 
         def _post():
-            post_result_to_discord(
-                self.config,
-                result,
-                artist=artist,
-                pre_score=pre_score,
-                pre_exscore=pre_exscore,
-                screen=screen,
-            )
+            for rule in rules:
+                post_result_to_discord(
+                    self.config,
+                    result,
+                    artist=artist,
+                    pre_score=pre_score,
+                    pre_exscore=pre_exscore,
+                    screen=screen,
+                    webhook_url=str(rule.get('webhook_url', '')).strip(),
+                )
 
         threading.Thread(target=_post, daemon=True, name="DiscordWebhookThread").start()
+
+    def _send_unknown_discord_result_once(self, result_data_key: tuple,
+                                          score=None, exscore=None, lamp=None,
+                                          screen=None):
+        """曲名未確定リザルトを、設定されたDiscordルールへ1回だけ送信する。"""
+        if self._unknown_result_discord_sent_key == result_data_key:
+            return
+        rules = matching_unrecognized_discord_rules(self.config)
+        if not rules:
+            return
+
+        import threading
+
+        def _post():
+            for rule in rules:
+                post_unrecognized_result_to_discord(
+                    self.config,
+                    score=score,
+                    exscore=exscore,
+                    lamp=lamp,
+                    screen=screen,
+                    webhook_url=str(rule.get('webhook_url', '')).strip(),
+                )
+
+        self._unknown_result_discord_sent_key = result_data_key
+        threading.Thread(
+            target=_post,
+            daemon=True,
+            name="DiscordUnknownResultWebhookThread",
+        ).start()
 
     # ── 画像保存 ──────────────────────────────────────────────────────────────
 

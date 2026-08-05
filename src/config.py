@@ -74,6 +74,8 @@ class Config:
         self.discord_levels: list[int] = list(range(1, 21))
         self.discord_lamp_filter_enabled: bool = False
         self.discord_lamps: list[str] = ['PUC', 'MAXXIVE', 'EXC-COMP', 'COMP', 'PLAYED']
+        self.discord_rules: list[dict] = []
+        """Discord通知ルール: URLと送信条件の組み合わせリスト"""
 
         # ─── CSV 出力 ─────────────────────────────────────────────────────
         self.csv_export_path: str = ''
@@ -142,6 +144,7 @@ class Config:
                 self.summary_bg_alpha = 200
             if self.summary_exit_filename not in ('datetime', 'date'):
                 self.summary_exit_filename = 'datetime'
+            self._normalize_discord_rules()
             self._normalize_rival_config()
             logger.info(f"config.json ロード完了")
         except FileNotFoundError:
@@ -175,3 +178,76 @@ class Config:
                 'enabled': rival.get('enabled', True) is not False,
             })
         self.rivals = normalized
+
+    def _normalize_discord_rules(self):
+        """Discord通知ルールを正規化し、旧単一URL設定をルールへ移行する。"""
+        normalized = []
+        raw_rules = self.discord_rules if isinstance(self.discord_rules, list) else []
+        for idx, rule in enumerate(raw_rules):
+            if not isinstance(rule, dict):
+                continue
+            name = str(rule.get('name', '')).strip() or f'通知ルール{idx + 1}'
+            url = str(rule.get('webhook_url', '')).strip()
+            if not url:
+                continue
+            normalized.append({
+                'id': str(rule.get('id', '')).strip() or f'discord-rule-{idx + 1}',
+                'name': name,
+                'webhook_url': url,
+                'enabled': rule.get('enabled', True) is not False,
+                'updated_results_only': bool(rule.get('updated_results_only', False)),
+                'level_filter_enabled': bool(rule.get('level_filter_enabled', False)),
+                'levels': self._normalize_discord_levels(rule.get('levels', [])),
+                'lamp_filter_enabled': bool(rule.get('lamp_filter_enabled', False)),
+                'lamps': self._normalize_discord_lamps(rule.get('lamps', [])),
+                'min_score': self._normalize_discord_min_score(rule.get('min_score')),
+                'include_unrecognized_title': bool(
+                    rule.get('include_unrecognized_title', False)
+                ),
+            })
+
+        if not normalized and str(self.discord_webhook_url).strip():
+            normalized.append({
+                'id': 'legacy-discord-rule',
+                'name': '既定の送信先',
+                'webhook_url': str(self.discord_webhook_url).strip(),
+                'enabled': True,
+                'updated_results_only': bool(self.discord_updated_results_only),
+                'level_filter_enabled': bool(self.discord_level_filter_enabled),
+                'levels': self._normalize_discord_levels(self.discord_levels),
+                'lamp_filter_enabled': bool(self.discord_lamp_filter_enabled),
+                'lamps': self._normalize_discord_lamps(self.discord_lamps),
+                'min_score': 0,
+                'include_unrecognized_title': False,
+            })
+
+        self.discord_rules = normalized
+
+    @staticmethod
+    def _normalize_discord_levels(levels) -> list[int]:
+        values = []
+        for value in levels if isinstance(levels, list) else []:
+            try:
+                lv = int(value)
+            except Exception:
+                continue
+            if 1 <= lv <= 20 and lv not in values:
+                values.append(lv)
+        return values or list(range(1, 21))
+
+    @staticmethod
+    def _normalize_discord_lamps(lamps) -> list[str]:
+        valid = {'PUC', 'MAXXIVE', 'EXC-COMP', 'UC', 'COMP', 'PLAYED'}
+        values = []
+        for value in lamps if isinstance(lamps, list) else []:
+            lamp = str(value)
+            if lamp in valid and lamp not in values:
+                values.append(lamp)
+        return values or ['PUC', 'MAXXIVE', 'EXC-COMP', 'COMP', 'PLAYED']
+
+    @staticmethod
+    def _normalize_discord_min_score(value) -> int:
+        try:
+            return max(0, min(10_000_000, int(value or 0)))
+        except Exception:
+            return 0
