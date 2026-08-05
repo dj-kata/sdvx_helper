@@ -1442,6 +1442,7 @@ class MainWindow(MainWindowUI):
         # CSV出力
         csv_path = self.config.csv_export_path or None
         self.result_database.write_best_csv(csv_path=csv_path)
+        self.result_database.write_daily_play_count_csv(csv_path=csv_path)
 
         self._save_summary_image_on_exit()
 

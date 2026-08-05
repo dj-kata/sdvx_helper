@@ -1,4 +1,5 @@
 """SDVX向けリザルトDB。リザルトの永続化・検索・集計・WebSocket配信を担当。"""
+
 from __future__ import annotations
 
 import bz2
@@ -14,7 +15,13 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from src.classes import difficulty, clear_lamp, detect_mode
-from src.funcs import calc_chart_id, get_chart_name, escape_for_csv, convert_lamp, convert_difficulty
+from src.funcs import (
+    calc_chart_id,
+    get_chart_name,
+    escape_for_csv,
+    convert_lamp,
+    convert_difficulty,
+)
 from src.result import OneResult, OneBestData
 from src.volforce import calc_total_vf, calc_vf, VF_TOP_N
 from src.songinfo import SongDatabase
@@ -25,26 +32,28 @@ from src.database_sqlite import SQLiteDatabase
 
 logger = get_logger(__name__)
 
-_DB_PATH = 'sdvx_helper.db'
+_DB_PATH = "sdvx_helper.db"
 
-_PLAYLOG_PATH = Path('playlog.sdvxh')
-_RIVAL_PATH   = Path('rival.sdvxh')
-_JACKET_EXT = '.jpg'
-_JACKET_FALLBACK_EXTS = (_JACKET_EXT, '.png')
-_NON_PC_APPEND_DIFFS = {'ULT'}
+_PLAYLOG_PATH = Path("playlog.sdvxh")
+_RIVAL_PATH = Path("rival.sdvxh")
+_JACKET_EXT = ".jpg"
+_JACKET_FALLBACK_EXTS = (_JACKET_EXT, ".png")
+_NON_PC_APPEND_DIFFS = {"ULT"}
 _LOCAL_APPEND_DIFF_OVERRIDES = {
     # musiclistv2 は4th枠を1つしか持てないため、Everlasting Message は
     # ULT(Lv20)で上書きされた状態になりうる。portalマスタ取得前でも
     # PC版のGRVだけを自己べ/VF集計に残す。
-    ('Everlasting Message', 19): 'GRV',
-    ('Everlasting Message', 20): 'ULT',
+    ("Everlasting Message", 19): "GRV",
+    ("Everlasting Message", 20): "ULT",
 }
 
 
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
 
+
 def _ws_broadcast(ws_method_name: str):
     """WebSocket配信用デコレータ。ws_server が None なら何もしない。"""
+
     def decorator(func):
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -54,7 +63,9 @@ def _ws_broadcast(ws_method_name: str):
                     getattr(self.ws_server, ws_method_name)(data)
             except Exception:
                 logger.error(f"{func.__name__} エラー:\n{traceback.format_exc()}")
+
         return wrapper
+
     return decorator
 
 
@@ -78,15 +89,15 @@ class ResultDatabase:
         self.config = config
         self.ws_server = None
         self.ws_loop = None
-        
+
         self.portal_manager = None  # メインウィンドウからセットされる
         self._bests_cache_portal_signature = None
         self.ws_thread = None
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
-        self.jacket_dir = Path('jackets')
+        self.jacket_dir = Path("jackets")
         self.jacket_dir.mkdir(exist_ok=True)
-        self._jacket_status_path = self.jacket_dir / '_status.json'
+        self._jacket_status_path = self.jacket_dir / "_status.json"
         self._result_jacket_chart_ids = self._load_jacket_status()
         self.load()
 
@@ -102,14 +113,14 @@ class ResultDatabase:
     def _write_websocket_config(self):
         """HTMLから読むWebSocketポート設定を書き出す。"""
         try:
-            Path('template').mkdir(exist_ok=True)
-            css_path = Path('template') / 'websocket.css'
+            Path("template").mkdir(exist_ok=True)
+            css_path = Path("template") / "websocket.css"
             css_path.write_text(
                 "/* SDVX Helper auto-generated websocket settings. */\n"
                 ":root {\n"
                 f"    --websocket-port: {getattr(self.config, 'websocket_data_port', 8767)};\n"
                 "}\n",
-                encoding='utf-8',
+                encoding="utf-8",
             )
             logger.info(f"WebSocket設定を書き込みました: {css_path}")
         except Exception as e:
@@ -122,12 +133,15 @@ class ResultDatabase:
 
         self.ws_loop = asyncio.new_event_loop()
         self.ws_thread = threading.Thread(
-            target=lambda: (asyncio.set_event_loop(self.ws_loop), self.ws_loop.run_forever()),
+            target=lambda: (
+                asyncio.set_event_loop(self.ws_loop),
+                self.ws_loop.run_forever(),
+            ),
             daemon=True,
         )
         self.ws_thread.start()
 
-        port = getattr(self.config, 'websocket_data_port', 8767)
+        port = getattr(self.config, "websocket_data_port", 8767)
         self.ws_server = DataWebSocketServer(port)
         self.ws_server.start(self.ws_loop)
         logger.info(f"WebSocketサーバー起動: ポート {port}")
@@ -146,14 +160,16 @@ class ResultDatabase:
         try:
             if not self._jacket_status_path.exists():
                 return set()
-            data = json.loads(self._jacket_status_path.read_text(encoding='utf-8'))
+            data = json.loads(self._jacket_status_path.read_text(encoding="utf-8"))
             if isinstance(data, dict):
-                ids = data.get('result_saved_chart_ids', [])
+                ids = data.get("result_saved_chart_ids", [])
             else:
                 ids = data
             return {str(chart_id) for chart_id in ids if chart_id}
         except Exception:
-            logger.warning(f"ジャケット保存状態の読み込みに失敗: {self._jacket_status_path}")
+            logger.warning(
+                f"ジャケット保存状態の読み込みに失敗: {self._jacket_status_path}"
+            )
             return set()
 
     def _write_jacket_status(self):
@@ -161,38 +177,40 @@ class ResultDatabase:
         try:
             self.jacket_dir.mkdir(exist_ok=True)
             data = {
-                'result_saved_chart_ids': sorted(self._result_jacket_chart_ids),
+                "result_saved_chart_ids": sorted(self._result_jacket_chart_ids),
             }
             self._jacket_status_path.write_text(
                 json.dumps(data, ensure_ascii=False, indent=2),
-                encoding='utf-8',
+                encoding="utf-8",
             )
         except Exception:
-            logger.error(f"ジャケット保存状態の書き込みに失敗:\n{traceback.format_exc()}")
+            logger.error(
+                f"ジャケット保存状態の書き込みに失敗:\n{traceback.format_exc()}"
+            )
 
     # ─── WebSocket 配信 ──────────────────────────────────────────────────────
 
-    @_ws_broadcast('update_cursong_data')
+    @_ws_broadcast("update_cursong_data")
     def broadcast_cursong_data(self, title: str, diff: difficulty):
         return self.get_cursong_data(title, diff)
 
-    @_ws_broadcast('update_today_results_data')
+    @_ws_broadcast("update_today_results_data")
     def broadcast_today_results_data(self, start_time: int):
         return self.get_today_results_data(start_time)
 
-    @_ws_broadcast('update_vf_data')
+    @_ws_broadcast("update_vf_data")
     def broadcast_vf_data(self):
         return self.get_vf_data()
 
-    @_ws_broadcast('update_stats_data')
+    @_ws_broadcast("update_stats_data")
     def broadcast_stats_data(self):
         return self.get_stats_data()
 
-    @_ws_broadcast('update_nowplaying_data')
+    @_ws_broadcast("update_nowplaying_data")
     def broadcast_nowplaying_data(self, data: dict):
         return data
 
-    @_ws_broadcast('update_session_stats_data')
+    @_ws_broadcast("update_session_stats_data")
     def broadcast_session_stats_data(self, data: dict):
         return data
 
@@ -207,7 +225,11 @@ class ResultDatabase:
         Returns:
             bool: 実際に登録された場合 True
         """
-        if result.detect_mode in (detect_mode.play, detect_mode.detect, detect_mode.init):
+        if result.detect_mode in (
+            detect_mode.play,
+            detect_mode.detect,
+            detect_mode.init,
+        ):
             return False
         if result.score is None or result.lamp is None:
             logger.warning(f"result rejected (score or lamp missing): {result}")
@@ -235,9 +257,8 @@ class ResultDatabase:
         # select からのリザルトは更新があるときのみ登録
         if result.detect_mode == detect_mode.select and db_score is not None:
             is_score_updated = result.score > db_score
-            is_exscore_updated = (
-                result.exscore is not None
-                and (db_exscore is None or result.exscore > db_exscore)
+            is_exscore_updated = result.exscore is not None and (
+                db_exscore is None or result.exscore > db_exscore
             )
             is_lamp_updated = result.lamp.value > db_lamp.value
             if not (is_score_updated or is_exscore_updated or is_lamp_updated):
@@ -252,16 +273,16 @@ class ResultDatabase:
 
         # SQLite へ保存
         data = {
-            'title': result.title,
-            'difficulty': result.difficulty.value,
-            'lamp': result.lamp.value,
-            'score': result.score,
-            'exscore': result.exscore,
-            'level': result.level,
-            'timestamp': result.timestamp,
-            'detect_mode': result.detect_mode.value if result.detect_mode else None,
-            'bestscore': result.bestscore,
-            'bestexscore': result.bestexscore
+            "title": result.title,
+            "difficulty": result.difficulty.value,
+            "lamp": result.lamp.value,
+            "score": result.score,
+            "exscore": result.exscore,
+            "level": result.level,
+            "timestamp": result.timestamp,
+            "detect_mode": result.detect_mode.value if result.detect_mode else None,
+            "bestscore": result.bestscore,
+            "bestexscore": result.bestexscore,
         }
         self.db.insert_personal_result(data)
         if commit:
@@ -289,11 +310,11 @@ class ResultDatabase:
     def delete(self, result: OneResult) -> bool:
         """リザルトを DB とメモリキャッシュから削除する。"""
         try:
-            row_id = getattr(result, 'id', None)
+            row_id = getattr(result, "id", None)
             if row_id is not None:
                 self.db.delete_personal_result(row_id)
                 self.db.commit()
-            
+
             if result in self.results:
                 self.results.remove(result)
             self._remove_from_result_index(result)
@@ -309,10 +330,14 @@ class ResultDatabase:
     def _refresh_best_cache(self, title: str, diff: difficulty):
         """特定の譜面のベスト情報を再集計してキャッシュを更新する。"""
         results = self.search(title=title, diff=diff)
-        target = [r for r in results
-                  if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        target = [
+            r
+            for r in results
+            if r.detect_mode
+            not in (detect_mode.play, detect_mode.detect, detect_mode.init)
+        ]
         target = [r for r in target if self._is_master_chart_result(r)]
-        
+
         key = (title, diff)
         if not target:
             self._bests_cache.pop(key, None)
@@ -349,26 +374,30 @@ class ResultDatabase:
             self._results_by_chart = {}
             for r in rows:
                 res = OneResult(
-                    title=r['title'],
-                    difficulty=difficulty(r['difficulty']),
-                    lamp=clear_lamp(r['lamp']),
-                    score=r['score'],
-                    exscore=r['exscore'],
-                    level=r['level'],
-                    timestamp=r['timestamp'],
-                    detect_mode=detect_mode(r['detect_mode']) if r['detect_mode'] is not None else None,
-                    bestscore=r['bestscore'],
-                    bestexscore=r['bestexscore']
+                    title=r["title"],
+                    difficulty=difficulty(r["difficulty"]),
+                    lamp=clear_lamp(r["lamp"]),
+                    score=r["score"],
+                    exscore=r["exscore"],
+                    level=r["level"],
+                    timestamp=r["timestamp"],
+                    detect_mode=detect_mode(r["detect_mode"])
+                    if r["detect_mode"] is not None
+                    else None,
+                    bestscore=r["bestscore"],
+                    bestexscore=r["bestexscore"],
                 )
-                res.id = r['id']
+                res.id = r["id"]
                 self.results.append(res)
                 self._add_to_result_index(res)
-            
+
             # ベストキャッシュの初期構築
             self._bests_cache = self.get_all_best_results(use_cache=False)
             self._bests_cache_signature = self._best_cache_signature(False)
             self._display_bests_cache_signature = None
-            logger.info(f"DBロード完了: {len(self.results)} 件 (ベストキャッシュ: {len(self._bests_cache)} 譜面)")
+            logger.info(
+                f"DBロード完了: {len(self.results)} 件 (ベストキャッシュ: {len(self._bests_cache)} 譜面)"
+            )
         except Exception as e:
             logger.error(f"DBロード失敗: {e}\n{traceback.format_exc()}")
 
@@ -376,33 +405,35 @@ class ResultDatabase:
         """旧 playlog.sdvxh (bz2pkl) から SQLite へデータを移行する"""
         logger.info(f"旧データ形式からの移行を開始します: {_PLAYLOG_PATH}")
         try:
-            with bz2.BZ2File(_PLAYLOG_PATH, 'rb') as f:
+            with bz2.BZ2File(_PLAYLOG_PATH, "rb") as f:
                 old_results = pickle.load(f)
-            
+
             # トランザクションで一括投入
             for res in old_results:
                 title = self.song_database.convert_v1_title(res.title)
                 data = {
-                    'title': title,
-                    'difficulty': res.difficulty.value,
-                    'lamp': res.lamp.value,
-                    'score': res.score,
-                    'exscore': res.exscore,
-                    'level': res.level,
-                    'timestamp': res.timestamp,
-                    'detect_mode': res.detect_mode.value if res.detect_mode else None,
-                    'bestscore': res.bestscore,
-                    'bestexscore': res.bestexscore
+                    "title": title,
+                    "difficulty": res.difficulty.value,
+                    "lamp": res.lamp.value,
+                    "score": res.score,
+                    "exscore": res.exscore,
+                    "level": res.level,
+                    "timestamp": res.timestamp,
+                    "detect_mode": res.detect_mode.value if res.detect_mode else None,
+                    "bestscore": res.bestscore,
+                    "bestexscore": res.bestexscore,
                 }
                 self.db.insert_personal_result(data)
             self.db.commit()
-            
+
             # 移行済みファイルをリネーム
-            backup_path = _PLAYLOG_PATH.with_suffix('.sdvxh.bak')
+            backup_path = _PLAYLOG_PATH.with_suffix(".sdvxh.bak")
             if os.path.exists(backup_path):
                 os.remove(backup_path)
             os.rename(_PLAYLOG_PATH, backup_path)
-            logger.info(f"移行完了: {len(old_results)} 件をSQLiteへ。旧ファイルは .bak に退避しました。")
+            logger.info(
+                f"移行完了: {len(old_results)} 件をSQLiteへ。旧ファイルは .bak に退避しました。"
+            )
         except Exception as e:
             logger.error(f"移行失敗: {e}\n{traceback.format_exc()}")
 
@@ -412,12 +443,12 @@ class ResultDatabase:
             rows = self.db.execute("SELECT id, title FROM personal_results").fetchall()
             updated = 0
             for row in rows:
-                title = row['title']
+                title = row["title"]
                 normalized = self.song_database.convert_v1_title(title)
                 if normalized != title:
                     self.db.execute(
                         "UPDATE personal_results SET title = ? WHERE id = ?",
-                        (normalized, row['id']),
+                        (normalized, row["id"]),
                     )
                     updated += 1
             if updated:
@@ -449,10 +480,9 @@ class ResultDatabase:
         cdiff = diff_map.get((title, level))
         if cdiff is not None:
             return cdiff
-        return (
-            self._append_diff_norm_map_cache.get((title.strip().lower(), level))
-            or _LOCAL_APPEND_DIFF_OVERRIDES.get((title, level))
-        )
+        return self._append_diff_norm_map_cache.get(
+            (title.strip().lower(), level)
+        ) or _LOCAL_APPEND_DIFF_OVERRIDES.get((title, level))
 
     def _get_append_diff_map(self) -> dict[tuple[str, int], str]:
         """portalの4th難易度マップをマスタ更新単位でキャッシュして返す。"""
@@ -477,7 +507,7 @@ class ResultDatabase:
         """portalマスタ反映に応じてベストキャッシュを作り直すための軽量指紋。"""
         if self.portal_manager is None:
             return None
-        master_db = getattr(self.portal_manager, 'master_db', None)
+        master_db = getattr(self.portal_manager, "master_db", None)
         if not master_db:
             return None
         return id(master_db), len(master_db)
@@ -512,23 +542,29 @@ class ResultDatabase:
         import re
 
         # CSV テキストを取得
-        if source.startswith('http'):
+        if source.startswith("http"):
             import requests
+
             # ?id=FILEID 形式または /file/d/FILEID/ 形式に対応
-            m = re.search(r'[?&]id=([^&]+)', source) or re.search(r'/file/d/([^/?]+)', source)
+            m = re.search(r"[?&]id=([^&]+)", source) or re.search(
+                r"/file/d/([^/?]+)", source
+            )
             file_id = m.group(1) if m else None
-            url = (f'https://drive.google.com/uc?export=download&id={file_id}'
-                   if file_id else source)
+            url = (
+                f"https://drive.google.com/uc?export=download&id={file_id}"
+                if file_id
+                else source
+            )
             try:
                 resp = requests.get(url, timeout=30)
                 resp.raise_for_status()
-                text = resp.content.decode('utf-8-sig')
+                text = resp.content.decode("utf-8-sig")
             except Exception:
                 logger.error(f"CSV ダウンロード失敗:\n{traceback.format_exc()}")
                 return -1
         else:
             try:
-                with open(source, encoding='utf-8-sig', newline='') as f:
+                with open(source, encoding="utf-8-sig", newline="") as f:
                     text = f.read()
             except Exception:
                 logger.error(f"CSV ファイル読み込み失敗:\n{traceback.format_exc()}")
@@ -536,29 +572,31 @@ class ResultDatabase:
 
         reader = csv.DictReader(io.StringIO(text))
         fieldnames = reader.fieldnames or []
-        is_arcade = '楽曲名' in fieldnames  # アーケード公式CSVか判定
+        is_arcade = "楽曲名" in fieldnames  # アーケード公式CSVか判定
 
         results = []
         for row in reader:
             if is_arcade:
-                title     = row.get('楽曲名', '').strip()
-                diff_str  = row.get('難易度', '').strip()
-                lv_str    = row.get('楽曲レベル', '').strip()
-                score_str = row.get('ハイスコア', '').strip()
-                lamp_str  = row.get('クリアランク', '').strip()
-                exscore_str = row.get('EXスコア', '').strip()
+                title = row.get("楽曲名", "").strip()
+                diff_str = row.get("難易度", "").strip()
+                lv_str = row.get("楽曲レベル", "").strip()
+                score_str = row.get("ハイスコア", "").strip()
+                lamp_str = row.get("クリアランク", "").strip()
+                exscore_str = row.get("EXスコア", "").strip()
             else:
-                title     = row.get('title', '').strip()
-                diff_str  = row.get('difficulty', '').strip()
-                lv_str    = row.get('Lv', '').strip()
-                score_str = row.get('score', '').strip()
-                lamp_str  = row.get('lamp', '').strip()
-                exscore_str = ''
+                title = row.get("title", "").strip()
+                diff_str = row.get("difficulty", "").strip()
+                lv_str = row.get("Lv", "").strip()
+                score_str = row.get("score", "").strip()
+                lamp_str = row.get("lamp", "").strip()
+                exscore_str = ""
 
             if not title or not score_str:
                 continue
 
-            diff = (convert_difficulty(diff_str) if diff_str else None) or difficulty.maximum
+            diff = (
+                convert_difficulty(diff_str) if diff_str else None
+            ) or difficulty.maximum
             lamp = convert_lamp(lamp_str)
 
             try:
@@ -585,15 +623,17 @@ class ResultDatabase:
             except (ValueError, TypeError):
                 pass
 
-            results.append(OneResult(
-                title=title,
-                difficulty=diff,
-                lamp=lamp,
-                score=score,
-                exscore=exscore,
-                level=lv,
-                detect_mode=detect_mode.select,
-            ))
+            results.append(
+                OneResult(
+                    title=title,
+                    difficulty=diff,
+                    lamp=lamp,
+                    score=score,
+                    exscore=exscore,
+                    level=lv,
+                    detect_mode=detect_mode.select,
+                )
+            )
 
         self.rival_results[name] = results
         self.save_rivals()
@@ -616,12 +656,13 @@ class ResultDatabase:
         """指定ライバルのデータ件数を返す。"""
         return len(self.rival_results.get(name, []))
 
-    def get_rival_best(self,
-                       name: str,
-                       title: str = None,
-                       diff: difficulty = None,
-                       chart_id: str = None,
-                       ) -> Tuple[Optional[int], Optional[int], clear_lamp]:
+    def get_rival_best(
+        self,
+        name: str,
+        title: str = None,
+        diff: difficulty = None,
+        chart_id: str = None,
+    ) -> Tuple[Optional[int], Optional[int], clear_lamp]:
         """指定ライバルの指定譜面の自己ベスト (score, exscore, lamp) を返す。"""
         if self.rival_manager is not None:
             diff_str = str(diff) if diff is not None else None
@@ -640,18 +681,19 @@ class ResultDatabase:
         if not target:
             return None, None, clear_lamp.noplay
         best_score = max((r.score for r in target if r.score is not None), default=None)
-        exscores   = [r.exscore for r in target if r.exscore is not None]
-        best_ex    = max(exscores) if exscores else None
-        best_lamp  = max((r.lamp for r in target), default=clear_lamp.noplay)
+        exscores = [r.exscore for r in target if r.exscore is not None]
+        best_ex = max(exscores) if exscores else None
+        best_lamp = max((r.lamp for r in target), default=clear_lamp.noplay)
         return best_score, best_ex, best_lamp
 
     # ─── 検索・集計 ───────────────────────────────────────────────────────────
 
-    def search(self,
-               title: str = None,
-               diff: difficulty = None,
-               chart_id: str = None,
-               ) -> List[OneResult]:
+    def search(
+        self,
+        title: str = None,
+        diff: difficulty = None,
+        chart_id: str = None,
+    ) -> List[OneResult]:
         """指定譜面の全リザルトを返す（play / detect 含む）。"""
         key = chart_id
         if key is None and title is not None and diff is not None:
@@ -681,11 +723,12 @@ class ResultDatabase:
         if not indexed:
             self._results_by_chart.pop(chart_id, None)
 
-    def get_best(self,
-                 title: str = None,
-                 diff: difficulty = None,
-                 chart_id: str = None,
-                 ) -> Tuple[Optional[int], Optional[int], clear_lamp]:
+    def get_best(
+        self,
+        title: str = None,
+        diff: difficulty = None,
+        chart_id: str = None,
+    ) -> Tuple[Optional[int], Optional[int], clear_lamp]:
         """指定譜面の自己ベスト (best_score, best_exscore, best_lamp) を返す。
         未プレーの場合は (None, None, clear_lamp.noplay)。
         detect_mode.play / detect は集計対象外。
@@ -699,16 +742,20 @@ class ResultDatabase:
                 return best.best_score, best.best_exscore, best.best_lamp
 
         results = self.search(title=title, diff=diff, chart_id=chart_id)
-        target = [r for r in results
-                  if r.detect_mode not in (detect_mode.play, detect_mode.detect, detect_mode.init)]
+        target = [
+            r
+            for r in results
+            if r.detect_mode
+            not in (detect_mode.play, detect_mode.detect, detect_mode.init)
+        ]
         target = [r for r in target if self._is_master_chart_result(r)]
         if not target:
             return None, None, clear_lamp.noplay
 
-        best_score  = max((r.score for r in target if r.score is not None), default=None)
-        exscores    = [r.exscore for r in target if r.exscore is not None]
-        best_ex     = max(exscores) if exscores else None
-        best_lamp   = max((r.lamp for r in target), default=clear_lamp.noplay)
+        best_score = max((r.score for r in target if r.score is not None), default=None)
+        exscores = [r.exscore for r in target if r.exscore is not None]
+        best_ex = max(exscores) if exscores else None
+        best_lamp = max((r.lamp for r in target), default=clear_lamp.noplay)
         return best_score, best_ex, best_lamp
 
     def get_all_best_results(
@@ -735,7 +782,11 @@ class ResultDatabase:
         bests: Dict[Tuple[str, difficulty], OneBestData] = {}
 
         for result in self.results:
-            if result.detect_mode in (detect_mode.play, detect_mode.detect, detect_mode.init):
+            if result.detect_mode in (
+                detect_mode.play,
+                detect_mode.detect,
+                detect_mode.init,
+            ):
                 continue
             if result.title is None or result.difficulty is None:
                 continue
@@ -787,38 +838,52 @@ class ResultDatabase:
 
     def get_today_results(self, start_time: int) -> List[OneResult]:
         """start_time 以降のリザルト画面由来リザルトを新しい順で返す。"""
-        return [r for r in reversed(self.results)
-                if detect_mode.is_result(r.detect_mode) and r.timestamp >= start_time]
+        return [
+            r
+            for r in reversed(self.results)
+            if detect_mode.is_result(r.detect_mode) and r.timestamp >= start_time
+        ]
 
     # ─── WebSocket 用データ生成 ──────────────────────────────────────────────
 
     def get_cursong_data(self, title: str, diff: difficulty) -> dict:
         """現在の曲のプレー履歴をWebSocket送信用の辞書で返す。"""
         results = self.search(title=title, diff=diff)
-        target  = [r for r in results if detect_mode.is_result(r.detect_mode)]
+        target = [r for r in results if detect_mode.is_result(r.detect_mode)]
 
         best_score, best_ex, best_lamp = self.get_best(title=title, diff=diff)
         info = self.song_database.get_song_info(title)
         diff_name = get_chart_name(diff)
         best_data = self.get_all_best_results().get((title, diff))
-        level = info.get_level(diff) if info else (best_data.level if best_data else None)
+        level = (
+            info.get_level(diff) if info else (best_data.level if best_data else None)
+        )
         display_diff_name = diff_name
-        grade_s_tier = ''
-        puc_tier = ''
+        grade_s_tier = ""
+        puc_tier = ""
         if self.portal_manager:
             try:
                 if diff == difficulty.maximum and level:
                     normalized_title = title.strip().lower()
-                    for (map_title, map_lv), cdiff in self.portal_manager.get_4th_diff_map().items():
-                        if map_lv == level and map_title.strip().lower() == normalized_title:
+                    for (
+                        map_title,
+                        map_lv,
+                    ), cdiff in self.portal_manager.get_4th_diff_map().items():
+                        if (
+                            map_lv == level
+                            and map_title.strip().lower() == normalized_title
+                        ):
                             display_diff_name = cdiff
                             break
                 tier_map = self.portal_manager.get_tier_map()
-                grade_s_tier, puc_tier = tier_map.get((title, diff), ('', ''))
+                grade_s_tier, puc_tier = tier_map.get((title, diff), ("", ""))
                 if not grade_s_tier and not puc_tier:
                     normalized_title = title.strip().lower()
                     for (map_title, map_diff), tiers in tier_map.items():
-                        if map_diff == diff and map_title.strip().lower() == normalized_title:
+                        if (
+                            map_diff == diff
+                            and map_title.strip().lower() == normalized_title
+                        ):
                             grade_s_tier, puc_tier = tiers
                             break
             except Exception:
@@ -828,40 +893,49 @@ class ResultDatabase:
             best_vf = calc_vf(level, best_score, best_lamp)
 
         data: dict = {
-            'title':      title,
-            'difficulty': diff_name,
-            'display_difficulty': display_diff_name,
-            'cdiff':      display_diff_name if diff == difficulty.maximum else None,
-            'lv':         str(level or ''),
-            'gradeS_tier': grade_s_tier,
-            'S_tier':     grade_s_tier,
-            'PUC_tier':   puc_tier,
-            'p_tier':     puc_tier,
-            'best_score': best_score or 0,
-            'best_ex':    best_ex or 0,
-            'best_lamp':  best_lamp.value,
-            'vf':         best_vf,
-            'play_count': len(target),
-            'last_played': (
-                datetime.datetime.fromtimestamp(target[0].timestamp).strftime('%Y/%m/%d')
-                if target else ''
+            "title": title,
+            "difficulty": diff_name,
+            "display_difficulty": display_diff_name,
+            "cdiff": display_diff_name if diff == difficulty.maximum else None,
+            "lv": str(level or ""),
+            "gradeS_tier": grade_s_tier,
+            "S_tier": grade_s_tier,
+            "PUC_tier": puc_tier,
+            "p_tier": puc_tier,
+            "best_score": best_score or 0,
+            "best_ex": best_ex or 0,
+            "best_lamp": best_lamp.value,
+            "vf": best_vf,
+            "play_count": len(target),
+            "last_played": (
+                datetime.datetime.fromtimestamp(target[0].timestamp).strftime(
+                    "%Y/%m/%d"
+                )
+                if target
+                else ""
             ),
-            'items': [],
+            "items": [],
         }
 
         for r in reversed(target):
-            data['items'].append({
-                'date':       datetime.datetime.fromtimestamp(r.timestamp).strftime('%Y/%m/%d'),
-                'score':      r.score,
-                'exscore':    r.exscore,
-                'grade':      r.grade,
-                'lamp':       r.lamp.value,
-                'vf':         r.vf,
-                'pre_score':  r.bestscore  or 0,
-                'pre_ex':     r.bestexscore or 0,
-            })
+            data["items"].append(
+                {
+                    "date": datetime.datetime.fromtimestamp(r.timestamp).strftime(
+                        "%Y/%m/%d"
+                    ),
+                    "score": r.score,
+                    "exscore": r.exscore,
+                    "grade": r.grade,
+                    "lamp": r.lamp.value,
+                    "vf": r.vf,
+                    "pre_score": r.bestscore or 0,
+                    "pre_ex": r.bestexscore or 0,
+                }
+            )
 
-        data['rival_items'] = self.get_cursong_rival_items(title, diff_name, best_score, best_ex, best_lamp)
+        data["rival_items"] = self.get_cursong_rival_items(
+            title, diff_name, best_score, best_ex, best_lamp
+        )
         return data
 
     def get_cursong_rival_items(
@@ -874,53 +948,59 @@ class ResultDatabase:
     ) -> list[dict]:
         """現在曲のライバルランキングをWebSocket送信用の辞書リストで返す。"""
         rows = []
-        player_name = self.config.player_name if self.config else 'ME'
+        player_name = self.config.player_name if self.config else "ME"
 
         if best_score is not None:
-            rows.append({
-                'player': player_name or 'ME',
-                'score': best_score or 0,
-                'exscore': best_ex,
-                'lamp': best_lamp.value if best_lamp else clear_lamp.noplay.value,
-                'is_me': True,
-            })
+            rows.append(
+                {
+                    "player": player_name or "ME",
+                    "score": best_score or 0,
+                    "exscore": best_ex,
+                    "lamp": best_lamp.value if best_lamp else clear_lamp.noplay.value,
+                    "is_me": True,
+                }
+            )
 
         if self.rival_manager is not None:
             try:
                 rival_sources = {
-                    rd.name: getattr(rd, 'source', 'csv')
-                    for rd in getattr(self.rival_manager, 'rivals', [])
+                    rd.name: getattr(rd, "source", "csv")
+                    for rd in getattr(self.rival_manager, "rivals", [])
                 }
                 for name, entry in self.rival_manager.get_all_scores(title, diff_name):
-                    rows.append({
-                        'player': name,
-                        'score': entry.score or 0,
-                        'exscore': entry.exscore,
-                        'lamp': entry.lamp.value if entry.lamp else clear_lamp.noplay.value,
-                        'is_me': False,
-                        'source': rival_sources.get(name, 'csv'),
-                    })
+                    rows.append(
+                        {
+                            "player": name,
+                            "score": entry.score or 0,
+                            "exscore": entry.exscore,
+                            "lamp": entry.lamp.value
+                            if entry.lamp
+                            else clear_lamp.noplay.value,
+                            "is_me": False,
+                            "source": rival_sources.get(name, "csv"),
+                        }
+                    )
             except Exception:
                 logger.error(f"ライバル表示データ生成エラー:\n{traceback.format_exc()}")
 
         rows.sort(
             key=lambda item: (
-                item.get('score') or 0,
-                item.get('exscore') if item.get('exscore') is not None else -1,
-                item.get('lamp') or 0,
+                item.get("score") or 0,
+                item.get("exscore") if item.get("exscore") is not None else -1,
+                item.get("lamp") or 0,
             ),
             reverse=True,
         )
         prev_score = None
         prev_rank = 0
         for idx, item in enumerate(rows, 1):
-            score = item.get('score') or 0
+            score = item.get("score") or 0
             if score != prev_score:
                 prev_rank = idx
                 prev_score = score
-            item['rank'] = prev_rank
+            item["rank"] = prev_rank
             my_score = best_score or 0
-            item['diff'] = (item.get('score') or 0) - my_score
+            item["diff"] = (item.get("score") or 0) - my_score
         return rows
 
     def get_today_results_data(self, start_time: int) -> dict:
@@ -933,79 +1013,89 @@ class ResultDatabase:
             jacket_path = self._jacket_path(r.chart_id)
             jacket_version = self._jacket_version(jacket_path)
             max_exscore = self._get_max_exscore(r.title, r.difficulty)
-            items.append({
-                'chart_id':   r.chart_id,
-                'title':      r.title,
-                'difficulty': get_chart_name(r.difficulty),
-                'lv':         str(lv or ''),
-                'score':      r.score,
-                'exscore':    r.exscore,
-                'max_exscore': max_exscore,
-                'grade':      r.grade,
-                'lamp':       r.lamp.value,
-                'vf':         r.vf,
-                'jacket_img': self._jacket_url(r.chart_id),
-                'jacket_version': jacket_version,
-                'pre_score':  r.bestscore   or 0,
-                'pre_ex':     r.bestexscore or 0,
-                'is_score_updated': r.is_score_updated(),
-                'is_ex_updated':    r.is_exscore_updated(),
-                'timestamp':  r.timestamp,
-            })
-        return {'items': items}
+            items.append(
+                {
+                    "chart_id": r.chart_id,
+                    "title": r.title,
+                    "difficulty": get_chart_name(r.difficulty),
+                    "lv": str(lv or ""),
+                    "score": r.score,
+                    "exscore": r.exscore,
+                    "max_exscore": max_exscore,
+                    "grade": r.grade,
+                    "lamp": r.lamp.value,
+                    "vf": r.vf,
+                    "jacket_img": self._jacket_url(r.chart_id),
+                    "jacket_version": jacket_version,
+                    "pre_score": r.bestscore or 0,
+                    "pre_ex": r.bestexscore or 0,
+                    "is_score_updated": r.is_score_updated(),
+                    "is_ex_updated": r.is_exscore_updated(),
+                    "timestamp": r.timestamp,
+                }
+            )
+        return {"items": items}
 
     def _get_max_exscore(self, title: str, diff: difficulty) -> Optional[int]:
         """portal masterから指定譜面のEXスコア理論値を返す。"""
-        if self.portal_manager is None or not getattr(self.portal_manager, 'master_db', None):
+        if self.portal_manager is None or not getattr(
+            self.portal_manager, "master_db", None
+        ):
             return None
         try:
             _, chart = self.portal_manager._find_chart(title, diff)
             if not chart:
                 return None
-            value = chart.get('max_ex_score')
+            value = chart.get("max_ex_score")
             return int(value) if value is not None else None
         except Exception:
-            logger.debug(f"max_ex_score取得失敗: title={title} diff={diff}\n{traceback.format_exc()}")
+            logger.debug(
+                f"max_ex_score取得失敗: title={title} diff={diff}\n{traceback.format_exc()}"
+            )
             return None
 
     def get_vf_data(self) -> dict:
         """VFランキングデータをWebSocket送信用の辞書で返す。"""
         ranking = self.get_vf_ranking()
         total_vf = calc_total_vf([b.vf for b in self.get_all_best_results().values()])
-        
+
         # 難易度名 (INF/GRV/...) 解決用 (正規化タイトル -> Lv -> cdiff)
         norm_diff_map = {}
         if self.portal_manager:
             for (title, lv), cdiff in self.portal_manager.get_4th_diff_map().items():
                 norm_diff_map[(title.strip().lower(), lv)] = cdiff
-        
+
         from src.summary_generator import _LAMP_FILE
-        
+
         items = []
         for i, b in enumerate(ranking, 1):
             # difficulty.maximum の場合のみ、マスタから個別名称を引く
             cdiff = None
             if b.difficulty == difficulty.maximum:
                 cdiff = norm_diff_map.get((b.title.strip().lower(), b.level))
-                
-            items.append({
-                'rank':       i,
-                'chart_id':   b.chart_id,
-                'title':      b.title,
-                'difficulty': get_chart_name(b.difficulty),
-                'cdiff':      cdiff,
-                'lv':         str(b.level),
-                'score':      b.best_score,
-                'exscore':    b.best_exscore,
-                'grade':      b.grade,
-                'lamp':       b.best_lamp.value,
-                'lamp_img':   _LAMP_FILE.get(b.best_lamp),
-                'vf':         b.vf,
-                'jacket_img':  self._jacket_url(b.chart_id),
-                'jacket_exists': self._jacket_file_exists(b.chart_id),
-                'jacket_version': self._jacket_version(self._jacket_path(b.chart_id)),
-            })
-        return {'total_vf': total_vf, 'items': items}
+
+            items.append(
+                {
+                    "rank": i,
+                    "chart_id": b.chart_id,
+                    "title": b.title,
+                    "difficulty": get_chart_name(b.difficulty),
+                    "cdiff": cdiff,
+                    "lv": str(b.level),
+                    "score": b.best_score,
+                    "exscore": b.best_exscore,
+                    "grade": b.grade,
+                    "lamp": b.best_lamp.value,
+                    "lamp_img": _LAMP_FILE.get(b.best_lamp),
+                    "vf": b.vf,
+                    "jacket_img": self._jacket_url(b.chart_id),
+                    "jacket_exists": self._jacket_file_exists(b.chart_id),
+                    "jacket_version": self._jacket_version(
+                        self._jacket_path(b.chart_id)
+                    ),
+                }
+            )
+        return {"total_vf": total_vf, "items": items}
 
     def _jacket_path(self, chart_id: str) -> Path:
         """保存済みジャケットのパスを返す。新規保存は jpg、既存 png は互換で読む。"""
@@ -1032,7 +1122,9 @@ class ResultDatabase:
         except OSError:
             return 0
 
-    def save_jacket_image(self, chart_id: str, image: Image.Image, source: str = 'result') -> bool:
+    def save_jacket_image(
+        self, chart_id: str, image: Image.Image, source: str = "result"
+    ) -> bool:
         """ジャケット画像を保存する。
 
         source='select' は仮保存として、既存ファイルがない場合のみ保存する。
@@ -1042,16 +1134,22 @@ class ResultDatabase:
             return False
 
         path = self.jacket_dir / f"{chart_id}{_JACKET_EXT}"
-        is_result_source = source == 'result'
+        is_result_source = source == "result"
         has_jacket_file = self._jacket_file_exists(chart_id)
 
-        if is_result_source and chart_id in self._result_jacket_chart_ids and has_jacket_file:
+        if (
+            is_result_source
+            and chart_id in self._result_jacket_chart_ids
+            and has_jacket_file
+        ):
             return False
         if not is_result_source and has_jacket_file:
             return False
 
         try:
-            image.convert('RGB').save(str(path), format='JPEG', quality=85, optimize=True)
+            image.convert("RGB").save(
+                str(path), format="JPEG", quality=85, optimize=True
+            )
             if is_result_source:
                 self._result_jacket_chart_ids.add(chart_id)
                 self._write_jacket_status()
@@ -1065,17 +1163,17 @@ class ResultDatabase:
 
     def batch_generate_jackets(self, screen_reader):
         """保存済み画像フォルダをスキャンし、ジャケット画像を生成・保存する。"""
-        if not self.config or not hasattr(self.config, 'image_save_path'):
+        if not self.config or not hasattr(self.config, "image_save_path"):
             return
-        
+
         import re
         from src.define import RECT_RESULT_JACKET
         from src.funcs import convert_difficulty
-        
+
         save_path = Path(self.config.image_save_path)
         if not save_path.exists():
             return
-        
+
         count = 0
         # ファイル名パターン: sdvx_{title}_{diff}_{score}_{ex}_{lamp}_{date}.{png,jpg}
         # または単に diff と title が入っていれば chart_id が作れる
@@ -1089,21 +1187,21 @@ class ResultDatabase:
             parts = basename.split("_")
             if len(parts) < 3:
                 continue
-            
+
             # title = parts[1], diff = parts[2] (MainWindow.save_image の形式準拠)
             title = parts[1]
             diff_str = parts[2]
             diff = convert_difficulty(diff_str)
             if not diff:
                 continue
-            
+
             cid = calc_chart_id(title, diff)
             if not cid:
                 continue
-            
+
             if cid in self._result_jacket_chart_ids and self._jacket_file_exists(cid):
                 continue
-            
+
             try:
                 with Image.open(img_path) as src:
                     img = expand_result_info_area(src)
@@ -1112,7 +1210,7 @@ class ResultDatabase:
                     count += 1
             except Exception:
                 continue
-        
+
         if count > 0:
             logger.info(f"一括ジャケット生成完了: {count}件")
         return count
@@ -1120,7 +1218,7 @@ class ResultDatabase:
     def get_stats_data(self) -> dict:
         """レベル別（14-20）の統計情報をWebSocket送信用の辞書で返す。"""
         bests = self.get_all_best_results()
-        
+
         # 楽曲マスターからレベルごとの総譜面数をカウント
         total_charts = {lv: 0 for lv in range(14, 21)}
         for song in self.song_database._songs.values():
@@ -1128,86 +1226,125 @@ class ResultDatabase:
                 lv = song.get_level(diff)
                 if lv and 14 <= lv <= 20:
                     total_charts[lv] += 1
-        
+
         logger.info(f"Stats aggregate: total_charts={total_charts}")
 
         stats_by_lv = {}
         for lv in range(14, 21):
             # 当該レベルのベストデータを抽出
             lv_bests = [b for b in bests.values() if b.level == lv]
-            
+
             puc = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.puc)
-            uc  = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.uc)
+            uc = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.uc)
             exc = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.exc)
             mxx = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.maxxive)
             clr = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.clear)
             fld = sum(1 for b in lv_bests if b.best_lamp == clear_lamp.played)
-            
+
             played_count = len(lv_bests)
             noplay = total_charts[lv] - played_count
-            
+
             # ランク別
-            s   = sum(1 for b in lv_bests if b.best_score >= 9900000)
+            s = sum(1 for b in lv_bests if b.best_score >= 9900000)
             aaa_plus = sum(1 for b in lv_bests if 9800000 <= b.best_score < 9900000)
             aaa = sum(1 for b in lv_bests if 9700000 <= b.best_score < 9800000)
-            
-            avg = int(sum(b.best_score for b in lv_bests) / played_count) if played_count > 0 else 0
-            
+
+            avg = (
+                int(sum(b.best_score for b in lv_bests) / played_count)
+                if played_count > 0
+                else 0
+            )
+
             stats_by_lv[lv] = {
-                'lv': lv,
-                'total': total_charts[lv],
-                'played': played_count,
-                'noplay': noplay,
-                'puc': puc,
-                'uc': uc,
-                'exc': exc,
-                'maxxive': mxx,
-                'clear': clr,
-                'failed': fld,
-                's': s,
-                'aaa_plus': aaa_plus,
-                'aaa': aaa,
-                'average': avg
+                "lv": lv,
+                "total": total_charts[lv],
+                "played": played_count,
+                "noplay": noplay,
+                "puc": puc,
+                "uc": uc,
+                "exc": exc,
+                "maxxive": mxx,
+                "clear": clr,
+                "failed": fld,
+                "s": s,
+                "aaa_plus": aaa_plus,
+                "aaa": aaa,
+                "average": avg,
             }
 
         return {
-            'date': datetime.datetime.now().strftime('%Y/%m/%d %H:%M:%S'),
-            'player_name': self.config.player_name if self.config else 'NONAME',
-            'total_vf': f"{self.get_total_vf() / 1000:.3f}",
-            'lvs': stats_by_lv
+            "date": datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S"),
+            "player_name": self.config.player_name if self.config else "NONAME",
+            "total_vf": f"{self.get_total_vf() / 1000:.3f}",
+            "lvs": stats_by_lv,
         }
 
     # ─── CSV 出力 ─────────────────────────────────────────────────────────────
 
     def write_best_csv(self, csv_path: str = None):
         """全譜面の自己ベストを CSV で出力する。"""
-        header = ['LV', 'Title', 'Difficulty', 'Lamp', 'Score', 'EXScore',
-                  'Grade', 'VF', 'Last Played']
-        os.makedirs('out', exist_ok=True)
-        output_file = Path(csv_path or 'out') / 'sdvx_score.csv'
+        header = [
+            "LV",
+            "Title",
+            "Difficulty",
+            "Lamp",
+            "Score",
+            "EXScore",
+            "Grade",
+            "VF",
+            "Last Played",
+        ]
+        os.makedirs("out", exist_ok=True)
+        output_file = Path(csv_path or "out") / "sdvx_score.csv"
         if csv_path:
             os.makedirs(csv_path, exist_ok=True)
 
         bests = self.get_all_best_results()
 
-        with open(output_file, 'w', encoding='utf-8-sig', newline='') as f:
+        with open(output_file, "w", encoding="utf-8-sig", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(header)
             for (title, diff), best in sorted(
                 bests.items(), key=lambda kv: (-kv[1].vf, kv[0][0])
             ):
-                writer.writerow([
-                    best.level,
-                    escape_for_csv(title),
-                    get_chart_name(diff),
-                    str(best.best_lamp),
-                    best.best_score,
-                    best.best_exscore if best.best_exscore is not None else '',
-                    best.grade,
-                    best.vf,
-                    best.last_play_date,
-                ])
+                writer.writerow(
+                    [
+                        best.level,
+                        escape_for_csv(title),
+                        get_chart_name(diff),
+                        str(best.best_lamp),
+                        best.best_score,
+                        best.best_exscore if best.best_exscore is not None else "",
+                        best.grade,
+                        best.vf,
+                        best.last_play_date,
+                    ]
+                )
         logger.info(f"CSV 出力完了: {output_file}")
+
+    def write_daily_play_count_csv(self, csv_path: str = None):
+        """日ごとのプレイ曲数を CSV で出力する。"""
+        header = ["Date", "PlayCount"]
+        os.makedirs("out", exist_ok=True)
+        output_file = Path(csv_path or "out") / "playcount.csv"
+        if csv_path:
+            os.makedirs(csv_path, exist_ok=True)
+
+        counts: dict[str, int] = {}
+        for result in self.results:
+            if not detect_mode.is_result(result.detect_mode):
+                continue
+            date = datetime.datetime.fromtimestamp(result.timestamp).strftime(
+                "%Y-%m-%d"
+            )
+            counts[date] = counts.get(date, 0) + 1
+
+        with open(output_file, "w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            for date, count in sorted(counts.items()):
+                writer.writerow([date, count])
+        logger.info(f"日別プレイ曲数CSV 出力完了: {output_file}")
 
     # ─── ユーティリティ ──────────────────────────────────────────────────────
 
@@ -1218,4 +1355,4 @@ class ResultDatabase:
         lines = []
         for r in self.results:
             lines.append(str(r))
-        return '\n'.join(lines)
+        return "\n".join(lines)
