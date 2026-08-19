@@ -1,5 +1,6 @@
 <!doctype html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <title>SDVX Rival Ranking</title>
@@ -13,6 +14,7 @@
             --enable-header: 0;
             --rival-scale: 0.8;
         }
+
         body {
             height: 100%;
             background-color: rgba(0, 0, 0, 0.95);
@@ -23,6 +25,7 @@
             color: #fff;
             text-shadow: 6px 6px 0 #000, -2px 2px 0 #000, 2px -2px 0 #000, -2px -2px 0 #000;
         }
+
         #all {
             border: 16px solid #000077;
             box-sizing: border-box;
@@ -36,174 +39,293 @@
             transform: scale(var(--rival-scale));
             transform-origin: top left;
         }
+
         #title {
             display: none;
             color: #fff;
             font-size: 72px;
             line-height: 130%;
             width: 100%;
-            background: linear-gradient(180deg, rgba(0,0,60,0.9), rgba(35,85,155,0.9));
+            background: linear-gradient(180deg, rgba(0, 0, 60, 0.9), rgba(35, 85, 155, 0.9));
             border-collapse: collapse;
         }
-        #title td { white-space: nowrap; padding: 0 18px; }
-        #title td:nth-child(1) { max-width: 10px; overflow: hidden; text-overflow: ellipsis; }
-        #title td:nth-child(2) { width: 13%; }
-        #title td:nth-child(3) { width: 10%; text-align: right; }
+
+        #title td {
+            white-space: nowrap;
+            padding: 0 18px;
+        }
+
+        #title td:nth-child(1) {
+            max-width: 10px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #title td:nth-child(2) {
+            width: 13%;
+        }
+
+        #title td:nth-child(3) {
+            width: 10%;
+            text-align: right;
+        }
+
         #result {
             font-size: 80px;
             width: 100%;
             border-collapse: collapse;
         }
-        #result td, #result th {
+
+        #result td,
+        #result th {
             border: none;
             vertical-align: middle;
             white-space: nowrap;
             padding: 0 18px;
         }
+
         #result th {
             background-color: #000;
             color: #fff;
             font-size: 42px;
             text-align: center;
         }
-        #result td:nth-child(1) { width: 8%; text-align: center; color: #aaaaff; }
-        #result td:nth-child(2) { width: 34%; overflow: hidden; text-overflow: ellipsis; }
-        #result td:nth-child(3) { width: 14%; text-align: center; }
-        #result td:nth-child(4) { width: 20%; text-align: right; color: #ffffcc; }
-        #result td:nth-child(5) { width: 11%; text-align: right; color: #ccffcc; }
-        #result td:nth-child(6) { width: 13%; text-align: right; color: #ccffff; }
-        #result tr.is-me { background-color: rgba(60, 80, 180, 0.45); }
-        .rank-1 { color: #ffdd44; font-weight: bold; }
-        .me { color: #aaddff; font-weight: bold; }
-        .portal-rival { color: #ff9999; }
-        .arcade-csv-rival { color: #d6a6ff; }
-        .lamp-icon { height: 80px; vertical-align: middle; }
-        .diff-NOV { color: #c060f0; }
-        .diff-ADV { color: #d4bb00; }
-        .diff-EXH { color: #e84040; }
-        .diff-MXM { color: #e0e0e0; }
-        .lamp-played { color: #888; }
-        .lamp-clear { color: #33aaff; }
-        .lamp-exc { color: #ff66cc; }
-        .lamp-maxxive { color: #eeeeee; }
-        .lamp-uc { color: #ff7777; }
+
+        #result td:nth-child(1) {
+            width: 8%;
+            text-align: center;
+            color: #aaaaff;
+        }
+
+        #result td:nth-child(2) {
+            width: 34%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #result td:nth-child(3) {
+            width: 14%;
+            text-align: center;
+        }
+
+        #result td:nth-child(4) {
+            width: 20%;
+            text-align: right;
+            color: #ffffcc;
+        }
+
+        #result td:nth-child(5) {
+            width: 11%;
+            text-align: right;
+            color: #ccffcc;
+        }
+
+        #result td:nth-child(6) {
+            width: 13%;
+            text-align: right;
+            color: #ccffff;
+        }
+
+        #result tr.is-me {
+            background-color: rgba(60, 80, 180, 0.45);
+        }
+
+        .rank-1 {
+            color: #ffdd44;
+            font-weight: bold;
+        }
+
+        .me {
+            color: #aaddff;
+            font-weight: bold;
+        }
+
+        .portal-rival {
+            color: #ff9999;
+        }
+
+        .arcade-csv-rival {
+            color: #d6a6ff;
+        }
+
+        .lamp-icon {
+            height: 80px;
+            vertical-align: middle;
+        }
+
+        .diff-NOV {
+            color: #c060f0;
+        }
+
+        .diff-ADV {
+            color: #d4bb00;
+        }
+
+        .diff-EXH {
+            color: #e84040;
+        }
+
+        .diff-MXM {
+            color: #e0e0e0;
+        }
+
+        .lamp-played {
+            color: #888;
+        }
+
+        .lamp-clear {
+            color: #33aaff;
+        }
+
+        .lamp-exc {
+            color: #ff66cc;
+        }
+
+        .lamp-maxxive {
+            color: #eeeeee;
+        }
+
+        .lamp-uc {
+            color: #ff7777;
+        }
+
         .lamp-puc {
             animation: flashmax 0.4s infinite;
             font-weight: bold;
         }
+
         @keyframes flashmax {
-            0% { color: #ff2828; }
-            20% { color: #d5ff28; }
-            40% { color: #28ff7e; }
-            60% { color: #2872ff; }
-            80% { color: #d528ff; }
-            100% { color: #ff2828; }
+            0% {
+                color: #ff2828;
+            }
+
+            20% {
+                color: #d5ff28;
+            }
+
+            40% {
+                color: #28ff7e;
+            }
+
+            60% {
+                color: #2872ff;
+            }
+
+            80% {
+                color: #d528ff;
+            }
+
+            100% {
+                color: #ff2828;
+            }
         }
     </style>
 </head>
+
 <body>
-<div id="all">
-    <table id="title">
-        <tr>
-            <td id="music">---</td>
-            <td id="difficulty"></td>
-            <td id="lv"></td>
-        </tr>
-    </table>
-    <table id="result">
-        <thead>
+    <div id="all">
+        <table id="title">
             <tr>
-                <th>rank</th>
-                <th style="text-align:left">player</th>
-                <th>lamp</th>
-                <th>score</th>
-                <th>diff</th>
-                <th>EX</th>
+                <td id="music">---</td>
+                <td id="difficulty"></td>
+                <td id="lv"></td>
             </tr>
-        </thead>
-        <tbody id="rival-body"></tbody>
-    </table>
-</div>
-<script src="./sdvx_ws_client.js"></script>
-<script>
-const entityDecoder = document.createElement("textarea");
-let lastRivalDifficultyHtml = "";
-let lastRivalHtml = "";
+        </table>
+        <table id="result">
+            <thead>
+                <tr>
+                    <th>rank</th>
+                    <th style="text-align:left">player</th>
+                    <th>lamp</th>
+                    <th>score</th>
+                    <th>diff</th>
+                    <th>EX</th>
+                </tr>
+            </thead>
+            <tbody id="rival-body"></tbody>
+        </table>
+    </div>
+    <script src="./sdvx_ws_client.js"></script>
+    <script>
+        const entityDecoder = document.createElement("textarea");
+        let lastRivalDifficultyHtml = "";
+        let lastRivalHtml = "";
 
-function decodeHtmlEntity(value) {
-    entityDecoder.innerHTML = String(value == null ? "" : value);
-    return entityDecoder.value;
-}
+        function decodeHtmlEntity(value) {
+            entityDecoder.innerHTML = String(value == null ? "" : value);
+            return entityDecoder.value;
+        }
 
-function headerEnabled() {
-    return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--enable-header").trim(), 10) === 1;
-}
-function esc(value) {
-    return decodeHtmlEntity(value).replace(/[&<>"']/g, function(ch) {
-        return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
-    });
-}
-function fmtScore(value) {
-    const n = Number(value) || 0;
-    return n ? n.toLocaleString("en-US") : "";
-}
-function fmtExScore(value) {
-    return value == null ? "" : String(value);
-}
-function signedK(value) {
-    const n = Number(value) || 0;
-    if (!n) return "0";
-    const absK = Math.floor(Math.abs(n) / 1000);
-    return (n > 0 ? "+" : "-") + absK.toLocaleString("en-US") + "k";
-}
-function lampIcon(value) {
-    const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
-    const file = files[Number(value) || 0];
-    return file ? '<img class="lamp-icon" src="../resources/' + file + '">' : "";
-}
-function isPortalRival(item) {
-    return item && (item.is_portal || item.source === "portal");
-}
-function isArcadeCsvRival(item) {
-    return item && item.source === "arcade_csv";
-}
-function update(data) {
-    if (!data) return;
-    const diff = data.difficulty || "";
-    document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
-    document.getElementById("music").textContent = decodeHtmlEntity(data.title || "---");
-    const difficultyHtml = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
-    if (difficultyHtml !== lastRivalDifficultyHtml) {
-        lastRivalDifficultyHtml = difficultyHtml;
-        document.getElementById("difficulty").innerHTML = difficultyHtml;
-    }
-    document.getElementById("lv").textContent = data.lv ? "Lv." + data.lv : "";
+        function headerEnabled() {
+            return parseInt(getComputedStyle(document.documentElement).getPropertyValue("--enable-header").trim(), 10) === 1;
+        }
+        function esc(value) {
+            return decodeHtmlEntity(value).replace(/[&<>"']/g, function (ch) {
+                return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch];
+            });
+        }
+        function fmtScore(value) {
+            const n = Number(value) || 0;
+            return n ? n.toLocaleString("en-US") : "";
+        }
+        function fmtExScore(value) {
+            return value == null ? "" : String(value);
+        }
+        function signedK(value) {
+            const n = Number(value) || 0;
+            if (!n) return "0";
+            const absK = Math.floor(Math.abs(n) / 1000);
+            return (n > 0 ? "+" : "-") + absK.toLocaleString("en-US") + "k";
+        }
+        function lampIcon(value) {
+            const files = ["", "log_lamp_failed.png", "log_lamp_clear.png", "log_lamp_hard.png", "log_lamp_exh.png", "log_lamp_uc.png", "log_lamp_puc.png"];
+            const file = files[Number(value) || 0];
+            return file ? '<img class="lamp-icon" src="../resources/' + file + '">' : "";
+        }
+        function isPortalRival(item) {
+            return item && (item.is_portal || item.source === "portal");
+        }
+        function isArcadeCsvRival(item) {
+            return item && item.source === "arcade_csv";
+        }
+        function update(data) {
+            if (!data) return;
+            const diff = data.difficulty || "";
+            document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
+            document.getElementById("music").textContent = decodeHtmlEntity(data.title || "---");
+            const difficultyHtml = '<span class="diff-' + esc(diff) + '">' + esc(diff) + "</span>";
+            if (difficultyHtml !== lastRivalDifficultyHtml) {
+                lastRivalDifficultyHtml = difficultyHtml;
+                document.getElementById("difficulty").innerHTML = difficultyHtml;
+            }
+            document.getElementById("lv").textContent = data.lv ? "Lv." + data.lv : "";
 
-    const items = data.rival_items || [];
-    let out = "";
-    items.forEach(function(item) {
-        const rowClass = item.is_me ? ' class="is-me"' : "";
-        const nameClass = item.is_me ? "me" : (isPortalRival(item) ? "portal-rival" : (isArcadeCsvRival(item) ? "arcade-csv-rival" : ""));
-        const rankClass = Number(item.rank) === 1 ? "rank-1" : "";
-        out += "<tr" + rowClass + ">";
-        out += '<td class="' + rankClass + '">' + esc(item.rank || "") + "</td>";
-        out += '<td class="' + nameClass + '">' + esc(item.player || "") + "</td>";
-        out += "<td>" + lampIcon(item.lamp) + "</td>";
-        out += "<td>" + fmtScore(item.score) + "</td>";
-        out += "<td>" + signedK(item.diff) + "</td>";
-        out += "<td>" + fmtExScore(item.exscore) + "</td>";
-        out += "</tr>";
-    });
-    if (out === lastRivalHtml) return;
-    lastRivalHtml = out;
-    document.getElementById("rival-body").innerHTML = out;
-}
-document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
-SDVXWebSocketClient.connect({
-    types: ["cursong", "history_cursong"],
-    target: "cursong",
-    onData: update
-});
-</script>
+            const items = data.rival_items || [];
+            let out = "";
+            items.forEach(function (item) {
+                const rowClass = item.is_me ? ' class="is-me"' : "";
+                const nameClass = item.is_me ? "me" : (isPortalRival(item) ? "portal-rival" : (isArcadeCsvRival(item) ? "arcade-csv-rival" : ""));
+                const rankClass = Number(item.rank) === 1 ? "rank-1" : "";
+                out += "<tr" + rowClass + ">";
+                out += '<td class="' + rankClass + '">' + esc(item.rank || "") + "</td>";
+                out += '<td class="' + nameClass + '">' + esc(item.player || "") + "</td>";
+                out += "<td>" + lampIcon(item.lamp) + "</td>";
+                out += "<td>" + fmtScore(item.score) + "</td>";
+                out += "<td>" + signedK(item.diff) + "</td>";
+                out += "<td>" + fmtExScore(item.exscore) + "</td>";
+                out += "</tr>";
+            });
+            if (out === lastRivalHtml) return;
+            lastRivalHtml = out;
+            document.getElementById("rival-body").innerHTML = out;
+        }
+        document.getElementById("title").style.display = headerEnabled() ? "table" : "none";
+        SDVXWebSocketClient.connect({
+            types: ["cursong", "history_cursong"],
+            target: "cursong",
+            onData: update
+        });
+    </script>
 </body>
+
 </html>

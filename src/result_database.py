@@ -988,7 +988,9 @@ class ResultDatabase:
             return f"/jackets/{path.name}?v={self._jacket_version(path)}"
         return "/resources/no_jacket.png"
 
-    def _serialize_mobile_best(self, best: OneBestData, rank: int | None = None) -> dict:
+    def _serialize_mobile_best(
+        self, best: OneBestData, rank: int | None = None
+    ) -> dict:
         diff_name = best.display_difficulty or get_chart_name(best.difficulty)
         item = {
             "chart_id": best.chart_id,
@@ -1098,18 +1100,23 @@ class ResultDatabase:
         """スマホビューのフォルダ一覧を返す。"""
         bests = self.get_all_best_results(include_unlisted=True)
         levels = sorted(
-            {b.level for b in bests.values() if isinstance(b.level, int) and b.level > 0},
+            {
+                b.level
+                for b in bests.values()
+                if isinstance(b.level, int) and b.level > 0
+            },
             reverse=True,
         )
         by_level = {
-            lv: sum(1 for b in bests.values() if b.level == lv)
-            for lv in levels
+            lv: sum(1 for b in bests.values() if b.level == lv) for lv in levels
         }
         vf_items = self.get_mobile_vf_folder_data()["items"]
         current = self.get_mobile_current_folder_data()
         return {
             "total_best_charts": len(bests),
-            "total_results": sum(1 for r in self.results if detect_mode.is_result(r.detect_mode)),
+            "total_results": sum(
+                1 for r in self.results if detect_mode.is_result(r.detect_mode)
+            ),
             "total_vf": self.get_total_vf(),
             "levels": [
                 {"id": f"level/{lv}", "label": f"LEVEL {lv}", "count": by_level[lv]}
@@ -1117,14 +1124,25 @@ class ResultDatabase:
             ],
             "special": [
                 {"id": "vf", "label": "VF TOP 50", "count": len(vf_items)},
-                {"id": "history", "label": "ALL PLAY HISTORY", "count": sum(1 for r in self.results if detect_mode.is_result(r.detect_mode))},
-                {"id": "current", "label": "CURRENT SONG", "count": len(current.get("items", []))},
+                {
+                    "id": "history",
+                    "label": "ALL PLAY HISTORY",
+                    "count": sum(
+                        1 for r in self.results if detect_mode.is_result(r.detect_mode)
+                    ),
+                },
+                {
+                    "id": "current",
+                    "label": "CURRENT SONG",
+                    "count": len(current.get("items", [])),
+                },
             ],
         }
 
     def get_mobile_level_folder_data(self, level: int) -> dict:
         bests = [
-            b for b in self.get_all_best_results(include_unlisted=True).values()
+            b
+            for b in self.get_all_best_results(include_unlisted=True).values()
             if b.level == level
         ]
         bests.sort(key=lambda b: (-b.vf, -b.best_score, b.title))
@@ -1143,10 +1161,7 @@ class ResultDatabase:
         if len(bests) > VF_TOP_N:
             threshold = bests[VF_TOP_N - 1].vf
             bests = [b for b in bests if b.vf >= threshold]
-        items = [
-            self._serialize_mobile_best(b, rank=i)
-            for i, b in enumerate(bests, 1)
-        ]
+        items = [self._serialize_mobile_best(b, rank=i) for i, b in enumerate(bests, 1)]
         return {
             "folder": {"id": "vf", "label": "VF TOP 50"},
             "total_vf": self.get_total_vf(),
@@ -1166,7 +1181,9 @@ class ResultDatabase:
         item["score"] = item.get("best_score", 0)
         item["exscore"] = item.get("best_ex", 0)
         item["max_exscore"] = item.get("max_exscore")
-        item["lv"] = int(item["lv"]) if str(item.get("lv", "")).isdigit() else item.get("lv", "")
+        item["lv"] = (
+            int(item["lv"]) if str(item.get("lv", "")).isdigit() else item.get("lv", "")
+        )
         items = [item]
         return {
             "folder": {"id": "current", "label": "CURRENT SONG"},
@@ -1180,7 +1197,7 @@ class ResultDatabase:
         all_results = [
             r for r in reversed(self.results) if detect_mode.is_result(r.detect_mode)
         ]
-        page = all_results[offset:offset + limit]
+        page = all_results[offset : offset + limit]
         items = [self._serialize_mobile_result(r) for r in page]
         return {
             "folder": {"id": "history", "label": "ALL PLAY HISTORY"},
@@ -1193,7 +1210,9 @@ class ResultDatabase:
 
     def get_mobile_chart_detail_data(self, chart_id: str) -> dict | None:
         results = [
-            r for r in self.search(chart_id=chart_id) if detect_mode.is_result(r.detect_mode)
+            r
+            for r in self.search(chart_id=chart_id)
+            if detect_mode.is_result(r.detect_mode)
         ]
         best = None
         for b in self.get_all_best_results(include_unlisted=True).values():
@@ -1604,7 +1623,7 @@ class ResultDatabase:
         """日ごとのプレイ曲数を CSV で出力する。"""
         header = ["Date", "PlayCount"]
         os.makedirs("out", exist_ok=True)
-        output_file = Path(csv_path or "out") / "playcount.csv"
+        output_file = Path(csv_path or "out") / "sdvx_playcount.csv"
         if csv_path:
             os.makedirs(csv_path, exist_ok=True)
 

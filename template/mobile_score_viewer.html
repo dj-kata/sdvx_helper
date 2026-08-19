@@ -336,12 +336,22 @@
       margin-top: 8px;
     }
     .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
       border: 1px solid var(--line);
       border-radius: 999px;
       background: var(--panel2);
       color: var(--text);
       padding: 4px 8px;
       font-size: 12px;
+    }
+    .lamp-pill {
+      min-width: 46px;
+      justify-content: center;
+    }
+    .lamp-pill .lamp-icon {
+      height: 14px;
     }
     .metrics {
       display: grid;
@@ -823,6 +833,7 @@
     function renderDetail(data) {
       setTitle(data.title || "DETAIL");
       const best = data.best || data;
+      const bestLamp = lampIcon(best.lamp ?? best.best_lamp);
       setStats([
         ["SCORE", fmtScore(best.score ?? best.best_score)],
         ["EX", fmtScore(best.exscore ?? best.best_ex)],
@@ -839,7 +850,7 @@
               <span class="pill">LV${escapeText(data.lv || best.lv || "")}</span>
               <span class="pill">${escapeText(data.display_difficulty || data.difficulty || "")}</span>
               <span class="pill">${escapeText(best.grade || "")}</span>
-              <span class="pill">${escapeText(best.lamp_text || "")}</span>
+              <span class="pill lamp-pill"><img class="lamp-icon" src="${bestLamp.src}" alt="${escapeText(best.lamp_text || "")}"></span>
             </div>
           </div>
         </section>
@@ -869,7 +880,7 @@
       const lamp = lampIcon(item.lamp);
       return `<div class="row">
         <img class="lamp-icon" src="${lamp.src}" alt="${escapeText(item.lamp_text || "")}">
-        <div><b>${item.rank}. ${escapeText(item.player)}</b><span>${escapeText(item.lamp_text || "")}</span></div>
+        <div><b>${item.rank}. ${escapeText(item.player)}</b></div>
         <div class="row-score">${fmtScore(item.score)}<span>EX ${fmtScore(item.exscore)} / ${diff}</span></div>
       </div>`;
     }
@@ -878,7 +889,7 @@
       const lamp = lampIcon(item.lamp);
       return `<div class="row">
         <img class="lamp-icon" src="${lamp.src}" alt="${escapeText(item.lamp_text || "")}">
-        <div><b>${escapeText(item.date)}</b><span>${escapeText(item.grade)} / ${escapeText(item.lamp_text)}</span></div>
+        <div><b>${escapeText(item.date)}</b><span>${escapeText(item.grade)}</span></div>
         <div class="row-score">${fmtScore(item.score)}<span>EX ${fmtScore(item.exscore)} / VF ${fmtChartVf(item.vf)}</span></div>
       </div>`;
     }
