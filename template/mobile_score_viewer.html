@@ -45,8 +45,12 @@
     }
     .top {
       display: grid;
-      grid-template-columns: 42px minmax(0, 1fr) 42px;
+      grid-template-columns: 92px minmax(0, 1fr) 42px;
       align-items: center;
+      gap: 8px;
+    }
+    .nav-left {
+      display: flex;
       gap: 8px;
     }
     .icon-btn {
@@ -472,7 +476,10 @@
   <div class="app">
     <header>
       <div class="top">
-        <button id="backBtn" class="icon-btn" aria-label="戻る" disabled>&lsaquo;</button>
+        <div class="nav-left">
+          <button id="homeBtn" class="icon-btn" aria-label="ホーム">&#8962;</button>
+          <button id="backBtn" class="icon-btn" aria-label="戻る" disabled>&lsaquo;</button>
+        </div>
         <h1 id="viewTitle">SDVX Helper</h1>
         <button id="refreshBtn" class="icon-btn" aria-label="更新">&#8635;</button>
       </div>
@@ -508,9 +515,16 @@
     function setTitle(text) {
       $("viewTitle").textContent = text;
       $("backBtn").disabled = state.stack.length === 0;
+      $("homeBtn").disabled = state.view === "home";
     }
 
     function setStats(items) {
+      if (!items || items.length === 0) {
+        $("stats").innerHTML = "";
+        $("stats").hidden = true;
+        return;
+      }
+      $("stats").hidden = false;
       $("stats").innerHTML = items.map(([label, value]) => `
         <div class="stat"><span>${label}</span><strong>${value}</strong></div>
       `).join("");
@@ -834,11 +848,7 @@
       setTitle(data.title || "DETAIL");
       const best = data.best || data;
       const bestLamp = lampIcon(best.lamp ?? best.best_lamp);
-      setStats([
-        ["SCORE", fmtScore(best.score ?? best.best_score)],
-        ["EX", fmtScore(best.exscore ?? best.best_ex)],
-        ["VF", fmtChartVf(best.vf)],
-      ]);
+      setStats([]);
       const rivals = data.rival_items || [];
       const logs = data.items || [];
       $("content").innerHTML = `
@@ -936,6 +946,9 @@
 
     $("backBtn").addEventListener("click", () => {
       goUpOneLevel(true);
+    });
+    $("homeBtn").addEventListener("click", () => {
+      loadHome();
     });
     $("refreshBtn").addEventListener("click", () => {
       if (state.view === "home") loadHome();
