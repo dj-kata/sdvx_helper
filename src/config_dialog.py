@@ -381,6 +381,18 @@ class ConfigDialog(QDialog):
         self.websocket_data_port_edit.setValidator(validator)
         other_layout.addRow(self.ui.feature.websocket_port, self.websocket_data_port_edit)
 
+        self.mobile_score_server_enabled_check = QCheckBox(
+            self.ui.feature.mobile_score_server_enabled
+        )
+        other_layout.addRow(self.mobile_score_server_enabled_check)
+
+        self.mobile_score_server_port_edit = QLineEdit()
+        self.mobile_score_server_port_edit.setValidator(validator)
+        other_layout.addRow(
+            self.ui.feature.mobile_score_server_port,
+            self.mobile_score_server_port_edit,
+        )
+
         self.keep_on_top_check = QCheckBox(self.ui.feature.keep_on_top)
         other_layout.addRow(self.keep_on_top_check)
 
@@ -1286,6 +1298,12 @@ class ConfigDialog(QDialog):
         self.keep_on_top_check.setChecked(self.config.keep_on_top)
         self.autoload_offset_spin.setValue(self.config.autoload_offset)
         self.websocket_data_port_edit.setText(str(self.config.websocket_data_port))
+        self.mobile_score_server_enabled_check.setChecked(
+            bool(getattr(self.config, 'mobile_score_server_enabled', True))
+        )
+        self.mobile_score_server_port_edit.setText(
+            str(getattr(self.config, 'mobile_score_server_port', 8787))
+        )
 
         self.image_save_path_edit.setText(self.config.image_save_path)
         self.autosave_image_check.setChecked(self.config.autosave_image)
@@ -1353,6 +1371,16 @@ class ConfigDialog(QDialog):
             port = int(self.websocket_data_port_edit.text())
             if 1000 <= port <= 65535:
                 self.config.websocket_data_port = port
+        except ValueError:
+            pass
+
+        self.config.mobile_score_server_enabled = (
+            self.mobile_score_server_enabled_check.isChecked()
+        )
+        try:
+            port = int(self.mobile_score_server_port_edit.text())
+            if 1000 <= port <= 65535:
+                self.config.mobile_score_server_port = port
         except ValueError:
             pass
 

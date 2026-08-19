@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SDVX Helper Scores</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101215;
+      --panel: #181b20;
+      --panel2: #20242a;
+      --text: #f4f7f8;
+      --muted: #9ba8ad;
+      --line: #30363d;
+      --teal: #35d0b5;
+      --coral: #ff6b6b;
+      --amber: #ffd166;
+      --blue: #7ab8ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    button, input {
+      font: inherit;
+    }
+    .app {
+      min-height: 100dvh;
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: rgba(16, 18, 21, 0.94);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(14px);
+      padding: max(12px, env(safe-area-inset-top)) 14px 12px;
+    }
+    .top {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr) 42px;
+      align-items: center;
+      gap: 8px;
+    }
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+    }
+    .icon-btn:disabled {
+      opacity: 0.35;
+    }
+    h1 {
+      margin: 0;
+      min-width: 0;
+      font-size: 18px;
+      line-height: 1.2;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #121519;
+    }
+    .stat {
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .stat strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 16px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    main {
+      min-height: 0;
+      overflow-y: auto;
+      padding: 12px 12px max(24px, env(safe-area-inset-bottom));
+    }
+    .grid {
+      display: grid;
+      gap: 8px;
+    }
+    .folders {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .folder {
+      min-height: 78px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--panel), #14181e);
+      color: var(--text);
+      padding: 12px;
+      text-align: left;
+    }
+    .folder.primary { border-color: color-mix(in srgb, var(--teal), var(--line) 50%); }
+    .folder.history { border-color: color-mix(in srgb, var(--coral), var(--line) 58%); }
+    .folder.current { border-color: color-mix(in srgb, var(--amber), var(--line) 52%); }
+    .folder b {
+      display: block;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .folder span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .search {
+      width: 100%;
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--text);
+      padding: 0 12px;
+    }
+    .song-list {
+      display: grid;
+      gap: 8px;
+    }
+    .song-cell {
+      min-height: 78px;
+      display: grid;
+      grid-template-columns: 62px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: inherit;
+      text-align: left;
+      padding: 8px;
+      width: 100%;
+    }
+    .jacket {
+      width: 62px;
+      height: 62px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #050607;
+      border: 1px solid #000;
+    }
+    .song-main {
+      min-width: 0;
+    }
+    .title {
+      font-size: 15px;
+      font-weight: 750;
+      line-height: 1.25;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .score-block {
+      text-align: right;
+      min-width: 88px;
+    }
+    .score {
+      font-variant-numeric: tabular-nums;
+      font-size: 16px;
+      font-weight: 800;
+    }
+    .vf {
+      margin-top: 4px;
+      color: var(--teal);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .empty, .error {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--muted);
+      padding: 22px 14px;
+      text-align: center;
+    }
+    .detail-head {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .detail-head .jacket {
+      width: 96px;
+      height: 96px;
+    }
+    .detail-title {
+      min-width: 0;
+      font-size: 20px;
+      font-weight: 850;
+      line-height: 1.2;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel2);
+      color: var(--text);
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .metric {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 10px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+      overflow-wrap: anywhere;
+    }
+    .section-title {
+      margin: 16px 2px 8px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      padding: 10px 2px;
+    }
+    .row:last-child {
+      border-bottom: 0;
+    }
+    .row b {
+      font-size: 14px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .row span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    .row-score {
+      text-align: right;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .load-more {
+      width: 100%;
+      height: 44px;
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel2);
+      color: var(--text);
+    }
+    @media (min-width: 720px) {
+      main { max-width: 900px; width: 100%; margin: 0 auto; }
+      .folders { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .song-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="top">
+        <button id="backBtn" class="icon-btn" aria-label="戻る" disabled>&lsaquo;</button>
+        <h1 id="viewTitle">SDVX Helper</h1>
+        <button id="refreshBtn" class="icon-btn" aria-label="更新">&#8635;</button>
+      </div>
+    </header>
+    <section id="stats" class="stats"></section>
+    <main id="content"></main>
+  </div>
+
+  <script>
+    const state = {
+      view: "home",
+      stack: [],
+      items: [],
+      allItems: [],
+      historyOffset: 0,
+      historyTotal: 0,
+      currentTimer: null,
+    };
+
+    const $ = (id) => document.getElementById(id);
+    const fmtScore = (v) => v == null ? "-" : Number(v).toLocaleString("ja-JP");
+    const fmtVf = (v) => ((Number(v) || 0) / 1000).toFixed(3);
+
+    async function api(path) {
+      const res = await fetch(path, { cache: "no-store" });
+      if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+      return await res.json();
+    }
+
+    function setTitle(text) {
+      $("viewTitle").textContent = text;
+      $("backBtn").disabled = state.stack.length === 0;
+    }
+
+    function setStats(items) {
+      $("stats").innerHTML = items.map(([label, value]) => `
+        <div class="stat"><span>${label}</span><strong>${value}</strong></div>
+      `).join("");
+    }
+
+    function push(view) {
+      state.stack.push(view);
+    }
+
+    function clearCurrentTimer() {
+      if (state.currentTimer) {
+        clearInterval(state.currentTimer);
+        state.currentTimer = null;
+      }
+    }
+
+    function escapeText(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    function renderHome(data) {
+      clearCurrentTimer();
+      state.view = "home";
+      setTitle("SDVX Helper");
+      setStats([
+        ["BEST", data.total_best_charts],
+        ["PLAYS", data.total_results],
+        ["VF", fmtVf(data.total_vf)],
+      ]);
+      const special = data.special.map((f) => {
+        const cls = f.id === "current" ? "current" : (f.id === "history" ? "history" : "primary");
+        return `<button class="folder ${cls}" data-folder="${f.id}">
+          <b>${escapeText(f.label)}</b><span>${f.count} charts</span>
+        </button>`;
+      }).join("");
+      const levels = data.levels.map((f) => `<button class="folder" data-folder="${f.id}">
+        <b>${escapeText(f.label)}</b><span>${f.count} charts</span>
+      </button>`).join("");
+      $("content").innerHTML = `<div class="grid folders">${special}${levels}</div>`;
+      document.querySelectorAll("[data-folder]").forEach((button) => {
+        button.addEventListener("click", () => openFolder(button.dataset.folder, true));
+      });
+    }
+
+    function renderList(label, items, options = {}) {
+      state.allItems = items;
+      state.items = items;
+      setTitle(label);
+      setStats([
+        ["CHARTS", items.length],
+        ["BEST", items.filter((i) => i.score || i.best_score).length],
+        ["VF", options.totalVf ? fmtVf(options.totalVf) : "-"],
+      ]);
+      $("content").innerHTML = `
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search" autocomplete="off">
+        </div>
+        <div id="songList" class="song-list"></div>
+        ${options.loadMore ? '<button id="loadMore" class="load-more">MORE</button>' : ''}
+      `;
+      $("search").addEventListener("input", applyFilter);
+      if (options.loadMore) {
+        $("loadMore").addEventListener("click", loadMoreHistory);
+      }
+      drawSongList(items);
+    }
+
+    function applyFilter() {
+      const q = $("search").value.trim().toLowerCase();
+      const items = q
+        ? state.allItems.filter((item) => String(item.title || "").toLowerCase().includes(q))
+        : state.allItems;
+      drawSongList(items);
+    }
+
+    function drawSongList(items) {
+      const node = $("songList");
+      if (!items.length) {
+        node.innerHTML = `<div class="empty">NO DATA</div>`;
+        return;
+      }
+      node.innerHTML = items.map(songCell).join("");
+      node.querySelectorAll("[data-chart]").forEach((button) => {
+        button.addEventListener("click", () => openChart(button.dataset.chart, true));
+      });
+    }
+
+    function songCell(item) {
+      const score = item.score ?? item.best_score;
+      const ex = item.exscore ?? item.best_ex;
+      const diff = item.display_difficulty || item.difficulty || "";
+      const rank = item.rank ? `#${item.rank} ` : "";
+      const meta = [
+        rank + `LV${item.lv || ""}`,
+        diff,
+        item.grade,
+        item.lamp_text,
+        item.last_played || item.date || "",
+        ex ? `EX ${fmtScore(ex)}` : "",
+      ].filter(Boolean).join(" / ");
+      return `<button class="song-cell" data-chart="${escapeText(item.chart_id || "")}">
+        <img class="jacket" src="${escapeText(item.jacket_img)}" alt="">
+        <div class="song-main">
+          <div class="title">${escapeText(item.title)}</div>
+          <div class="meta">${escapeText(meta)}</div>
+        </div>
+        <div class="score-block">
+          <div class="score">${fmtScore(score)}</div>
+          <div class="vf">VF ${fmtVf(item.vf)}</div>
+        </div>
+      </button>`;
+    }
+
+    async function openFolder(id, shouldPush) {
+      clearCurrentTimer();
+      if (shouldPush) push(state.view);
+      try {
+        if (id === "history") {
+          state.historyOffset = 0;
+          const data = await api("/api/history?limit=200&offset=0");
+          state.view = "history";
+          state.historyOffset = data.items.length;
+          state.historyTotal = data.total;
+          renderList(data.folder.label, data.items, { loadMore: data.items.length < data.total });
+          return;
+        }
+        const path = id === "vf" || id === "current" ? `/api/folders/${id}` : `/api/folders/${id}`;
+        const data = await api(path);
+        state.view = id;
+        renderList(data.folder.label, data.items, { totalVf: data.total_vf });
+        if (id === "current") {
+          state.currentTimer = setInterval(() => refreshCurrent(false), 2000);
+        }
+      } catch (e) {
+        renderError(e);
+      }
+    }
+
+    async function refreshCurrent(redrawTitle = true) {
+      try {
+        const data = await api("/api/folders/current");
+        if (redrawTitle) setTitle(data.folder.label);
+        state.allItems = data.items;
+        drawSongList(data.items);
+        setStats([["CHARTS", data.items.length], ["BEST", data.items.length], ["VF", "-"]]);
+      } catch (e) {
+        renderError(e);
+      }
+    }
+
+    async function loadMoreHistory() {
+      const data = await api(`/api/history?limit=200&offset=${state.historyOffset}`);
+      state.historyOffset += data.items.length;
+      state.allItems = state.allItems.concat(data.items);
+      applyFilter();
+      if (state.historyOffset >= state.historyTotal) {
+        $("loadMore")?.remove();
+      }
+    }
+
+    async function openChart(chartId, shouldPush) {
+      if (!chartId) return;
+      clearCurrentTimer();
+      if (shouldPush) push(state.view);
+      try {
+        const data = await api(`/api/charts/${encodeURIComponent(chartId)}`);
+        state.view = `chart:${chartId}`;
+        renderDetail(data);
+      } catch (e) {
+        renderError(e);
+      }
+    }
+
+    function renderDetail(data) {
+      setTitle(data.title || "DETAIL");
+      const best = data.best || data;
+      setStats([
+        ["SCORE", fmtScore(best.score ?? best.best_score)],
+        ["EX", fmtScore(best.exscore ?? best.best_ex)],
+        ["VF", fmtVf(best.vf)],
+      ]);
+      const rivals = data.rival_items || [];
+      const logs = data.items || [];
+      $("content").innerHTML = `
+        <section class="detail-head">
+          <img class="jacket" src="${escapeText(data.jacket_img || best.jacket_img)}" alt="">
+          <div>
+            <div class="detail-title">${escapeText(data.title)}</div>
+            <div class="pill-row">
+              <span class="pill">LV${escapeText(data.lv || best.lv || "")}</span>
+              <span class="pill">${escapeText(data.display_difficulty || data.difficulty || "")}</span>
+              <span class="pill">${escapeText(best.grade || "")}</span>
+              <span class="pill">${escapeText(best.lamp_text || "")}</span>
+            </div>
+          </div>
+        </section>
+        <section class="metrics">
+          <div class="metric"><span>BEST SCORE</span><strong>${fmtScore(best.score ?? best.best_score)}</strong></div>
+          <div class="metric"><span>BEST EX</span><strong>${fmtScore(best.exscore ?? best.best_ex)}</strong></div>
+          <div class="metric"><span>VOLFORCE</span><strong>${fmtVf(best.vf)}</strong></div>
+          <div class="metric"><span>PLAYS</span><strong>${logs.length || data.play_count || 0}</strong></div>
+        </section>
+        <div class="section-title">Rivals</div>
+        <section>${rivals.length ? rivals.map(rivalRow).join("") : '<div class="empty">NO DATA</div>'}</section>
+        <div class="section-title">Play Log</div>
+        <section>${logs.length ? logs.map(logRow).join("") : '<div class="empty">NO DATA</div>'}</section>
+      `;
+    }
+
+    function rivalRow(item) {
+      const diff = item.diff > 0 ? `+${fmtScore(item.diff)}` : fmtScore(item.diff);
+      return `<div class="row">
+        <div><b>${item.rank}. ${escapeText(item.player)}</b><span>${escapeText(item.lamp_text || "")}</span></div>
+        <div class="row-score">${fmtScore(item.score)}<span>${diff}</span></div>
+      </div>`;
+    }
+
+    function logRow(item) {
+      return `<div class="row">
+        <div><b>${escapeText(item.date)}</b><span>${escapeText(item.grade)} / ${escapeText(item.lamp_text)}</span></div>
+        <div class="row-score">${fmtScore(item.score)}<span>VF ${fmtVf(item.vf)}</span></div>
+      </div>`;
+    }
+
+    function renderError(e) {
+      $("content").innerHTML = `<div class="error">${escapeText(e.message || e)}</div>`;
+    }
+
+    async function loadHome() {
+      clearCurrentTimer();
+      state.view = "home";
+      state.stack = [];
+      try {
+        renderHome(await api("/api/folders"));
+      } catch (e) {
+        renderError(e);
+      }
+    }
+
+    $("backBtn").addEventListener("click", () => {
+      const previous = state.stack.pop();
+      if (!previous) return loadHome();
+      if (previous === "home") return loadHome();
+      if (previous.startsWith("chart:")) return openChart(previous.slice(6), false);
+      return openFolder(previous, false);
+    });
+    $("refreshBtn").addEventListener("click", () => {
+      if (state.view === "home") loadHome();
+      else if (state.view.startsWith("chart:")) openChart(state.view.slice(6), false);
+      else openFolder(state.view, false);
+    });
+
+    loadHome();
+  </script>
+</body>
+</html>

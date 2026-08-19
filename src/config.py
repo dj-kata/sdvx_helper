@@ -84,6 +84,11 @@ class Config:
         # ─── WebSocket データ配信 ─────────────────────────────────────────
         self.websocket_data_port: int = 8767
 
+        # ─── スマホ向けスコア閲覧HTTPサーバ ─────────────────────────────
+        self.mobile_score_server_enabled: bool = True
+        self.mobile_score_server_host: str = '0.0.0.0'
+        self.mobile_score_server_port: int = 8787
+
         # ─── OBS テキストソース ───────────────────────────────────────────
         self.obs_text_source_name: str = ''
         """楽曲情報を書き込む OBS テキストソース名（空=書き込まない）"""

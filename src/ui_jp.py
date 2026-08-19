@@ -65,6 +65,8 @@ class UIText:
         other_group = 'その他'
         autoload_offset = '自動読み込みオフセット(時間):'
         websocket_port = 'データ表示用port:'
+        mobile_score_server_enabled = 'スマホ用スコア閲覧サーバを起動する'
+        mobile_score_server_port = 'スマホ用HTTP port:'
         obs_text_source = 'OBSテキストソース名:'
         keep_on_top = '常に最前面表示する'
         csv_group = 'CSV出力'

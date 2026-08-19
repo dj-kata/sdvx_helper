@@ -709,6 +709,7 @@ class MainWindow(MainWindowUI):
         )
         self.setWindowFlag(Qt.WindowStaysOnTopHint, self.config.keep_on_top)
         self.show()
+        self.result_database.restart_mobile_http_server()
         if not self.obs_manager.uses_obs_websocket():
             self.obs_manager.disconnect()
         elif not self.obs_manager.is_connected:

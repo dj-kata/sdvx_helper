@@ -65,6 +65,8 @@ class UIText:
         other_group = 'Other'
         autoload_offset = 'Auto-load offset (hours):'
         websocket_port = 'Data display port:'
+        mobile_score_server_enabled = 'Start mobile score viewer server'
+        mobile_score_server_port = 'Mobile HTTP port:'
         obs_text_source = 'OBS Text Source Name:'
         keep_on_top = 'Always on Top'
         csv_group = 'CSV Export'

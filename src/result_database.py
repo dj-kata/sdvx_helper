@@ -93,6 +93,7 @@ class ResultDatabase:
         self.portal_manager = None  # メインウィンドウからセットされる
         self._bests_cache_portal_signature = None
         self.ws_thread = None
+        self.mobile_http_server = None
         # 新方式: RivalManager (起動後に外部から設定される)
         self.rival_manager = None
         self.jacket_dir = Path("jackets")
@@ -104,6 +105,7 @@ class ResultDatabase:
         if config is not None:
             self._init_websocket_server()
             self._write_websocket_config()
+            self._init_mobile_http_server()
             # 初期データ配信
             self.broadcast_stats_data()
             self.broadcast_vf_data()
@@ -146,10 +148,30 @@ class ResultDatabase:
         self.ws_server.start(self.ws_loop)
         logger.info(f"WebSocketサーバー起動: ポート {port}")
 
+    def _init_mobile_http_server(self):
+        if not getattr(self.config, "mobile_score_server_enabled", True):
+            return
+        from src.mobile_http_server import MobileScoreHTTPServer
+
+        host = getattr(self.config, "mobile_score_server_host", "0.0.0.0")
+        port = getattr(self.config, "mobile_score_server_port", 8787)
+        self.mobile_http_server = MobileScoreHTTPServer(self, host=host, port=port)
+        self.mobile_http_server.start()
+
+    def restart_mobile_http_server(self):
+        """設定変更後にスマホ向けHTTPサーバを再起動する。"""
+        if self.mobile_http_server:
+            self.mobile_http_server.stop()
+            self.mobile_http_server = None
+        if self.config is not None:
+            self._init_mobile_http_server()
+
     def shutdown(self):
         """サーバーを停止（アプリケーション終了時に呼び出す）。"""
         if self.ws_server:
             self.ws_server.stop()
+        if self.mobile_http_server:
+            self.mobile_http_server.stop()
         if self.ws_loop:
             self.ws_loop.call_soon_threadsafe(self.ws_loop.stop)
         self.db.close()
@@ -893,6 +915,7 @@ class ResultDatabase:
             best_vf = calc_vf(level, best_score, best_lamp)
 
         data: dict = {
+            "chart_id": calc_chart_id(title, diff),
             "title": title,
             "difficulty": diff_name,
             "display_difficulty": display_diff_name,
@@ -938,6 +961,187 @@ class ResultDatabase:
         )
         return data
 
+    # ─── スマホ向けHTTP API用データ生成 ─────────────────────────────────────
+
+    @staticmethod
+    def _timestamp_text(timestamp: int | None, fmt: str = "%Y-%m-%d %H:%M") -> str:
+        if not timestamp:
+            return ""
+        try:
+            return datetime.datetime.fromtimestamp(timestamp).strftime(fmt)
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _lamp_text(lamp: clear_lamp | None) -> str:
+        return str(lamp) if lamp else str(clear_lamp.noplay)
+
+    def _mobile_jacket_url(self, chart_id: str | None) -> str:
+        if not chart_id:
+            return "/resources/no_jacket.png"
+        path = self._jacket_path(chart_id)
+        if path.exists():
+            return f"/jackets/{path.name}?v={self._jacket_version(path)}"
+        return "/resources/no_jacket.png"
+
+    def _serialize_mobile_best(self, best: OneBestData, rank: int | None = None) -> dict:
+        diff_name = best.display_difficulty or get_chart_name(best.difficulty)
+        item = {
+            "chart_id": best.chart_id,
+            "title": best.title,
+            "difficulty": get_chart_name(best.difficulty),
+            "display_difficulty": diff_name,
+            "lv": best.level,
+            "score": best.best_score,
+            "exscore": best.best_exscore,
+            "grade": best.grade,
+            "lamp": best.best_lamp.value,
+            "lamp_text": self._lamp_text(best.best_lamp),
+            "vf": best.vf,
+            "play_count": best.play_count,
+            "last_played": self._timestamp_text(best.last_timestamp),
+            "jacket_img": self._mobile_jacket_url(best.chart_id),
+            "is_unlisted_chart": best.is_unlisted_chart,
+        }
+        if rank is not None:
+            item["rank"] = rank
+        return item
+
+    def _serialize_mobile_result(self, result: OneResult) -> dict:
+        info = self.song_database.get_song_info(result.title)
+        level = info.get_level(result.difficulty) if info else result.level
+        chart_id = result.chart_id
+        return {
+            "id": getattr(result, "id", None),
+            "chart_id": chart_id,
+            "title": result.title,
+            "difficulty": get_chart_name(result.difficulty),
+            "display_difficulty": self._get_append_cdiff(result.title, result.level)
+            or get_chart_name(result.difficulty),
+            "lv": level or result.level or "",
+            "score": result.score,
+            "exscore": result.exscore,
+            "grade": result.grade,
+            "lamp": result.lamp.value if result.lamp else clear_lamp.noplay.value,
+            "lamp_text": self._lamp_text(result.lamp),
+            "vf": result.vf,
+            "pre_score": result.bestscore or 0,
+            "pre_ex": result.bestexscore or 0,
+            "timestamp": result.timestamp,
+            "date": self._timestamp_text(result.timestamp),
+            "jacket_img": self._mobile_jacket_url(chart_id),
+        }
+
+    def get_mobile_folders_data(self) -> dict:
+        """スマホビューのフォルダ一覧を返す。"""
+        bests = self.get_all_best_results(include_unlisted=True)
+        levels = sorted(
+            {b.level for b in bests.values() if isinstance(b.level, int) and b.level > 0},
+            reverse=True,
+        )
+        by_level = {
+            lv: sum(1 for b in bests.values() if b.level == lv)
+            for lv in levels
+        }
+        vf_items = self.get_mobile_vf_folder_data()["items"]
+        current = self.get_mobile_current_folder_data()
+        return {
+            "total_best_charts": len(bests),
+            "total_results": sum(1 for r in self.results if detect_mode.is_result(r.detect_mode)),
+            "total_vf": self.get_total_vf(),
+            "levels": [
+                {"id": f"level/{lv}", "label": f"LEVEL {lv}", "count": by_level[lv]}
+                for lv in levels
+            ],
+            "special": [
+                {"id": "vf", "label": "VF TOP 50", "count": len(vf_items)},
+                {"id": "history", "label": "ALL PLAY HISTORY", "count": sum(1 for r in self.results if detect_mode.is_result(r.detect_mode))},
+                {"id": "current", "label": "CURRENT SONG", "count": len(current.get("items", []))},
+            ],
+        }
+
+    def get_mobile_level_folder_data(self, level: int) -> dict:
+        bests = [
+            b for b in self.get_all_best_results(include_unlisted=True).values()
+            if b.level == level
+        ]
+        bests.sort(key=lambda b: (-b.vf, -b.best_score, b.title))
+        return {
+            "folder": {"id": f"level/{level}", "label": f"LEVEL {level}"},
+            "items": [self._serialize_mobile_best(b) for b in bests],
+        }
+
+    def get_mobile_vf_folder_data(self) -> dict:
+        bests = sorted(
+            self.get_all_best_results().values(),
+            key=lambda b: (-b.vf, -b.best_score, b.title),
+        )
+        if len(bests) > VF_TOP_N:
+            threshold = bests[VF_TOP_N - 1].vf
+            bests = [b for b in bests if b.vf >= threshold]
+        return {
+            "folder": {"id": "vf", "label": "VF TOP 50"},
+            "total_vf": self.get_total_vf(),
+            "items": [
+                self._serialize_mobile_best(b, rank=i)
+                for i, b in enumerate(bests, 1)
+            ],
+        }
+
+    def get_mobile_current_folder_data(self) -> dict:
+        data = self.ws_server.cursong_data if self.ws_server else None
+        if not data:
+            return {"folder": {"id": "current", "label": "CURRENT SONG"}, "items": []}
+        item = dict(data)
+        chart_id = item.get("chart_id")
+        item["jacket_img"] = self._mobile_jacket_url(chart_id)
+        item["lamp_text"] = self._lamp_text(clear_lamp(item.get("best_lamp", 0)))
+        item["score"] = item.get("best_score", 0)
+        item["exscore"] = item.get("best_ex", 0)
+        item["lv"] = int(item["lv"]) if str(item.get("lv", "")).isdigit() else item.get("lv", "")
+        return {
+            "folder": {"id": "current", "label": "CURRENT SONG"},
+            "items": [item],
+        }
+
+    def get_mobile_history_data(self, limit: int = 200, offset: int = 0) -> dict:
+        limit = max(1, min(1000, int(limit or 200)))
+        offset = max(0, int(offset or 0))
+        all_results = [
+            r for r in reversed(self.results) if detect_mode.is_result(r.detect_mode)
+        ]
+        page = all_results[offset:offset + limit]
+        return {
+            "folder": {"id": "history", "label": "ALL PLAY HISTORY"},
+            "total": len(all_results),
+            "limit": limit,
+            "offset": offset,
+            "items": [self._serialize_mobile_result(r) for r in page],
+        }
+
+    def get_mobile_chart_detail_data(self, chart_id: str) -> dict | None:
+        results = [
+            r for r in self.search(chart_id=chart_id) if detect_mode.is_result(r.detect_mode)
+        ]
+        best = None
+        for b in self.get_all_best_results(include_unlisted=True).values():
+            if b.chart_id == chart_id:
+                best = b
+                break
+        if best is None and not results:
+            return None
+        title = best.title if best else results[0].title
+        diff = best.difficulty if best else results[0].difficulty
+        detail = self.get_cursong_data(title, diff)
+        if best is not None:
+            detail["best"] = self._serialize_mobile_best(best)
+        detail["jacket_img"] = self._mobile_jacket_url(chart_id)
+        detail["items"] = [
+            self._serialize_mobile_result(r)
+            for r in sorted(results, key=lambda r: r.timestamp, reverse=True)
+        ]
+        return detail
+
     def get_cursong_rival_items(
         self,
         title: str,
@@ -957,6 +1161,7 @@ class ResultDatabase:
                     "score": best_score or 0,
                     "exscore": best_ex,
                     "lamp": best_lamp.value if best_lamp else clear_lamp.noplay.value,
+                    "lamp_text": self._lamp_text(best_lamp),
                     "is_me": True,
                 }
             )
@@ -976,6 +1181,7 @@ class ResultDatabase:
                             "lamp": entry.lamp.value
                             if entry.lamp
                             else clear_lamp.noplay.value,
+                            "lamp_text": self._lamp_text(entry.lamp),
                             "is_me": False,
                             "source": rival_sources.get(name, "csv"),
                         }
