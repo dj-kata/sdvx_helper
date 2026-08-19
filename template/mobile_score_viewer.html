@@ -148,6 +148,69 @@
       color: var(--text);
       padding: 0 12px;
     }
+    .list-summary {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .summary-row + .summary-row {
+      margin-top: 10px;
+    }
+    .summary-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+    .summary-bar {
+      display: flex;
+      height: 12px;
+      overflow: hidden;
+      border: 1px solid #050607;
+      border-radius: 999px;
+      background: #2a2f35;
+    }
+    .summary-segment {
+      min-width: 0;
+      height: 100%;
+    }
+    .summary-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px 8px;
+      margin-top: 6px;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .legend-swatch {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .seg-puc { background: #fff15a; }
+    .seg-uc { background: #ff7777; }
+    .seg-maxxive { background: #cf77ff; }
+    .seg-exc { background: #ff9a3d; }
+    .seg-clear { background: #77dd77; }
+    .seg-failed { background: #e94242; }
+    .seg-noplay { background: #747b84; }
+    .seg-s { background: #fff15a; }
+    .seg-aaa_plus { background: #77ffff; }
+    .seg-aaa { background: #7f8cff; }
+    .seg-under_aaa { background: #747b84; }
     .song-list {
       display: grid;
       gap: 8px;
@@ -526,9 +589,11 @@
         <div class="toolbar">
           <input id="search" class="search" placeholder="Search" autocomplete="off">
         </div>
+        <div id="listSummary"></div>
         <div id="songList" class="song-list"></div>
         ${options.loadMore ? '<button id="loadMore" class="load-more">MORE</button>' : ''}
       `;
+      drawSummary(options.summary || buildSummary(items));
       $("search").addEventListener("input", applyFilter);
       if (options.loadMore) {
         $("loadMore").addEventListener("click", loadMoreHistory);
@@ -536,11 +601,67 @@
       drawSongList(items);
     }
 
+    function buildSummary(items) {
+      const lampDefs = [
+        ["puc", "PUC", 6],
+        ["uc", "UC", 5],
+        ["maxxive", "MAXXIVE", 4],
+        ["exc", "EXC", 3],
+        ["clear", "CLEAR", 2],
+        ["failed", "FAILED", 1],
+        ["noplay", "NO PLAY", 0],
+      ];
+      const scoreDefs = [
+        ["s", "S", (score) => score >= 9900000],
+        ["aaa_plus", "AAA+", (score) => score >= 9800000 && score < 9900000],
+        ["aaa", "AAA", (score) => score >= 9700000 && score < 9800000],
+        ["under_aaa", "UNDER AAA", (score) => score < 9700000],
+      ];
+      const total = items.length;
+      const lamps = lampDefs.map(([key, label, value]) => {
+        const count = items.filter((item) => Number(item.lamp || 0) === value).length;
+        return { key, label, count, rate: total ? count / total * 100 : 0 };
+      });
+      const scores = scoreDefs.map(([key, label, predicate]) => {
+        const count = items.filter((item) => predicate(Number(item.score || item.best_score || 0))).length;
+        return { key, label, count, rate: total ? count / total * 100 : 0 };
+      });
+      return { total, lamps, scores };
+    }
+
+    function drawSummary(summary) {
+      const node = $("listSummary");
+      if (!node || !summary || !summary.total) {
+        if (node) node.innerHTML = "";
+        return;
+      }
+      node.innerHTML = `<section class="list-summary">
+        ${summaryBar("Lamp", summary.lamps, summary.total)}
+        ${summaryBar("Score", summary.scores, summary.total)}
+      </section>`;
+    }
+
+    function summaryBar(label, items, total) {
+      const visible = (items || []).filter((item) => item.count > 0);
+      const segments = visible.map((item) => `
+        <div class="summary-segment seg-${escapeText(item.key)}" style="width:${Math.max(0, item.rate).toFixed(3)}%"></div>
+      `).join("");
+      const legends = visible.map((item) => `
+        <span class="legend-item"><span class="legend-swatch seg-${escapeText(item.key)}"></span>${escapeText(item.label)} ${item.count}</span>
+      `).join("");
+      return `<div class="summary-row">
+        <div class="summary-head"><span>${escapeText(label)}</span><span>${total} items</span></div>
+        <div class="summary-bar">${segments}</div>
+        <div class="summary-legend">${legends}</div>
+      </div>`;
+    }
+
     function applyFilter() {
       const q = $("search").value.trim().toLowerCase();
       const items = q
         ? state.allItems.filter((item) => String(item.title || "").toLowerCase().includes(q))
         : state.allItems;
+      drawSummary(buildSummary(items));
       drawSongList(items);
     }
 
@@ -638,14 +759,20 @@
           state.view = "history";
           state.historyOffset = data.items.length;
           state.historyTotal = data.total;
-          renderList(data.folder.label, data.items, { loadMore: data.items.length < data.total });
+          renderList(data.folder.label, data.items, {
+            loadMore: data.items.length < data.total,
+            summary: data.summary,
+          });
           if (shouldPush) pushHistoryState();
           return;
         }
         const path = id === "vf" || id === "current" ? `/api/folders/${id}` : `/api/folders/${id}`;
         const data = await api(path);
         state.view = id;
-        renderList(data.folder.label, data.items, { totalVf: data.total_vf });
+        renderList(data.folder.label, data.items, {
+          totalVf: data.total_vf,
+          summary: data.summary,
+        });
         if (shouldPush) pushHistoryState();
         if (id === "current") {
           state.currentTimer = setInterval(() => refreshCurrent(false), 2000);
@@ -660,6 +787,7 @@
         const data = await api("/api/folders/current");
         if (redrawTitle) setTitle(data.folder.label);
         state.allItems = data.items;
+        drawSummary(data.summary || buildSummary(data.items));
         drawSongList(data.items);
         setStats([["CHARTS", data.items.length], ["BEST", data.items.length], ["VF", "-"]]);
       } catch (e) {
@@ -671,6 +799,7 @@
       const data = await api(`/api/history?limit=200&offset=${state.historyOffset}`);
       state.historyOffset += data.items.length;
       state.allItems = state.allItems.concat(data.items);
+      drawSummary(buildSummary(state.allItems));
       applyFilter();
       if (state.historyOffset >= state.historyTotal) {
         $("loadMore")?.remove();

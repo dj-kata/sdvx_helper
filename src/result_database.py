@@ -1037,6 +1037,63 @@ class ResultDatabase:
             "jacket_img": self._mobile_jacket_url(chart_id),
         }
 
+    def _mobile_summary_data(self, items: list[dict]) -> dict:
+        """スマホリストビュー用のランプ/スコア内訳を返す。"""
+        total = len(items)
+        lamp_keys = [
+            ("puc", "PUC", clear_lamp.puc.value),
+            ("uc", "UC", clear_lamp.uc.value),
+            ("maxxive", "MAXXIVE", clear_lamp.maxxive.value),
+            ("exc", "EXC", clear_lamp.exc.value),
+            ("clear", "CLEAR", clear_lamp.clear.value),
+            ("failed", "FAILED", clear_lamp.played.value),
+            ("noplay", "NO PLAY", clear_lamp.noplay.value),
+        ]
+        score_keys = [
+            ("s", "S", lambda score: score >= 9_900_000),
+            ("aaa_plus", "AAA+", lambda score: 9_800_000 <= score < 9_900_000),
+            ("aaa", "AAA", lambda score: 9_700_000 <= score < 9_800_000),
+            ("under_aaa", "UNDER AAA", lambda score: score < 9_700_000),
+        ]
+        lamp_counts = {key: 0 for key, _label, _value in lamp_keys}
+        score_counts = {key: 0 for key, _label, _pred in score_keys}
+
+        for item in items:
+            try:
+                lamp_value = int(item.get("lamp") or 0)
+            except Exception:
+                lamp_value = 0
+            for key, _label, value in lamp_keys:
+                if lamp_value == value:
+                    lamp_counts[key] += 1
+                    break
+
+            try:
+                score = int(item.get("score") or item.get("best_score") or 0)
+            except Exception:
+                score = 0
+            for key, _label, predicate in score_keys:
+                if predicate(score):
+                    score_counts[key] += 1
+                    break
+
+        def rows(defs, counts):
+            return [
+                {
+                    "key": key,
+                    "label": label,
+                    "count": counts[key],
+                    "rate": (counts[key] / total * 100) if total else 0,
+                }
+                for key, label, *_rest in defs
+            ]
+
+        return {
+            "total": total,
+            "lamps": rows(lamp_keys, lamp_counts),
+            "scores": rows(score_keys, score_counts),
+        }
+
     def get_mobile_folders_data(self) -> dict:
         """スマホビューのフォルダ一覧を返す。"""
         bests = self.get_all_best_results(include_unlisted=True)
@@ -1071,9 +1128,11 @@ class ResultDatabase:
             if b.level == level
         ]
         bests.sort(key=lambda b: (-b.vf, -b.best_score, b.title))
+        items = [self._serialize_mobile_best(b) for b in bests]
         return {
             "folder": {"id": f"level/{level}", "label": f"LEVEL {level}"},
-            "items": [self._serialize_mobile_best(b) for b in bests],
+            "summary": self._mobile_summary_data(items),
+            "items": items,
         }
 
     def get_mobile_vf_folder_data(self) -> dict:
@@ -1084,13 +1143,15 @@ class ResultDatabase:
         if len(bests) > VF_TOP_N:
             threshold = bests[VF_TOP_N - 1].vf
             bests = [b for b in bests if b.vf >= threshold]
+        items = [
+            self._serialize_mobile_best(b, rank=i)
+            for i, b in enumerate(bests, 1)
+        ]
         return {
             "folder": {"id": "vf", "label": "VF TOP 50"},
             "total_vf": self.get_total_vf(),
-            "items": [
-                self._serialize_mobile_best(b, rank=i)
-                for i, b in enumerate(bests, 1)
-            ],
+            "summary": self._mobile_summary_data(items),
+            "items": items,
         }
 
     def get_mobile_current_folder_data(self) -> dict:
@@ -1106,9 +1167,11 @@ class ResultDatabase:
         item["exscore"] = item.get("best_ex", 0)
         item["max_exscore"] = item.get("max_exscore")
         item["lv"] = int(item["lv"]) if str(item.get("lv", "")).isdigit() else item.get("lv", "")
+        items = [item]
         return {
             "folder": {"id": "current", "label": "CURRENT SONG"},
-            "items": [item],
+            "summary": self._mobile_summary_data(items),
+            "items": items,
         }
 
     def get_mobile_history_data(self, limit: int = 200, offset: int = 0) -> dict:
@@ -1118,12 +1181,14 @@ class ResultDatabase:
             r for r in reversed(self.results) if detect_mode.is_result(r.detect_mode)
         ]
         page = all_results[offset:offset + limit]
+        items = [self._serialize_mobile_result(r) for r in page]
         return {
             "folder": {"id": "history", "label": "ALL PLAY HISTORY"},
             "total": len(all_results),
             "limit": limit,
             "offset": offset,
-            "items": [self._serialize_mobile_result(r) for r in page],
+            "summary": self._mobile_summary_data(items),
+            "items": items,
         }
 
     def get_mobile_chart_detail_data(self, chart_id: str) -> dict | None:
