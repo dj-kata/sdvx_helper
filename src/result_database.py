@@ -89,6 +89,7 @@ class ResultDatabase:
         self.config = config
         self.ws_server = None
         self.ws_loop = None
+        self._mobile_api_lock = threading.RLock()
 
         self.portal_manager = None  # メインウィンドウからセットされる
         self._bests_cache_portal_signature = None
@@ -149,7 +150,7 @@ class ResultDatabase:
         logger.info(f"WebSocketサーバー起動: ポート {port}")
 
     def _init_mobile_http_server(self):
-        if not getattr(self.config, "mobile_score_server_enabled", True):
+        if not getattr(self.config, "mobile_score_server_enabled", False):
             return
         from src.mobile_http_server import MobileScoreHTTPServer
 
@@ -314,17 +315,18 @@ class ResultDatabase:
         last_id = self.db.execute("SELECT last_insert_rowid()").fetchone()[0]
         result.id = last_id
 
-        # メモリキャッシュ更新
-        self.results.append(result)
-        self._add_to_result_index(result)
-        self._invalidate_best_caches()
+        with self._mobile_api_lock:
+            # メモリキャッシュ更新
+            self.results.append(result)
+            self._add_to_result_index(result)
+            self._invalidate_best_caches()
 
-        # ベストキャッシュ更新
-        if self._is_master_chart_result(result):
-            key = (result.title, result.difficulty)
-            if key not in self._bests_cache:
-                self._bests_cache[key] = OneBestData()
-            self._bests_cache[key].update(result)
+            # ベストキャッシュ更新
+            if self._is_master_chart_result(result):
+                key = (result.title, result.difficulty)
+                if key not in self._bests_cache:
+                    self._bests_cache[key] = OneBestData()
+                self._bests_cache[key].update(result)
 
         logger.debug(f"result added! len:{len(self.results)} {result}")
         return True
@@ -337,13 +339,14 @@ class ResultDatabase:
                 self.db.delete_personal_result(row_id)
                 self.db.commit()
 
-            if result in self.results:
-                self.results.remove(result)
-            self._remove_from_result_index(result)
-            self._invalidate_best_caches()
+            with self._mobile_api_lock:
+                if result in self.results:
+                    self.results.remove(result)
+                self._remove_from_result_index(result)
+                self._invalidate_best_caches()
 
-            # ベストキャッシュ再点検
-            self._refresh_best_cache(result.title, result.difficulty)
+                # ベストキャッシュ再点検
+                self._refresh_best_cache(result.title, result.difficulty)
             return True
         except Exception as e:
             logger.error(f"削除失敗: {e}")
@@ -927,6 +930,7 @@ class ResultDatabase:
             "p_tier": puc_tier,
             "best_score": best_score or 0,
             "best_ex": best_ex or 0,
+            "max_exscore": self._get_max_exscore(title, diff),
             "best_lamp": best_lamp.value,
             "vf": best_vf,
             "play_count": len(target),
@@ -994,6 +998,7 @@ class ResultDatabase:
             "lv": best.level,
             "score": best.best_score,
             "exscore": best.best_exscore,
+            "max_exscore": self._get_max_exscore(best.title, best.difficulty),
             "grade": best.grade,
             "lamp": best.best_lamp.value,
             "lamp_text": self._lamp_text(best.best_lamp),
@@ -1096,8 +1101,10 @@ class ResultDatabase:
         chart_id = item.get("chart_id")
         item["jacket_img"] = self._mobile_jacket_url(chart_id)
         item["lamp_text"] = self._lamp_text(clear_lamp(item.get("best_lamp", 0)))
+        item["lamp"] = item.get("best_lamp", 0)
         item["score"] = item.get("best_score", 0)
         item["exscore"] = item.get("best_ex", 0)
+        item["max_exscore"] = item.get("max_exscore")
         item["lv"] = int(item["lv"]) if str(item.get("lv", "")).isdigit() else item.get("lv", "")
         return {
             "folder": {"id": "current", "label": "CURRENT SONG"},

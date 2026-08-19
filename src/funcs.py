@@ -108,6 +108,8 @@ _LAMP_MAP = {
     'MAXXIVE':            clear_lamp.maxxive,
     'MAXXIVE COMPLETE':   clear_lamp.maxxive,  # アーケードCSV
     'MAX_COMP':           clear_lamp.maxxive,  # portal形式
+    'MXM_COMP':           clear_lamp.maxxive,  # 表記ゆれ
+    'MXX_COMP':           clear_lamp.maxxive,  # 表記ゆれ
     'UC':                 clear_lamp.uc,
     'ULTIMATE CHAIN':     clear_lamp.uc,       # アーケードCSV
     'PUC':                clear_lamp.puc,

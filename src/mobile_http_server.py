@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import socket
 import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +16,12 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 
+class _MobileThreadingHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+    block_on_close = False
+    allow_reuse_address = True
+
+
 class MobileScoreHTTPServer:
     """ResultDatabase の内容をLAN内ブラウザへ配信する軽量HTTPサーバ。"""
 
@@ -24,14 +31,16 @@ class MobileScoreHTTPServer:
         self.port = int(port)
         self.httpd: ThreadingHTTPServer | None = None
         self.thread: threading.Thread | None = None
+        self._stopping = threading.Event()
 
     def start(self):
         if self.httpd is not None:
             return
+        self._stopping.clear()
 
         handler = self._make_handler()
         try:
-            self.httpd = ThreadingHTTPServer((self.host, self.port), handler)
+            self.httpd = _MobileThreadingHTTPServer((self.host, self.port), handler)
         except OSError as e:
             logger.error(f"スマホ向けHTTPサーバ起動失敗: {self.host}:{self.port} {e}")
             self.httpd = None
@@ -48,6 +57,7 @@ class MobileScoreHTTPServer:
     def stop(self):
         if self.httpd is None:
             return
+        self._stopping.set()
         try:
             self.httpd.shutdown()
             self.httpd.server_close()
@@ -60,6 +70,7 @@ class MobileScoreHTTPServer:
 
     def _make_handler(self):
         result_database = self.result_database
+        stopping = self._stopping
 
         class Handler(BaseHTTPRequestHandler):
             server_version = "SDVXHelperMobileHTTP/1.0"
@@ -68,6 +79,10 @@ class MobileScoreHTTPServer:
                 logger.debug("HTTP " + format, *args)
 
             def do_GET(self):
+                if stopping.is_set():
+                    self._safe_send_error(HTTPStatus.SERVICE_UNAVAILABLE, "server stopping")
+                    return
+
                 parsed = urlparse(self.path)
                 path = unquote(parsed.path)
                 query = parse_qs(parsed.query)
@@ -83,11 +98,22 @@ class MobileScoreHTTPServer:
                         self._send_file(Path("resources") / Path(path).name)
                     else:
                         self._send_error(HTTPStatus.NOT_FOUND, "not found")
+                except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                    logger.debug(f"HTTPクライアント切断: {path}")
+                except socket.timeout:
+                    logger.debug(f"HTTPクライアントタイムアウト: {path}")
                 except Exception as e:
                     logger.error(f"スマホ向けHTTPリクエストエラー: {e}")
-                    self._send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal error")
+                    self._safe_send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "internal error")
 
             def _handle_api(self, path: str, query: dict[str, list[str]]):
+                lock = getattr(result_database, "_mobile_api_lock", None)
+                if lock is None:
+                    return self._handle_api_unlocked(path, query)
+                with lock:
+                    return self._handle_api_unlocked(path, query)
+
+            def _handle_api_unlocked(self, path: str, query: dict[str, list[str]]):
                 if path == "/api/folders":
                     self._send_json(result_database.get_mobile_folders_data())
                     return
@@ -118,12 +144,12 @@ class MobileScoreHTTPServer:
 
             def _send_json(self, data: dict):
                 body = json.dumps(data, ensure_ascii=False).encode("utf-8")
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
-                self.send_header("Cache-Control", "no-store")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_body(
+                    HTTPStatus.OK,
+                    body,
+                    "application/json; charset=utf-8",
+                    cache_control="no-store",
+                )
 
             def _send_file(self, path: Path):
                 if not path.exists() or not path.is_file():
@@ -133,17 +159,34 @@ class MobileScoreHTTPServer:
                 content_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
                 if path.suffix.lower() == ".html":
                     content_type = "text/html; charset=utf-8"
-                self.send_response(HTTPStatus.OK)
-                self.send_header("Content-Type", content_type)
-                self.send_header("Cache-Control", "no-cache")
-                self.send_header("Content-Length", str(len(body)))
-                self.end_headers()
-                self.wfile.write(body)
+                self._send_body(
+                    HTTPStatus.OK,
+                    body,
+                    content_type,
+                    cache_control="no-cache",
+                )
 
             def _send_error(self, status: HTTPStatus, message: str):
                 body = json.dumps({"error": message}, ensure_ascii=False).encode("utf-8")
+                self._send_body(status, body, "application/json; charset=utf-8")
+
+            def _safe_send_error(self, status: HTTPStatus, message: str):
+                try:
+                    self._send_error(status, message)
+                except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                    pass
+
+            def _send_body(
+                self,
+                status: HTTPStatus,
+                body: bytes,
+                content_type: str,
+                cache_control: str | None = None,
+            ):
                 self.send_response(status)
-                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Type", content_type)
+                if cache_control:
+                    self.send_header("Cache-Control", cache_control)
                 self.send_header("Content-Length", str(len(body)))
                 self.end_headers()
                 self.wfile.write(body)

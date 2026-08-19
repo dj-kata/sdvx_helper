@@ -85,7 +85,7 @@ class Config:
         self.websocket_data_port: int = 8767
 
         # ─── スマホ向けスコア閲覧HTTPサーバ ─────────────────────────────
-        self.mobile_score_server_enabled: bool = True
+        self.mobile_score_server_enabled: bool = False
         self.mobile_score_server_host: str = '0.0.0.0'
         self.mobile_score_server_port: int = 8787
 

@@ -1299,7 +1299,7 @@ class ConfigDialog(QDialog):
         self.autoload_offset_spin.setValue(self.config.autoload_offset)
         self.websocket_data_port_edit.setText(str(self.config.websocket_data_port))
         self.mobile_score_server_enabled_check.setChecked(
-            bool(getattr(self.config, 'mobile_score_server_enabled', True))
+            bool(getattr(self.config, 'mobile_score_server_enabled', False))
         )
         self.mobile_score_server_port_edit.setText(
             str(getattr(self.config, 'mobile_score_server_port', 8787))
