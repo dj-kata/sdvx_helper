@@ -233,6 +233,30 @@
       padding: 8px;
       width: 100%;
     }
+    .song-cell.selectable {
+      grid-template-columns: 28px 62px minmax(0, 1fr) 112px;
+    }
+    .song-cell.selected {
+      border-color: var(--teal);
+      background: color-mix(in srgb, var(--panel), var(--teal) 12%);
+    }
+    .select-mark {
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      color: transparent;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .selected .select-mark {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #07110f;
+    }
     .jacket {
       width: 62px;
       height: 62px;
@@ -302,6 +326,47 @@
       color: var(--teal);
       font-size: 12px;
       font-variant-numeric: tabular-nums;
+    }
+    .image-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 38px;
+      min-height: 24px;
+      border: 1px solid color-mix(in srgb, var(--blue), var(--line) 35%);
+      border-radius: 6px;
+      background: color-mix(in srgb, var(--panel), var(--blue) 14%);
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .row .image-link {
+      margin-left: 8px;
+    }
+    .selection-action {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+      border-top: 1px solid var(--line);
+      background: rgba(16, 18, 21, 0.94);
+      backdrop-filter: blur(14px);
+    }
+    .selection-action[hidden] { display: none; }
+    .selection-action button {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid color-mix(in srgb, var(--teal), var(--line) 35%);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--panel), var(--teal) 16%);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 900;
+    }
+    body.selection-mode main {
+      padding-bottom: max(92px, calc(76px + env(safe-area-inset-bottom)));
     }
     .empty, .error {
       border: 1px solid var(--line);
@@ -494,6 +559,8 @@
       stack: [],
       items: [],
       allItems: [],
+      listVariant: "",
+      selectedImageIds: new Set(),
       historyOffset: 0,
       historyTotal: 0,
       currentTimer: null,
@@ -578,6 +645,7 @@
 
     function renderHome(data) {
       clearCurrentTimer();
+      clearSelectionMode();
       state.view = "home";
       setTitle("SDVX Helper");
       setStats([
@@ -586,9 +654,9 @@
         ["VF", fmtTotalVf(data.total_vf)],
       ]);
       const special = data.special.map((f) => {
-        const cls = f.id === "current" ? "current" : (f.id === "history" ? "history" : "primary");
+        const cls = f.id === "current" ? "current" : (f.id === "history" || f.id === "saved-images" ? "history" : "primary");
         return `<button class="folder ${cls}" data-folder="${f.id}">
-          <b>${escapeText(f.label)}</b><span>${f.count} charts</span>
+          <b>${escapeText(f.label)}</b><span>${f.count} items</span>
         </button>`;
       }).join("");
       const levels = data.levels.map((f) => `<button class="folder" data-folder="${f.id}">
@@ -601,8 +669,10 @@
     }
 
     function renderList(label, items, options = {}) {
+      clearSelectionMode();
       state.allItems = items;
       state.items = items;
+      state.listVariant = options.variant || "";
       setTitle(label);
       setStats([
         ["CHARTS", items.length],
@@ -623,6 +693,34 @@
         $("loadMore").addEventListener("click", loadMoreHistory);
       }
       drawSongList(items);
+    }
+
+    function clearSelectionMode() {
+      state.selectedImageIds.clear();
+      state.listVariant = "";
+      document.body.classList.remove("selection-mode");
+    }
+
+    function renderSavedImagesList(data) {
+      state.allItems = data.items || [];
+      state.items = state.allItems;
+      state.listVariant = "saved-images";
+      state.selectedImageIds.clear();
+      document.body.classList.add("selection-mode");
+      setTitle(data.folder.label);
+      setStats([["IMAGES", state.allItems.length], ["SELECTED", 0], ["VF", "-"]]);
+      $("content").innerHTML = `
+        <div class="toolbar">
+          <input id="search" class="search" placeholder="Search" autocomplete="off">
+        </div>
+        <div id="songList" class="song-list"></div>
+        <div id="selectionAction" class="selection-action" hidden>
+          <button id="combineImagesBtn" type="button">CREATE IMAGE</button>
+        </div>
+      `;
+      $("search").addEventListener("input", applySavedImagesFilter);
+      $("combineImagesBtn").addEventListener("click", openCombinedResultImage);
+      drawSavedImagesList(state.allItems);
     }
 
     function buildSummary(items) {
@@ -699,6 +797,83 @@
       node.querySelectorAll("[data-chart]").forEach((button) => {
         button.addEventListener("click", () => openChart(button.dataset.chart, true));
       });
+      bindImageButtons(node);
+    }
+
+    function applySavedImagesFilter() {
+      const q = $("search").value.trim().toLowerCase();
+      const items = q
+        ? state.allItems.filter((item) => String(item.title || "").toLowerCase().includes(q))
+        : state.allItems;
+      drawSavedImagesList(items);
+    }
+
+    function drawSavedImagesList(items) {
+      const node = $("songList");
+      if (!items.length) {
+        node.innerHTML = `<div class="empty">NO DATA</div>`;
+        updateSelectionAction();
+        return;
+      }
+      node.innerHTML = items.map(savedImageCell).join("");
+      node.querySelectorAll("[data-image-id]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const imageId = button.dataset.imageId;
+          if (state.selectedImageIds.has(imageId)) state.selectedImageIds.delete(imageId);
+          else state.selectedImageIds.add(imageId);
+          drawSavedImagesList(items);
+        });
+      });
+      bindImageButtons(node);
+      updateSelectionAction();
+    }
+
+    function savedImageCell(item) {
+      const selected = state.selectedImageIds.has(String(item.image_id));
+      return `<button class="song-cell selectable ${selected ? "selected" : ""}" data-image-id="${escapeText(item.image_id || "")}">
+        <span class="select-mark">✓</span>
+        <img class="jacket" src="${escapeText(item.jacket_img)}" alt="">
+        <div class="song-main">
+          <div class="title">
+            <span class="title-lv">Lv${escapeText(item.lv || "")}</span>
+            <span class="title-name">${escapeText(item.title)}</span>
+            <span class="title-diff">[${escapeText(item.display_difficulty || item.difficulty || "")}]</span>
+          </div>
+          <div class="meta">${escapeText(item.date || "")}</div>
+        </div>
+        <div class="score-block">
+          <span class="image-link" data-image-url="${escapeText(item.image_url)}">IMG</span>
+          <div class="score">${fmtScore(item.score)}</div>
+          <div class="exscore">EX ${fmtScore(item.exscore)}</div>
+        </div>
+      </button>`;
+    }
+
+    function updateSelectionAction() {
+      const count = state.selectedImageIds.size;
+      const action = $("selectionAction");
+      const button = $("combineImagesBtn");
+      if (action) action.hidden = count === 0;
+      if (button) button.textContent = `CREATE IMAGE (${count})`;
+      if (state.listVariant === "saved-images") {
+        setStats([["IMAGES", state.allItems.length], ["SELECTED", count], ["VF", "-"]]);
+      }
+    }
+
+    function openCombinedResultImage() {
+      const ids = [...state.selectedImageIds];
+      if (!ids.length) return;
+      window.open(`/api/combined-result-image?ids=${ids.map(encodeURIComponent).join(",")}`, "_blank", "noopener");
+    }
+
+    function bindImageButtons(root = document) {
+      root.querySelectorAll("[data-image-url]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          window.open(button.dataset.imageUrl, "_blank", "noopener");
+        });
+      });
     }
 
     function songCell(item) {
@@ -722,6 +897,7 @@
           <div class="score">${fmtScore(score)}</div>
           <div class="exscore">EX ${fmtScore(ex)}${exRate(ex, item.max_exscore)}</div>
           <div class="vf">VF ${fmtChartVf(item.vf)}</div>
+          ${item.image_url ? `<span class="image-link" data-image-url="${escapeText(item.image_url)}">IMG</span>` : ""}
         </div>
       </button>`;
     }
@@ -787,6 +963,12 @@
             loadMore: data.items.length < data.total,
             summary: data.summary,
           });
+          if (shouldPush) pushHistoryState();
+          return;
+        }
+        if (id === "saved-images") {
+          state.view = "saved-images";
+          renderSavedImagesList(await api("/api/folders/saved-images"));
           if (shouldPush) pushHistoryState();
           return;
         }
@@ -883,6 +1065,7 @@
           </div>
         </section>
       `;
+      bindImageButtons($("content"));
     }
 
     function rivalRow(item) {
@@ -901,6 +1084,7 @@
         <img class="lamp-icon" src="${lamp.src}" alt="${escapeText(item.lamp_text || "")}">
         <div><b>${escapeText(item.date)}</b><span>${escapeText(item.grade)}</span></div>
         <div class="row-score">${fmtScore(item.score)}<span>EX ${fmtScore(item.exscore)} / VF ${fmtChartVf(item.vf)}</span></div>
+        ${item.image_url ? `<span class="image-link" data-image-url="${escapeText(item.image_url)}">IMG</span>` : ""}
       </div>`;
     }
 

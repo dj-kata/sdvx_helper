@@ -127,10 +127,36 @@ class MobileScoreHTTPServer:
                 if path == "/api/folders/current":
                     self._send_json(result_database.get_mobile_current_folder_data())
                     return
+                if path == "/api/folders/saved-images":
+                    self._send_json(result_database.get_mobile_saved_images_data())
+                    return
                 if path == "/api/history":
                     limit = int((query.get("limit") or ["200"])[0])
                     offset = int((query.get("offset") or ["0"])[0])
                     self._send_json(result_database.get_mobile_history_data(limit, offset))
+                    return
+                if path.startswith("/api/result-images/"):
+                    timestamp = path.rsplit("/", 1)[-1]
+                    image_path = result_database.get_mobile_result_image_path(int(timestamp))
+                    if image_path is None:
+                        self._send_error(HTTPStatus.NOT_FOUND, "image not found")
+                    else:
+                        self._send_file(image_path)
+                    return
+                if path == "/api/combined-result-image":
+                    image_ids = []
+                    for value in query.get("ids", []):
+                        image_ids.extend([item for item in value.split(",") if item])
+                    body = result_database.generate_mobile_combined_result_image(image_ids)
+                    if body is None:
+                        self._send_error(HTTPStatus.NOT_FOUND, "image not found")
+                    else:
+                        self._send_body(
+                            HTTPStatus.OK,
+                            body,
+                            "image/jpeg",
+                            cache_control="no-store",
+                        )
                     return
                 if path.startswith("/api/charts/"):
                     chart_id = path.rsplit("/", 1)[-1]

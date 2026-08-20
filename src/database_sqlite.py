@@ -33,9 +33,11 @@ class SQLiteDatabase:
                     timestamp INTEGER NOT NULL,
                     detect_mode INTEGER,
                     bestscore INTEGER,
-                    bestexscore INTEGER
+                    bestexscore INTEGER,
+                    image_path TEXT
                 )
             ''')
+            self._ensure_column('personal_results', 'image_path', 'TEXT')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_personal_song ON personal_results (title, difficulty)')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_personal_ts ON personal_results (timestamp)')
 
@@ -81,15 +83,22 @@ class SQLiteDatabase:
     def insert_personal_result(self, data: dict):
         sql = '''
             INSERT INTO personal_results (
-                title, difficulty, lamp, score, exscore, level, timestamp, detect_mode, bestscore, bestexscore
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                title, difficulty, lamp, score, exscore, level, timestamp, detect_mode, bestscore, bestexscore, image_path
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         '''
         params = (
             data['title'], data['difficulty'], data['lamp'], data['score'],
             data.get('exscore'), data.get('level'), data['timestamp'],
-            data.get('detect_mode'), data.get('bestscore'), data.get('bestexscore')
+            data.get('detect_mode'), data.get('bestscore'), data.get('bestexscore'),
+            data.get('image_path')
         )
         self.execute(sql, params)
+
+    def update_personal_result_image_path(self, row_id: int, image_path: str):
+        self.execute(
+            "UPDATE personal_results SET image_path = ? WHERE id = ?",
+            (image_path, row_id),
+        )
 
     def delete_personal_result(self, row_id: int):
         self.execute("DELETE FROM personal_results WHERE id = ?", (row_id,))

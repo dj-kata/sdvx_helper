@@ -1107,12 +1107,17 @@ class MainWindow(MainWindowUI):
                     not recognized_title
                     or self._should_save_result_image(is_result_updated)
                 ):
-                    self.save_image(
+                    saved_image_path = self.save_image(
                         score=score,
                         exscore=exscore,
                         lamp=lamp,
                         screen=screen,
                     )
+                    if saved_image_path:
+                        self.result_database.update_result_image_path(
+                            result,
+                            str(saved_image_path),
+                        )
                 else:
                     logger.info(f"画像保存スキップ(更新なし): {result}")
 
@@ -1374,7 +1379,7 @@ class MainWindow(MainWindowUI):
                     screen.save(str(full_path), format='PNG')
                 logger.info(f"画像保存: {full_path}")
                 self.statusBar().showMessage(f"保存: {filename}", 5000)
-                return True
+                return full_path
         except Exception:
             logger.error(f"画像保存エラー:\n{traceback.format_exc()}")
             self.statusBar().showMessage("画像保存エラー", 3000)

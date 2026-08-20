@@ -30,6 +30,7 @@ class OneResult:
                  detect_mode: Optional[detect_mode] = None,
                  bestscore:   Optional[int]         = None,
                  bestexscore: Optional[int]         = None,
+                 image_path:   Optional[str]         = None,
                  ):
         self.title       = title
         self.difficulty  = difficulty
@@ -45,6 +46,8 @@ class OneResult:
         """リザルト画面で読んだ自己べスコア。DB参照なしの比較用。"""
         self.bestexscore = bestexscore
         """リザルト画面で読んだ自己べEXスコア。"""
+        self.image_path  = image_path
+        """保存済みリザルト画像のパス。画像本体ではなくパス文字列だけを保持する。"""
 
     # ─── 計算プロパティ ────────────────────────────────────────────────────
 

@@ -7,10 +7,12 @@ import csv
 import datetime
 import functools
 import json
+import math
 import os
 import pickle
 import threading
 import traceback
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -306,6 +308,7 @@ class ResultDatabase:
             "detect_mode": result.detect_mode.value if result.detect_mode else None,
             "bestscore": result.bestscore,
             "bestexscore": result.bestexscore,
+            "image_path": getattr(result, "image_path", None),
         }
         self.db.insert_personal_result(data)
         if commit:
@@ -411,6 +414,7 @@ class ResultDatabase:
                     else None,
                     bestscore=r["bestscore"],
                     bestexscore=r["bestexscore"],
+                    image_path=r["image_path"] if "image_path" in r.keys() else None,
                 )
                 res.id = r["id"]
                 self.results.append(res)
@@ -447,6 +451,7 @@ class ResultDatabase:
                     "detect_mode": res.detect_mode.value if res.detect_mode else None,
                     "bestscore": res.bestscore,
                     "bestexscore": res.bestexscore,
+                    "image_path": getattr(res, "image_path", None),
                 }
                 self.db.insert_personal_result(data)
             self.db.commit()
@@ -542,7 +547,21 @@ class ResultDatabase:
 
     def save(self):
         """全リザルトを保存（SQLite化後は逐次保存のため、互換性のために維持）。"""
-        pass
+        self.db.commit()
+
+    def update_result_image_path(self, result: OneResult, image_path: str) -> bool:
+        """登録済みリザルトへ保存済みリザルト画像のパスを書き込む。"""
+        row_id = getattr(result, "id", None)
+        if row_id is None:
+            return False
+        try:
+            result.image_path = image_path
+            self.db.update_personal_result_image_path(row_id, image_path)
+            self.db.commit()
+            return True
+        except Exception:
+            logger.error(f"リザルト画像パス更新失敗:\n{traceback.format_exc()}")
+            return False
 
     def load_rivals(self):
         """以前のライバルデータロードロジックを統合 (SQLite化に伴い不要だが互換性のため維持)"""
@@ -988,6 +1007,41 @@ class ResultDatabase:
             return f"/jackets/{path.name}?v={self._jacket_version(path)}"
         return "/resources/no_jacket.png"
 
+    @staticmethod
+    def _mobile_result_image_id(index: int, result: OneResult) -> str:
+        return f"{index}-{int(result.timestamp)}"
+
+    def _mobile_result_image_url(self, result: OneResult) -> str:
+        image_path = getattr(result, "image_path", None)
+        if not image_path:
+            return ""
+        try:
+            path = Path(image_path)
+            if not path.exists() or not path.is_file():
+                return ""
+        except Exception:
+            return ""
+        return f"/api/result-images/{int(result.timestamp)}"
+
+    def get_mobile_result_image_path(self, timestamp: int) -> Path | None:
+        try:
+            timestamp = int(timestamp)
+        except (TypeError, ValueError):
+            return None
+        for result in self.results:
+            if result.timestamp != timestamp:
+                continue
+            image_path = getattr(result, "image_path", None)
+            if not image_path:
+                continue
+            try:
+                path = Path(image_path).resolve()
+                if path.exists() and path.is_file():
+                    return path
+            except Exception:
+                continue
+        return None
+
     def _serialize_mobile_best(
         self, best: OneBestData, rank: int | None = None
     ) -> dict:
@@ -1037,7 +1091,127 @@ class ResultDatabase:
             "timestamp": result.timestamp,
             "date": self._timestamp_text(result.timestamp),
             "jacket_img": self._mobile_jacket_url(chart_id),
+            "image_url": self._mobile_result_image_url(result),
         }
+
+    def _mobile_saved_image_results(self) -> list[tuple[int, OneResult]]:
+        items = []
+        for index, result in enumerate(self.results):
+            if not detect_mode.is_result(result.detect_mode):
+                continue
+            image_path = getattr(result, "image_path", None)
+            if not image_path:
+                continue
+            try:
+                path = Path(image_path)
+                if path.exists() and path.is_file():
+                    items.append((index, result))
+            except Exception:
+                continue
+        return items
+
+    def _mobile_result_by_image_id(self, image_id: str) -> OneResult | None:
+        try:
+            index_text, timestamp_text = str(image_id).split("-", 1)
+            index = int(index_text)
+            timestamp = int(timestamp_text)
+        except (TypeError, ValueError):
+            return None
+        if index < 0 or index >= len(self.results):
+            return None
+        result = self.results[index]
+        if result.timestamp != timestamp or not detect_mode.is_result(result.detect_mode):
+            return None
+        image_path = getattr(result, "image_path", None)
+        if not image_path:
+            return None
+        try:
+            path = Path(image_path)
+            if path.exists() and path.is_file():
+                return result
+        except Exception:
+            return None
+        return None
+
+    def get_mobile_saved_images_data(self) -> dict:
+        items = []
+        for index, result in reversed(self._mobile_saved_image_results()):
+            item = self._serialize_mobile_result(result)
+            item["image_id"] = self._mobile_result_image_id(index, result)
+            items.append(item)
+        return {
+            "folder": {"id": "saved-images", "label": "SAVED IMAGES"},
+            "summary": self._mobile_summary_data(items),
+            "items": items,
+        }
+
+    def generate_mobile_combined_result_image(self, image_ids: list[str]) -> bytes | None:
+        results = []
+        seen = set()
+        for image_id in image_ids:
+            if image_id in seen:
+                continue
+            seen.add(image_id)
+            result = self._mobile_result_by_image_id(image_id)
+            if result is not None:
+                results.append(result)
+        if not results:
+            return None
+
+        images = []
+        for result in results:
+            try:
+                with Image.open(getattr(result, "image_path")) as image:
+                    images.append(image.convert("RGB"))
+            except Exception:
+                logger.error(
+                    f"投稿用画像の読み込み失敗: {getattr(result, 'image_path', '')}\n"
+                    f"{traceback.format_exc()}"
+                )
+        if not images:
+            return None
+
+        count = len(images)
+        cols = math.ceil(math.sqrt(count))
+        rows = math.ceil(count / cols)
+        if count == 2:
+            cols, rows = 2, 1
+
+        cell_width = max(image.width for image in images)
+        cell_height = max(image.height for image in images)
+        canvas_width = cell_width * cols
+        canvas_height = cell_height * rows
+        max_side = 4096
+        scale = min(1.0, max_side / max(canvas_width, canvas_height))
+        if scale < 1.0:
+            cell_width = max(1, int(cell_width * scale))
+            cell_height = max(1, int(cell_height * scale))
+            canvas_width = cell_width * cols
+            canvas_height = cell_height * rows
+
+        canvas = Image.new("RGB", (canvas_width, canvas_height), (0, 0, 0))
+        resampling_filter = (
+            Image.Resampling.LANCZOS if hasattr(Image, "Resampling") else Image.LANCZOS
+        )
+        for i, image in enumerate(images):
+            ratio = min(cell_width / image.width, cell_height / image.height)
+            resized = image.resize(
+                (max(1, int(image.width * ratio)), max(1, int(image.height * ratio))),
+                resampling_filter,
+            )
+            x = (i % cols) * cell_width + (cell_width - resized.width) // 2
+            y = (i // cols) * cell_height + (cell_height - resized.height) // 2
+            canvas.paste(resized, (x, y))
+
+        target_size = 4_800_000
+        for quality in (90, 86, 82, 78, 74, 70):
+            output = BytesIO()
+            canvas.save(output, format="JPEG", quality=quality, optimize=True)
+            body = output.getvalue()
+            output.close()
+            if len(body) <= target_size or quality == 70:
+                return body
+        return None
 
     def _mobile_summary_data(self, items: list[dict]) -> dict:
         """スマホリストビュー用のランプ/スコア内訳を返す。"""
@@ -1112,6 +1286,7 @@ class ResultDatabase:
         }
         vf_items = self.get_mobile_vf_folder_data()["items"]
         current = self.get_mobile_current_folder_data()
+        saved_image_count = len(self._mobile_saved_image_results())
         return {
             "total_best_charts": len(bests),
             "total_results": sum(
@@ -1130,6 +1305,11 @@ class ResultDatabase:
                     "count": sum(
                         1 for r in self.results if detect_mode.is_result(r.detect_mode)
                     ),
+                },
+                {
+                    "id": "saved-images",
+                    "label": "SAVED IMAGES",
+                    "count": saved_image_count,
                 },
                 {
                     "id": "current",

@@ -12,6 +12,7 @@ from __future__ import annotations
 import datetime
 import time
 import traceback
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtWidgets import (
@@ -21,8 +22,8 @@ from PySide6.QtWidgets import (
     QPushButton, QMessageBox, QComboBox, QListWidget,
     QApplication,
 )
-from PySide6.QtCore import Qt, QByteArray, QObject, Signal, QTimer
-from PySide6.QtGui import QColor, QBrush, QPainter
+from PySide6.QtCore import Qt, QByteArray, QObject, Signal, QTimer, QUrl
+from PySide6.QtGui import QColor, QBrush, QPainter, QDesktopServices
 
 from src.result import OneBestData, OneResult
 from src.result_database import ResultDatabase
@@ -484,9 +485,9 @@ class ScoreViewer(QMainWindow):
         log_v.addWidget(self._hist_label)
 
         self._hist_table = QTableWidget()
-        self._hist_table.setColumnCount(6)
+        self._hist_table.setColumnCount(7)
         self._hist_table.setHorizontalHeaderLabels(
-            ['日時', 'Score', 'Grade', 'EXScore', 'Lamp', 'VF'])
+            ['日時', 'Score', 'Grade', 'EXScore', 'Lamp', 'VF', 'Image'])
         self._hist_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self._hist_table.horizontalHeader().setStretchLastSection(True)
         self._hist_table.setSortingEnabled(True)
@@ -497,6 +498,7 @@ class ScoreViewer(QMainWindow):
         self._hist_table.itemSelectionChanged.connect(
             lambda: self._del_btn.setEnabled(bool(self._hist_table.selectedItems()))
         )
+        self._hist_table.itemDoubleClicked.connect(self._open_history_image)
         log_v.addWidget(self._hist_table)
 
         del_row = QHBoxLayout()
@@ -1235,10 +1237,33 @@ class ScoreViewer(QMainWindow):
             lamp_item.setForeground(QBrush(lamp_fg))
             self._hist_table.setItem(row, 4, lamp_item)
             self._hist_table.setItem(row, 5, _mk(f"{r.vf / 10:.1f}", r.vf))
+            image_path = getattr(r, "image_path", None)
+            image_item = _mk("", "")
+            if image_path:
+                try:
+                    path = Path(image_path)
+                    if path.exists() and path.is_file():
+                        image_item.setText("Open")
+                        image_item.setData(Qt.UserRole, str(path.resolve()))
+                        image_item.setToolTip(str(path.resolve()))
+                    else:
+                        image_item.setText("")
+                except Exception:
+                    image_item.setText("")
+            self._hist_table.setItem(row, 6, image_item)
 
         self._hist_table.setSortingEnabled(True)
         self._hist_table.sortByColumn(1, Qt.DescendingOrder)  # Score降順
         self._del_btn.setEnabled(False)
+
+    def _open_history_image(self, item: QTableWidgetItem):
+        """プレーログの Image 列から保存済みリザルト画像を開く。"""
+        if item.column() != 6:
+            return
+        image_path = item.data(Qt.UserRole)
+        if not image_path:
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(image_path)))
 
     def _show_portal_uploads(self, title: str, diff_enum):
         """portal送信済みテーブルを更新"""
