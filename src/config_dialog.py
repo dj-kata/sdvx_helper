@@ -266,6 +266,51 @@ class ImageImportWorker(QThread):
             self.error.emit(str(e))
 
 
+class PersonalCsvImportWorker(QThread):
+    """自分のスコアCSVをバックグラウンドでインポートするワーカー"""
+    progress = Signal(int, int)   # (current, total)
+    finished = Signal(int, int)   # (registered, total)
+    error    = Signal(str)
+
+    def __init__(self, source: str, result_database):
+        super().__init__()
+        self.source          = source
+        self.result_database = result_database
+        self._cancelled      = False
+
+    def cancel(self):
+        self._cancelled = True
+
+    def run(self):
+        try:
+            results = self.result_database._load_results_from_csv(self.source)
+            if results is None:
+                self.error.emit("CSVの読み込みに失敗しました")
+                return
+
+            total      = len(results)
+            registered = 0
+
+            for i, result in enumerate(results):
+                if self._cancelled:
+                    break
+
+                if i == 0 or (i + 1) % 100 == 0 or (i + 1) == total:
+                    self.progress.emit(i + 1, total)
+
+                if self.result_database.add(result, commit=False):
+                    registered += 1
+
+            if registered > 0:
+                self.result_database.commit()
+
+            self.finished.emit(registered, total)
+
+        except Exception as e:
+            logger.error(f"PersonalCsvImportWorker error: {traceback.format_exc()}")
+            self.error.emit(str(e))
+
+
 class _PortalUploadAllWorker(QThread):
     """全プレーログをPortalにアップロードするワーカー"""
     result_ready = Signal(bool, str)  # (success, detail)
@@ -765,8 +810,21 @@ class ConfigDialog(QDialog):
         self._personal_csv_import_btn.clicked.connect(self._on_personal_csv_import)
         personal_csv_layout.addRow(self._personal_csv_import_btn)
 
+        self._personal_csv_progress = QProgressBar()
+        self._personal_csv_progress.setVisible(False)
+        personal_csv_layout.addRow(self._personal_csv_progress)
+
+        personal_csv_status_row = QHBoxLayout()
         self._personal_csv_status_label = QLabel("")
-        personal_csv_layout.addRow(self._personal_csv_status_label)
+        self._personal_csv_cancel_btn = QPushButton("キャンセル")
+        self._personal_csv_cancel_btn.setVisible(False)
+        self._personal_csv_cancel_btn.clicked.connect(self._on_personal_csv_import_cancel)
+        personal_csv_status_row.addWidget(self._personal_csv_status_label)
+        personal_csv_status_row.addStretch()
+        personal_csv_status_row.addWidget(self._personal_csv_cancel_btn)
+        personal_csv_layout.addRow(personal_csv_status_row)
+
+        self._personal_csv_worker = None
 
         layout.addWidget(personal_csv_group)
         layout.addStretch()
@@ -1347,23 +1405,54 @@ class ConfigDialog(QDialog):
         if self.result_database is None:
             return
 
-        registered = self.result_database.import_personal_csv(source)
-        if registered < 0:
-            self._personal_csv_status_label.setText("エラー: 読み込みに失敗しました")
-            QMessageBox.critical(
-                self,
-                self.ui.message.error_title,
-                "CSVの読み込みに失敗しました",
-            )
-            return
+        self._personal_csv_import_btn.setEnabled(False)
+        self._personal_csv_cancel_btn.setVisible(True)
+        self._personal_csv_progress.setVisible(True)
+        self._personal_csv_progress.setValue(0)
+        self._personal_csv_status_label.setText("読み込み中...")
 
+        self._personal_csv_worker = PersonalCsvImportWorker(source, self.result_database)
+        self._personal_csv_worker.progress.connect(self._on_personal_csv_import_progress)
+        self._personal_csv_worker.finished.connect(self._on_personal_csv_import_finished)
+        self._personal_csv_worker.error.connect(self._on_personal_csv_import_error)
+        self._personal_csv_worker.start()
+
+    def _on_personal_csv_import_progress(self, current: int, total: int):
+        self._personal_csv_progress.setMaximum(total)
+        self._personal_csv_progress.setValue(current)
+        self._personal_csv_status_label.setText(f"{current} / {total}")
+
+    def _on_personal_csv_import_finished(self, registered: int, total: int):
+        self._personal_csv_import_btn.setEnabled(True)
+        self._personal_csv_cancel_btn.setVisible(False)
+        self._personal_csv_progress.setVisible(False)
         self._personal_csv_status_label.setText(f"完了: {registered} 件を登録しました")
+        self._personal_csv_worker = None
         self.import_finished.emit()
         QMessageBox.information(
             self,
             self.ui.message.completed_title,
             self.ui.import_data.import_success.format(count=registered),
         )
+
+    def _on_personal_csv_import_error(self, msg: str):
+        self._personal_csv_import_btn.setEnabled(True)
+        self._personal_csv_cancel_btn.setVisible(False)
+        self._personal_csv_progress.setVisible(False)
+        self._personal_csv_status_label.setText(f"エラー: {msg}")
+        self._personal_csv_worker = None
+        QMessageBox.critical(
+            self,
+            self.ui.message.error_title,
+            f"CSVの読み込みに失敗しました:\n{msg}",
+        )
+
+    def _on_personal_csv_import_cancel(self):
+        if self._personal_csv_worker:
+            self._personal_csv_worker.cancel()
+        self._personal_csv_import_btn.setEnabled(True)
+        self._personal_csv_cancel_btn.setVisible(False)
+        self._personal_csv_status_label.setText("キャンセルしました")
 
     # ── 設定読み書き ─────────────────────────────────────────────────────────
 
