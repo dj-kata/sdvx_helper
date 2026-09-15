@@ -50,6 +50,39 @@ _LOCAL_APPEND_DIFF_OVERRIDES = {
 }
 
 
+_CSV_TIMESTAMP_UNIX_KEYS = ("timestamp", "タイムスタンプ")
+_CSV_TIMESTAMP_DATE_KEYS = ("date", "Date", "Last Played", "last_played")
+_CSV_TIMESTAMP_FORMATS = (
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y/%m/%d %H:%M",
+)
+
+
+def _parse_csv_timestamp(row: dict) -> Optional[int]:
+    """CSV行からタイムスタンプ列を読む。未指定/解釈不能なら None (呼び出し側で現在時刻扱い)。"""
+    for key in _CSV_TIMESTAMP_UNIX_KEYS:
+        raw = (row.get(key) or "").strip()
+        if not raw:
+            continue
+        try:
+            return int(raw)
+        except ValueError:
+            continue
+
+    for key in _CSV_TIMESTAMP_DATE_KEYS:
+        raw = (row.get(key) or "").strip()
+        if not raw:
+            continue
+        for fmt in _CSV_TIMESTAMP_FORMATS:
+            try:
+                return int(datetime.datetime.strptime(raw, fmt).timestamp())
+            except ValueError:
+                continue
+    return None
+
+
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
 
 
@@ -633,6 +666,8 @@ class ResultDatabase:
             if not title or not score_str:
                 continue
 
+            ts = _parse_csv_timestamp(row)
+
             diff = (
                 convert_difficulty(diff_str) if diff_str else None
             ) or difficulty.maximum
@@ -670,6 +705,7 @@ class ResultDatabase:
                     score=score,
                     exscore=exscore,
                     level=lv,
+                    timestamp=ts,
                     detect_mode=detect_mode.select,
                 )
             )
