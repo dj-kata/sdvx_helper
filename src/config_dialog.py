@@ -742,6 +742,33 @@ class ConfigDialog(QDialog):
         settings_layout.addRow(self._v1_settings_status_label)
 
         layout.addWidget(settings_group)
+
+        # 自分のスコアCSV グループ
+        personal_csv_group = QGroupBox(self.ui.import_data.personal_csv_group)
+        personal_csv_layout = QFormLayout()
+        personal_csv_group.setLayout(personal_csv_layout)
+
+        self.personal_csv_path_edit = QLineEdit()
+        personal_csv_browse_btn = QPushButton(self.ui.dialog.browse)
+        personal_csv_browse_btn.clicked.connect(self._browse_personal_csv_path)
+
+        personal_csv_path_row = QHBoxLayout()
+        personal_csv_path_row.addWidget(self.personal_csv_path_edit)
+        personal_csv_path_row.addWidget(personal_csv_browse_btn)
+        personal_csv_layout.addRow(
+            self.ui.import_data.personal_csv_label, personal_csv_path_row
+        )
+
+        self._personal_csv_import_btn = QPushButton(
+            self.ui.import_data.personal_csv_button
+        )
+        self._personal_csv_import_btn.clicked.connect(self._on_personal_csv_import)
+        personal_csv_layout.addRow(self._personal_csv_import_btn)
+
+        self._personal_csv_status_label = QLabel("")
+        personal_csv_layout.addRow(self._personal_csv_status_label)
+
+        layout.addWidget(personal_csv_group)
         layout.addStretch()
         return widget
 
@@ -849,6 +876,15 @@ class ConfigDialog(QDialog):
         )
         if file_path:
             self.v1_settings_path_edit.setText(file_path)
+
+    def _browse_personal_csv_path(self):
+        current = self.personal_csv_path_edit.text()
+        start_dir = os.path.dirname(current) if current and not current.startswith("http") else os.path.expanduser("~")
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "スコアCSVを選択", start_dir, "CSV files (*.csv)"
+        )
+        if file_path:
+            self.personal_csv_path_edit.setText(file_path)
 
     # ── ライバル操作 ──────────────────────────────────────────────────────────
 
@@ -1289,6 +1325,44 @@ class ConfigDialog(QDialog):
             self.ui.message.completed_title,
             f"ライバル一覧を取り込みました。\n"
             f"{imported} 件追加 / {skipped} 件スキップ",
+        )
+
+    def _on_personal_csv_import(self):
+        source = self.personal_csv_path_edit.text().strip()
+        if not source:
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                "CSVファイルのパスまたはURLを指定してください",
+            )
+            return
+        if not source.startswith("http") and not os.path.isfile(source):
+            QMessageBox.warning(
+                self,
+                self.ui.message.warning_title,
+                "有効なCSVファイルを指定してください",
+            )
+            return
+
+        if self.result_database is None:
+            return
+
+        registered = self.result_database.import_personal_csv(source)
+        if registered < 0:
+            self._personal_csv_status_label.setText("エラー: 読み込みに失敗しました")
+            QMessageBox.critical(
+                self,
+                self.ui.message.error_title,
+                "CSVの読み込みに失敗しました",
+            )
+            return
+
+        self._personal_csv_status_label.setText(f"完了: {registered} 件を登録しました")
+        self.import_finished.emit()
+        QMessageBox.information(
+            self,
+            self.ui.message.completed_title,
+            self.ui.import_data.import_success.format(count=registered),
         )
 
     # ── 設定読み書き ─────────────────────────────────────────────────────────
