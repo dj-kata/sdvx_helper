@@ -922,6 +922,47 @@ class MainWindow(QMainWindow):
 
         self._update_window_title()
 
+    def _update_table_row(self, title: str) -> bool:
+        row_data = self._current_db().get("titles", {}).get(title)
+        if row_data is None:
+            return False
+        row_data = ensure_title_row(row_data)
+
+        table_row = self.table.currentRow()
+        if table_row < 0 or self.table.item(table_row, 0).text() != title:
+            for row in range(self.table.rowCount()):
+                item = self.table.item(row, 0)
+                if item and item.text() == title:
+                    table_row = row
+                    break
+            else:
+                return False
+
+        values = [
+            title,
+            str(row_data[1] or ""),
+            str(row_level(row_data, 3) or ""),
+            str(row_level(row_data, 4) or ""),
+            str(row_level(row_data, 5) or ""),
+            str(row_level(row_data, 6) or ""),
+            str(row_data[7] or "") if len(row_data) > 7 else "",
+        ]
+        self.table.blockSignals(True)
+        try:
+            for col, value in enumerate(values):
+                item = self.table.item(table_row, col)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.table.setItem(table_row, col, item)
+                item.setText(value)
+                if col in (2, 3, 4, 5):
+                    item.setData(Qt.UserRole, int(value or 0))
+                    item.setTextAlignment(Qt.AlignCenter)
+            self.table.selectRow(table_row)
+        finally:
+            self.table.blockSignals(False)
+        return True
+
     def _selected_title(self) -> str | None:
         row = self.table.currentRow()
         if row < 0:
@@ -942,9 +983,13 @@ class MainWindow(QMainWindow):
     def _on_song_saved(self, old_title: str, title: str):
         key = self._current_key()
         self._mark_dirty(key)
-        self._apply_filter()
-        self._select_title(title)
-        if old_title != title:
+        if old_title == title:
+            if not self._update_table_row(title):
+                self._apply_filter()
+                self._select_title(title)
+        else:
+            self._apply_filter()
+            self._select_title(title)
             self._apply_portal_filter()
         self._set_status(f"未保存の変更あり: {self._paths[key]}")
 
