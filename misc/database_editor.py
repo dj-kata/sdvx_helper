@@ -254,7 +254,7 @@ class FilterPanel(QGroupBox):
 
 
 class SongEditPanel(QGroupBox):
-    saved = Signal(str)
+    saved = Signal(str, str)
 
     def __init__(self, parent=None):
         super().__init__("編集", parent)
@@ -528,7 +528,7 @@ class SongEditPanel(QGroupBox):
 
         self._title = new_title
         self.title_label.setText(new_title)
-        self.saved.emit(new_title)
+        self.saved.emit(old_title, new_title)
 
     def _rename_nested_title(self, old_title: str, new_title: str):
         if old_title == new_title or not self._data:
@@ -565,6 +565,7 @@ class MainWindow(QMainWindow):
         self._dirty = {"v1": False, "v2": False}
         self._dirty_revision = {"v1": 0, "v2": 0}
         self._save_worker: SaveWorker | None = None
+        self._save_button_texts: dict[QPushButton, str] = {}
         self._portal_manager = PortalManager()
         self._portal_master: list[dict] = []
         self._setup_ui()
@@ -938,12 +939,13 @@ class MainWindow(QMainWindow):
     def _on_selection_changed(self):
         self.edit_panel.set_title(self._selected_title())
 
-    def _on_song_saved(self, title: str):
+    def _on_song_saved(self, old_title: str, title: str):
         key = self._current_key()
         self._mark_dirty(key)
         self._apply_filter()
         self._select_title(title)
-        self._apply_portal_filter()
+        if old_title != title:
+            self._apply_portal_filter()
         self._set_status(f"未保存の変更あり: {self._paths[key]}")
 
     def _copy_selected_v1_to_v2(self):
@@ -1009,9 +1011,20 @@ class MainWindow(QMainWindow):
         self._save_worker.start()
 
     def _set_save_controls_enabled(self, enabled: bool):
-        self.save_current_btn.setEnabled(enabled)
-        self.save_all_btn.setEnabled(enabled)
-        self.reload_btn.setEnabled(enabled)
+        buttons = (self.save_current_btn, self.save_all_btn, self.reload_btn)
+        if not enabled:
+            self._save_button_texts = {button: button.text() for button in buttons}
+            self.save_current_btn.setText("保存中...")
+            self.save_all_btn.setText("保存中...")
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+        else:
+            QApplication.restoreOverrideCursor()
+            for button, text in self._save_button_texts.items():
+                button.setText(text)
+            self._save_button_texts = {}
+
+        for button in buttons:
+            button.setEnabled(enabled)
 
     def _on_save_finished(self, results: list):
         self._set_save_controls_enabled(True)
@@ -1043,6 +1056,9 @@ class MainWindow(QMainWindow):
             self._set_status(f"保存しました: {', '.join(saved)}")
 
     def _reload_all(self):
+        if self._save_worker is not None and self._save_worker.isRunning():
+            QMessageBox.information(self, "保存中", "保存が完了してから再読み込みしてください。")
+            return
         if any(self._dirty.values()):
             reply = QMessageBox.question(
                 self,
@@ -1067,6 +1083,10 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"SDVX musiclist editor{dirty_mark} - {current}")
 
     def closeEvent(self, event):
+        if self._save_worker is not None and self._save_worker.isRunning():
+            QMessageBox.information(self, "保存中", "保存が完了してから終了してください。")
+            event.ignore()
+            return
         if any(self._dirty.values()):
             reply = QMessageBox.question(
                 self,
