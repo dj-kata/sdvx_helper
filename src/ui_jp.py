@@ -124,6 +124,9 @@ class UIText:
         settings_group = 'v1設定ファイル (settings.json)'
         settings_label = 'settings.json パス:'
         settings_rival_button = 'ライバル一覧を取り込む'
+        personal_csv_group = '自分のスコア (CSV)'
+        personal_csv_label = 'CSVパス / URL:'
+        personal_csv_button = '取り込む'
         import_success = '{count} 件のデータを取り込みました'
         import_failed = 'データの取り込みに失敗しました'
 

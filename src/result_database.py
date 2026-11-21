@@ -50,6 +50,39 @@ _LOCAL_APPEND_DIFF_OVERRIDES = {
 }
 
 
+_CSV_TIMESTAMP_UNIX_KEYS = ("timestamp", "タイムスタンプ")
+_CSV_TIMESTAMP_DATE_KEYS = ("date", "Date", "Last Played", "last_played")
+_CSV_TIMESTAMP_FORMATS = (
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y/%m/%d %H:%M:%S",
+    "%Y/%m/%d %H:%M",
+)
+
+
+def _parse_csv_timestamp(row: dict) -> Optional[int]:
+    """CSV行からタイムスタンプ列を読む。未指定/解釈不能なら None (呼び出し側で現在時刻扱い)。"""
+    for key in _CSV_TIMESTAMP_UNIX_KEYS:
+        raw = (row.get(key) or "").strip()
+        if not raw:
+            continue
+        try:
+            return int(raw)
+        except ValueError:
+            continue
+
+    for key in _CSV_TIMESTAMP_DATE_KEYS:
+        raw = (row.get(key) or "").strip()
+        if not raw:
+            continue
+        for fmt in _CSV_TIMESTAMP_FORMATS:
+            try:
+                return int(datetime.datetime.strptime(raw, fmt).timestamp())
+            except ValueError:
+                continue
+    return None
+
+
 # ─── WebSocket配信デコレータ ────────────────────────────────────────────────
 
 
@@ -571,16 +604,11 @@ class ResultDatabase:
         """以前のライバルデータ保存ロジックを統合 (SQLite化に伴い不要だが互換性のため維持)"""
         pass
 
-    def import_rival_csv(self, name: str, source: str) -> int:
-        """指定ライバルのデータをCSVからインポートする（そのライバルの既存データは全て置き換え）。
+    def _load_results_from_csv(self, source: str) -> Optional[List[OneResult]]:
+        """CSV (ローカルファイル or Google Drive URL) を OneResult のリストへ変換する。
 
-        Args:
-            name:   ライバル名
-            source: ローカルCSVファイルパス or Google Drive URL
-                    (https://drive.google.com/open?id=FILEID... 形式)
-
-        Returns:
-            int: インポートされた件数（失敗時は -1）
+        自己/ライバル両方のインポートで共有するパース処理。
+        失敗時は None を返す。
         """
         import io
         import re
@@ -605,14 +633,14 @@ class ResultDatabase:
                 text = resp.content.decode("utf-8-sig")
             except Exception:
                 logger.error(f"CSV ダウンロード失敗:\n{traceback.format_exc()}")
-                return -1
+                return None
         else:
             try:
                 with open(source, encoding="utf-8-sig", newline="") as f:
                     text = f.read()
             except Exception:
                 logger.error(f"CSV ファイル読み込み失敗:\n{traceback.format_exc()}")
-                return -1
+                return None
 
         reader = csv.DictReader(io.StringIO(text))
         fieldnames = reader.fieldnames or []
@@ -637,6 +665,8 @@ class ResultDatabase:
 
             if not title or not score_str:
                 continue
+
+            ts = _parse_csv_timestamp(row)
 
             diff = (
                 convert_difficulty(diff_str) if diff_str else None
@@ -675,14 +705,53 @@ class ResultDatabase:
                     score=score,
                     exscore=exscore,
                     level=lv,
+                    timestamp=ts,
                     detect_mode=detect_mode.select,
                 )
             )
+
+        return results
+
+    def import_rival_csv(self, name: str, source: str) -> int:
+        """指定ライバルのデータをCSVからインポートする（そのライバルの既存データは全て置き換え）。
+
+        Args:
+            name:   ライバル名
+            source: ローカルCSVファイルパス or Google Drive URL
+                    (https://drive.google.com/open?id=FILEID... 形式)
+
+        Returns:
+            int: インポートされた件数（失敗時は -1）
+        """
+        results = self._load_results_from_csv(source)
+        if results is None:
+            return -1
 
         self.rival_results[name] = results
         self.save_rivals()
         logger.info(f"ライバルデータインポート完了: {name} {len(results)} 件")
         return len(results)
+
+    def import_personal_csv(self, source: str) -> int:
+        """CSVから自分のスコアをインポートする（既存の自己ベストより良い記録のみ登録）。
+
+        Args:
+            source: ローカルCSVファイルパス or Google Drive URL
+
+        Returns:
+            int: 新規登録/更新された件数（失敗時は -1）
+        """
+        results = self._load_results_from_csv(source)
+        if results is None:
+            return -1
+
+        registered = 0
+        for result in results:
+            if self.add(result, commit=False):
+                registered += 1
+        self.commit()
+        logger.info(f"自己スコアCSVインポート完了: {registered}/{len(results)} 件")
+        return registered
 
     def delete_rival(self, name: str):
         """指定ライバルのデータを削除する。"""

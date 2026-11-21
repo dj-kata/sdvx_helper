@@ -25,3 +25,4 @@ config.json
 sdvx_helper.db
 results/*
 to_bin
+/src/sdvx_helper.egg-info
